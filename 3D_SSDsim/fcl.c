@@ -277,11 +277,11 @@ Status services_2_r_data_trans(struct ssd_info * ssd, unsigned int channel, unsi
 			}
 			else                                                                                 /*如果ssd不支持高级命令那么就执行一个一个的执行读子请求*/
 			{
-
+				printf("r_data_trans:normal command !\n");
+				getchar();
 				go_one_step(ssd, sub, NULL, SR_R_DATA_TRANSFER, NORMAL);
 				*change_current_time_flag = 0;
 				*channel_busy_flag = 1;
-
 			}
 			break;
 		}
@@ -356,6 +356,8 @@ int services_2_r_wait(struct ssd_info * ssd, unsigned int channel, unsigned int 
 	*******************************/
 	if (((ssd->parameter->advanced_commands&AD_INTERLEAVE) != AD_INTERLEAVE) && ((ssd->parameter->advanced_commands&AD_TWOPLANE_READ) != AD_TWOPLANE_READ))
 	{
+		printf("r_wait:normal command !\n");
+		getchar();
 		while (sub != NULL)                                                               /*if there are read requests in queue, send one of them to target chip*/
 		{
 			if (sub->current_state == SR_WAIT)
@@ -467,6 +469,8 @@ Status services_2_write(struct ssd_info * ssd, unsigned int channel, unsigned in
 						die_token = ssd->channel_head[channel].chip_head[chip_token].token;
 						if (((ssd->parameter->advanced_commands&AD_INTERLEAVE) != AD_INTERLEAVE) && ((ssd->parameter->advanced_commands&AD_TWOPLANE) != AD_TWOPLANE))       //can't use advanced commands
 						{
+							printf("write:normal command !\n");
+							getchar();
 							sub = find_write_sub_request(ssd, channel);
 							if (sub == NULL)
 							{
@@ -1405,6 +1409,7 @@ Status go_one_step(struct ssd_info * ssd, struct sub_request * sub1, struct sub_
 			sub->begin_time = ssd->current_time;
 
 			ssd->channel_head[location->channel].chip_head[location->chip].die_head[location->die].plane_head[location->plane].add_reg_ppn = sub->ppn;
+			//printf("r_data_trans read\n");
 			ssd->read_count++;
 
 			ssd->channel_head[location->channel].current_state = CHANNEL_C_A_TRANSFER;

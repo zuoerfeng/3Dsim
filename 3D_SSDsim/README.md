@@ -12,3 +12,10 @@ ssdsim的一些运行问题及修改：
 	代码中处理mutli read中存在指针传参未更改问题
     重新设置关于mutli read函数部分接口
 
+> 4.发现当配置文件age=0,即不执行旧化函数的时候，添加的pre_process_write()会报错，修改如下，做个判断：
+	if (ssd->parameter->aged == 1)
+	{
+		pre_process_write(ssd);   //将有效块中的free_page全部置为无效，保证最多一个有效块中包含有free page,满足实际ssd的机制
+	}
+
+> 5.根据设计需求，在动态分配中，将分配的优先级改为plane>channel>die

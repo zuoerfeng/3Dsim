@@ -57,11 +57,15 @@ void main()
 	memset(ssd,0, sizeof(struct ssd_info));
 
 	ssd=initiation(ssd);
+
 	make_aged(ssd);
 
 	pre_process_page(ssd);
 
-	pre_process_write(ssd);   //将有效块中的free_page全部置为无效，保证最多一个有效块中包含有free page,满足实际ssd的机制
+	if (ssd->parameter->aged == 1)
+	{
+		pre_process_write(ssd);   //将有效块中的free_page全部置为无效，保证最多一个有效块中包含有free page,满足实际ssd的机制
+	}
 
 	for (i=0;i<ssd->parameter->channel_number;i++)
 	{

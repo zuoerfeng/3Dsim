@@ -28,9 +28,9 @@ die number = 2;
 plane number = 2;
 block number = 1024;
 page number = 64;
-subpage page = 4;
-page capacity = 16384;
-subpage capacity = 2048;
+subpage page = 4; 						#can not beyond 32
+page capacity = 16384;					#16kb
+subpage capacity = 4096;				#4kb
 t_PROG = 200000;             #the unit is ns
 t_DBSY = 50;
 t_BERS = 1500000;
@@ -83,35 +83,3 @@ greed MPW command=1;            #±íÊ¾ÊÇ·ñÌ°À·µØÊ¹ÓÃmulti-plane write¸ß¼¶ÃüÁî£¬0±
 aged=1;                         #1±íÊ¾ĞèÒª½«Õâ¸öSSD±ä³Éaged£¬0±íÊ¾ĞèÒª½«Õâ¸öSSD±£³Önon-aged
 aged ratio=0.5;                #±íÊ¾ÎªÁËÊ¹SSD±ä³ÉagedµÄSSD£¬ĞèÒª½«SSDÖĞÌáÇ°ÖÃÎªÊ§Ğ§µÄ±ÈÂÊ
 -----------------------simulation output----------------------
-the 0 channel, 0 chip, 0 die, 0 plane has :            96 erase operations
-the 0 channel, 0 chip, 0 die, 1 plane has :            96 erase operations
-the 0 channel, 0 chip, 1 die, 0 plane has :            97 erase operations
-the 0 channel, 0 chip, 1 die, 1 plane has :            97 erase operations
-the 1 channel, 0 chip, 0 die, 0 plane has :            88 erase operations
-the 1 channel, 0 chip, 0 die, 1 plane has :            88 erase operations
-the 1 channel, 0 chip, 1 die, 0 plane has :           106 erase operations
-the 1 channel, 0 chip, 1 die, 1 plane has :           106 erase operations
-
-
----------------------------statistic data---------------------------
-min lsn:           132
-max lsn:       1002411
-read count:         14994
-program count:         25941                        include the flash write count leaded by read requests
-the read operation leaded by un-covered update count:           758
-erase count:           774
-direct erase count:           774
-multi-plane program count:          5305
-multi-plane read count:           424
-write flash count:         19480
-read request count:          4077
-write request count:          5922
-read request average size:     12.187195
-write request average size:      9.841582
-read request average response time:           489412
-write request average response time:           435411
-buffer read hits:          1126
-buffer read miss:           123
-buffer write hits:         14407
-buffer write miss:         32682
-erase:           774

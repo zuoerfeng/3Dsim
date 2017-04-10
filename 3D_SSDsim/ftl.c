@@ -202,9 +202,9 @@ unsigned int get_ppn_for_pre_process(struct ssd_info *ssd, unsigned int lsn)
 
 	if (ssd->parameter->allocation_scheme == 0)                           /*动态方式下获取ppn*/
 	{
-		//printf("allocation_scheme=0\n");
-		//只考虑全动态的分配方式，即dynamic_allocation==0
-		if (ssd->parameter->dynamic_allocation == 0)                      /*表示全动态方式下，也就是channel，chip，die，plane，block等都是动态分配*/
+		//这里的优先级：channel>die>plane
+		/*
+		if (ssd->parameter->dynamic_allocation == 0)                      //*表示全动态方式下，也就是channel，chip，die，plane，block等都是动态分配
 		{
 			channel = ssd->token;
 			ssd->token = (ssd->token + 1) % ssd->parameter->channel_number;
@@ -215,12 +215,41 @@ unsigned int get_ppn_for_pre_process(struct ssd_info *ssd, unsigned int lsn)
 			plane = ssd->channel_head[channel].chip_head[chip].die_head[die].token;
 			ssd->channel_head[channel].chip_head[chip].die_head[die].token = (plane + 1) % ssd->parameter->plane_die;
 		}
+		*/
+		
+		//重新修改优先级：plane>channel>die
+		if (ssd->parameter->dynamic_allocation == 0)                      /*表示全动态方式下，也就是channel，chip，die，plane，block等都是动态分配*/
+		{
+			channel = ssd->token;
+			chip = ssd->channel_head[channel].token;
+			die = ssd->channel_head[channel].chip_head[chip].token;
+			plane = ssd->channel_head[channel].chip_head[chip].die_head[die].token;
+			ssd->channel_head[channel].chip_head[chip].die_head[die].token = (plane + 1) % ssd->parameter->plane_die;     //先处理所有的plane，这么做为了保证mutli plane的实用性
+
+			if (plane == (ssd->parameter->plane_die - 1))
+			{
+				ssd->token = (ssd->token + 1) % ssd->parameter->channel_number;											   //plane处理完成后，处理channel
+				
+				if (ssd->token == 0)																					   //1-0，所有channel处理完成，下个分配需要改die																				
+				{
+					//channel = ssd->token;
+					//chip = ssd->channel_head[channel].token;
+					ssd->channel_head[ssd->token].chip_head[ssd->channel_head[channel].token].token = (die + 1) % ssd->parameter->die_chip;  //更改die
+				}
+				else																									 //0--1，channel未处理完成，继续处理改channel，此时不改变die
+				{
+					ssd->channel_head[ssd->token].chip_head[ssd->channel_head[channel].token].token = die;      //不更改die
+				}	
+			}
+		}
 	}
 
 	/******************************************************************************
 	*根据上述分配方法找到channel，chip，die，plane后，再在这个里面找到active_block
 	*接着获得ppn
 	******************************************************************************/
+
+	
 	if (find_active_block(ssd, channel, chip, die, plane) == FAILURE)
 	{
 		//发现问题，可能预处理在同一个plane中不同的写块
@@ -233,6 +262,7 @@ unsigned int get_ppn_for_pre_process(struct ssd_info *ssd, unsigned int lsn)
 	{
 		return 0;
 	}
+	
 
 	return ppn;
 }
@@ -977,7 +1007,7 @@ Status erase_planes(struct ssd_info * ssd, unsigned int channel, unsigned int ch
 ***************************************************************************************/
 Status  find_active_block(struct ssd_info *ssd, unsigned int channel, unsigned int chip, unsigned int die, unsigned int plane)
 {
-	unsigned int active_block;
+	unsigned int active_block = 0;
 	unsigned int free_page_num = 0;
 	unsigned int count = 0;
 	//	int i, j, k, p, t;

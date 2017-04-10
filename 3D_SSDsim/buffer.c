@@ -64,8 +64,9 @@ struct ssd_info *buffer_management(struct ssd_info *ssd)
 	lsn = new_request->lsn;
 	lpn = new_request->lsn / ssd->parameter->subpage_page;
 	last_lpn = (new_request->lsn + new_request->size - 1) / ssd->parameter->subpage_page;
-	first_lpn = new_request->lsn / ssd->parameter->subpage_page;
+	first_lpn = new_request->lsn / ssd->parameter->subpage_page;   //计算lpn
 
+	//int型32位，也就是说need_distr_flag 是一个以bit为单位的状态位数组
 	new_request->need_distr_flag = (unsigned int*)malloc(sizeof(unsigned int)*((last_lpn - first_lpn + 1)*ssd->parameter->subpage_page / 32 + 1));
 	alloc_assert(new_request->need_distr_flag, "new_request->need_distr_flag");
 	memset(new_request->need_distr_flag, 0, sizeof(unsigned int)*((last_lpn - first_lpn + 1)*ssd->parameter->subpage_page / 32 + 1));
@@ -78,23 +79,24 @@ struct ssd_info *buffer_management(struct ssd_info *ssd)
 			*need_distb_flag表示是否需要执行distribution函数，1表示需要执行，buffer中没有，0表示不需要执行
 			*即1表示需要分发，0表示不需要分发，对应点初始全部赋为1
 			*************************************************************************************************/
-			need_distb_flag = full_page;
+			need_distb_flag = full_page;   //need_distb_flag标志当前lpn子页的状态位
 			key.group = lpn;
 			buffer_node = (struct buffer_group*)avlTreeFind(ssd->dram->buffer, (TREE_NODE *)&key);		// buffer node 
 
 			while ((buffer_node != NULL) && (lsn<(lpn + 1)*ssd->parameter->subpage_page) && (lsn <= (new_request->lsn + new_request->size - 1)))
 			{
 				lsn_flag = full_page;
-				mask = 1 << (lsn%ssd->parameter->subpage_page);
-				if (mask>31)
+				mask = 1 << (lsn%ssd->parameter->subpage_page);         //while只是一次执行了一个子页
+				//if (mask>31)
+				if (mask > 0x80000000)
 				{
-					printf("the subpage number is larger than 32!add some cases");
+					printf("the subpage number is larger than 32!add some cases");   //注意这里指明了子页的最多个数不能超过32
 					getchar();
 				}
 				else if ((buffer_node->stored & mask) == mask)
 				{
 					flag = 1;
-					lsn_flag = lsn_flag&(~mask);
+					lsn_flag = lsn_flag&(~mask);   //把当前在buff中命中的子页状态修改为0，保存在lsn_flag上
 				}
 
 				if (flag == 1)
@@ -124,13 +126,14 @@ struct ssd_info *buffer_management(struct ssd_info *ssd)
 					ssd->dram->buffer->read_miss_hit++;
 				}
 
-				need_distb_flag = need_distb_flag&lsn_flag;
+				need_distb_flag = need_distb_flag&lsn_flag;   //保存当前lpn的子页状态，0表示命中，1表示未命中
 
 				flag = 0;
 				lsn++;
 			}
 
-			index = (lpn - first_lpn) / (32 / ssd->parameter->subpage_page);
+			//这个位置非常的重要
+			index = (lpn - first_lpn) / (32 / ssd->parameter->subpage_page);  //index表示need_distr_flag有很多个int型数组标志，index就是这个数组的索引
 			new_request->need_distr_flag[index] = new_request->need_distr_flag[index] | (need_distb_flag << (((lpn - first_lpn) % (32 / ssd->parameter->subpage_page))*ssd->parameter->subpage_page));
 			lpn++;
 
@@ -476,10 +479,15 @@ struct ssd_info *distribute(struct ssd_info *ssd)
 			{
 				first_lsn = req->lsn;
 				last_lsn = first_lsn + req->size;
-				complt = req->need_distr_flag;
+				complt = req->need_distr_flag;    //在buff中已经完成的子页
+
+				//start、end表示以子页为单位的请求开始和结束位置
 				start = first_lsn - first_lsn % ssd->parameter->subpage_page;
 				end = (last_lsn / ssd->parameter->subpage_page + 1) * ssd->parameter->subpage_page;
+
+				//该请求有多少个子页，即有多少个int型来标志
 				i = (end - start) / 32;
+
 
 				while (i >= 0)
 				{
@@ -491,11 +499,11 @@ struct ssd_info *distribute(struct ssd_info *ssd)
 					*************************************************************************************/
 					for (j = 0; j<32 / ssd->parameter->subpage_page; j++)
 					{
-						k = (complt[((end - start) / 32 - i)] >> (ssd->parameter->subpage_page*j)) & full_page;
-						if (k != 0)
+						k = (complt[((end - start) / 32 - i)] >> (ssd->parameter->subpage_page*j)) & full_page;   //与buff中插入位状态相反，把对应的lpn的位状态取出来
+						if (k != 0)    //说明当前的lpn没有在buffe中完全命中，需要进行读操作
 						{
 							lpn = start / ssd->parameter->subpage_page + ((end - start) / 32 - i) * 32 / ssd->parameter->subpage_page + j;
-							sub_size = transfer_size(ssd, k, lpn, req);
+							sub_size = transfer_size(ssd, k, lpn, req);  //sub_size即为还需要去闪存读的子页个数
 							if (sub_size == 0)
 							{
 								continue;
@@ -630,7 +638,7 @@ unsigned int size(unsigned int stored)
 #endif
 	for (i = 1; i <= 32; i++)
 	{
-		if (stored & mask) total++;
+		if (stored & mask) total++;     //total计数表示子页中标志位为0
 		stored <<= 1;
 	}
 #ifdef DEBUG
