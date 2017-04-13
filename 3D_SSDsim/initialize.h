@@ -450,6 +450,7 @@ struct parameter_value{
 	int allocation_scheme;          //记录分配方式的选择，0表示动态分配，1表示静态分配
 	int static_allocation;          //记录是那种静态分配方式，如ICS09那篇文章所述的所有静态分配方式
 	int dynamic_allocation;         //记录动态分配的方式
+	int dynamic_allocation_priority; //动态分配的 优先级
 	int advanced_commands;  
 	int ad_priority;                //record the priority between two plane operation and interleave operation
 	int ad_priority2;               //record the priority of channel-level, 0 indicates that the priority order of channel-level is highest; 1 indicates the contrary

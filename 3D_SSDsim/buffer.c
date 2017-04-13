@@ -851,7 +851,7 @@ Status allocate_location(struct ssd_info * ssd, struct sub_request *sub_req)
 			sub_req->location->die = -1;
 			sub_req->location->plane = -1;
 			sub_req->location->block = -1;
-			sub_req->location->page = -1;
+			sub_req->location->page = -1;        //挂载在ssdinfo上，因为全动态分配，不知道具体挂载到哪个channel上面
 
 			if (ssd->subs_w_tail != NULL)
 			{

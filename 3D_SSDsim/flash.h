@@ -19,6 +19,5 @@ Zuo Lu	        2017/04/06	      1.0		    Creat 3D_SSDsim       617376665@qq.com
 
 int erase_operation(struct ssd_info * ssd, unsigned int channel, unsigned int chip, unsigned int die, unsigned int plane, unsigned int block);
 int move_page(struct ssd_info * ssd, struct local *location, unsigned int * transfer_size);
-int static_write(struct ssd_info * ssd, unsigned int channel, unsigned int chip, unsigned int die, struct sub_request * sub);
 int write_page(struct ssd_info *ssd, unsigned int channel, unsigned int chip, unsigned int die, unsigned int plane, unsigned int active_block, unsigned int *ppn);
 struct ssd_info *flash_page_state_modify(struct ssd_info *, struct sub_request *, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int);

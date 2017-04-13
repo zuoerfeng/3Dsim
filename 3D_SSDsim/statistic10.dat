@@ -29,8 +29,8 @@ plane number = 2;
 block number = 1024;
 page number = 64;
 subpage page = 4; 						#can not beyond 32
-page capacity = 16384;					#16kb
-subpage capacity = 4096;				#4kb
+page capacity = 2048;					#16kb
+subpage capacity = 512;				#4kb
 t_PROG = 200000;             #the unit is ns
 t_DBSY = 50;
 t_BERS = 1500000;
@@ -76,10 +76,43 @@ scheduling algorithm=1;               #记录使用哪种调度算法，1:FCFS
 gc hard threshold=0.10;          #普通策略中用不到该参数，只有在主动写策略中，当满足这个阈值时，GC操作不可中断
 allocation=0;                   #确定分配方式，0表示动态分配，1表示静态分配
 dynamic_allocation=0;           #记录在采用哪种动态分配方式，0表示全动态，1表示channel定package，die，plane动态，2表示channel，package，die定plane动态
+dynamic_allocation_priority=1;			#表示ssd分配方式的优先级，0表示channel>chip>die>plane,1表示plane>channel>chip>die
 advanced command=20;             #是否使用高级命令，0表示不使用。利用二进制01分别表示random(00001)，copyback(00010)，two-plane-program(00100)，interleave(01000),two-plane-read(10000)是否使用，全部使用是11111，既31；
 advanced command priority2=0;    #0表示interleave优先级高于two plane，1表示two plane优先级高于interleave
 greed CB command=0;            #表示是否贪婪地使用copyback高级命令，0表示否，1表示是贪婪地使用
-greed MPW command=1;            #表示是否贪婪地使用multi-plane write高级命令，0表示否，1表示是贪婪地使用
+greed MPW command=0;            #表示是否贪婪地使用multi-plane write高级命令，0表示否，1表示是贪婪地使用
 aged=1;                         #1表示需要将这个SSD变成aged，0表示需要将这个SSD保持non-aged
 aged ratio=0.5;                #表示为了使SSD变成aged的SSD，需要将SSD中提前置为失效的比率
 -----------------------simulation output----------------------
+the 0 channel, 0 chip, 0 die, 0 plane has :            95 erase operations
+the 0 channel, 0 chip, 0 die, 1 plane has :            95 erase operations
+the 0 channel, 0 chip, 1 die, 0 plane has :            95 erase operations
+the 0 channel, 0 chip, 1 die, 1 plane has :            95 erase operations
+the 1 channel, 0 chip, 0 die, 0 plane has :            95 erase operations
+the 1 channel, 0 chip, 0 die, 1 plane has :            95 erase operations
+the 1 channel, 0 chip, 1 die, 0 plane has :            96 erase operations
+the 1 channel, 0 chip, 1 die, 1 plane has :            95 erase operations
+
+
+---------------------------statistic data---------------------------
+min lsn:           132
+max lsn:       1002411
+read count:         14994
+program count:         25941                        include the flash write count leaded by read requests
+the read operation leaded by un-covered update count:           758
+erase count:           761
+direct erase count:           761
+multi-plane program count:          4812
+multi-plane read count:          2644
+write flash count:         19480
+read request count:          4077
+write request count:          5922
+read request average size:     12.187248
+write request average size:      9.841548
+read request average response time:           150135
+write request average response time:           230353
+buffer read hits:          1126
+buffer read miss:           123
+buffer write hits:         14407
+buffer write miss:         32682
+erase:           761

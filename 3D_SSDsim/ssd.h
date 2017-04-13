@@ -15,6 +15,7 @@ History:
 Zuo Lu	        2017/04/06	      1.0		    Creat 3D_SSDsim       617376665@qq.com
 
 *****************************************************************************************************************************/
+//#define DEBUG
 
 void main();
 struct ssd_info *simulate(struct ssd_info *);

@@ -29,6 +29,7 @@ Zuo Lu	        2017/04/06	      1.0		    Creat 3D_SSDsim       617376665@qq.com
 #include "ftl.h"
 #include "fcl.h"
 
+extern int plane_cmplt;
 
 /******************************************************************************************下面是ftl层map操作******************************************************************************************/
 
@@ -314,7 +315,8 @@ struct ssd_info *get_ppn(struct ssd_info *ssd, unsigned int channel, unsigned in
 	}
 
 	block = active_block;
-	page = ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[plane].blk_head[active_block].last_write_page;
+	page = ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[plane].blk_head[active_block].last_write_page; 
+
 
 	if (ssd->dram->map->map_entry[lpn].state == 0)                                       /*this is the first logical page*/
 	{
@@ -512,11 +514,29 @@ Status get_ppn_for_normal_command(struct ssd_info * ssd, unsigned int channel, u
 		die = ssd->channel_head[channel].chip_head[chip].token;
 		plane = ssd->channel_head[channel].chip_head[chip].die_head[die].token;
 		get_ppn(ssd, channel, chip, die, plane, sub);
-		ssd->channel_head[channel].chip_head[chip].die_head[die].token = (plane + 1) % ssd->parameter->plane_die;
-		ssd->channel_head[channel].chip_head[chip].token = (die + 1) % ssd->parameter->die_chip;
 
+		if (ssd->parameter->dynamic_allocation_priority == 1)				//动态分配的优先级
+		{
+			//更新完die plane的令牌值
+			if (plane == (ssd->parameter->plane_die - 1))
+			{
+				plane_cmplt = 1;
+				//ssd->channel_head[channel].chip_head[chip].token = (die + 1) % ssd->parameter->die_chip;
+			}
+			else
+			{
+				plane_cmplt = 0;
+				//ssd->channel_head[channel].chip_head[chip].token = die;
+			}
+			ssd->channel_head[channel].chip_head[chip].die_head[die].token = (plane + 1) % ssd->parameter->plane_die;
+		}
+		else
+		{
+			ssd->channel_head[channel].chip_head[chip].die_head[die].token = (plane + 1) % ssd->parameter->plane_die;
+			ssd->channel_head[channel].chip_head[chip].token = (die + 1) % ssd->parameter->die_chip;
+		}
 		compute_serve_time(ssd, channel, chip, die, &sub, 1, NORMAL);
-		return SUCCESS;
+ 		return SUCCESS;
 	}
 }
 
@@ -564,14 +584,16 @@ Status get_ppn_for_advanced_commands(struct ssd_info *ssd, unsigned int channel,
 					if (state != SUCCESS)
 					{
 						get_ppn_for_normal_command(ssd, channel, chip, subs[0]);           /*没找到，那么就当普通命令来处理*/
+						printf("lz:normal_wr_3\n");
 						return FAILURE;
 					}
 					else
 					{
+						plane_cmplt = 1;
 						valid_subs_count = 2;
 					}
 				}
-				else if (j>1)
+				else if (j>1)		//超过三个的请求
 				{
 					state = make_level_page(ssd, subs[0], subs[j]);                         /*寻找与subs[0]的ppn位置相同的subs[j]，执行TWO_PLANE高级命令*/
 					if (state != SUCCESS)
@@ -589,8 +611,11 @@ Status get_ppn_for_advanced_commands(struct ssd_info *ssd, unsigned int channel,
 					}
 				}
 			}//for(j=0;j<subs_count;j++)
-			ssd->channel_head[channel].chip_head[chip].token = (die + 1) % ssd->parameter->die_chip;
 			ssd->m_plane_prog_count++;
+			if (ssd->parameter->dynamic_allocation == 0)
+			{
+				ssd->channel_head[channel].chip_head[chip].token = (die + 1) % ssd->parameter->die_chip;
+			}
 			compute_serve_time(ssd, channel, chip, die, subs, valid_subs_count, TWO_PLANE);
 			return SUCCESS;
 		}//else if(command==TWO_PLANE)

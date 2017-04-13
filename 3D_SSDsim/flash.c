@@ -73,6 +73,8 @@ Status move_page(struct ssd_info * ssd, struct local *location, unsigned int * t
 	valid_state = ssd->channel_head[location->channel].chip_head[location->chip].die_head[location->die].plane_head[location->plane].blk_head[location->block].page_head[location->page].valid_state;
 	free_state = ssd->channel_head[location->channel].chip_head[location->chip].die_head[location->die].plane_head[location->plane].blk_head[location->block].page_head[location->page].free_state;
 	old_ppn = find_ppn(ssd, location->channel, location->chip, location->die, location->plane, location->block, location->page);      /*记录这个有效移动页的ppn，对比map或者额外映射关系中的ppn，进行删除和添加操作*/
+
+
 	ppn = get_ppn_for_gc(ssd, location->channel, location->chip, location->die, location->plane);                /*找出来的ppn一定是在发生gc操作的plane中,才能使用copyback操作，为gc操作获取ppn*/
 
 	new_location = find_location(ssd, ppn);                                                                   /*根据新获得的ppn获取new_location*/
@@ -101,46 +103,6 @@ Status move_page(struct ssd_info * ssd, struct local *location, unsigned int * t
 }
 
 
-/*****************
-*静态写操作的实现
-******************/
-Status static_write(struct ssd_info * ssd, unsigned int channel, unsigned int chip, unsigned int die, struct sub_request * sub)
-{
-	long long time = 0;
-	if (ssd->dram->map->map_entry[sub->lpn].state != 0)                                    /*说明这个逻辑页之前有写过，需要使用先读出来，再写下去，否则直接写下去即可*/
-	{
-		if ((sub->state&ssd->dram->map->map_entry[sub->lpn].state) == ssd->dram->map->map_entry[sub->lpn].state)   /*可以覆盖*/
-		{
-			sub->next_state_predict_time = ssd->current_time + 7 * ssd->parameter->time_characteristics.tWC + (sub->size*ssd->parameter->subpage_capacity)*ssd->parameter->time_characteristics.tWC;
-		}
-		else
-		{
-			sub->next_state_predict_time = ssd->current_time + 7 * ssd->parameter->time_characteristics.tWC + ssd->parameter->time_characteristics.tR + (size((ssd->dram->map->map_entry[sub->lpn].state^sub->state)))*ssd->parameter->time_characteristics.tRC + (sub->size*ssd->parameter->subpage_capacity)*ssd->parameter->time_characteristics.tWC;
-			ssd->read_count++;
-			ssd->update_read_count++;
-		}
-	}
-	else
-	{
-		sub->next_state_predict_time = ssd->current_time + 7 * ssd->parameter->time_characteristics.tWC + (sub->size*ssd->parameter->subpage_capacity)*ssd->parameter->time_characteristics.tWC;
-	}
-	sub->complete_time = sub->next_state_predict_time;
-	time = sub->complete_time;
-
-	get_ppn(ssd, sub->location->channel, sub->location->chip, sub->location->die, sub->location->plane, sub);
-
-	ssd->channel_head[channel].current_state = CHANNEL_TRANSFER;
-	ssd->channel_head[channel].current_time = ssd->current_time;
-	ssd->channel_head[channel].next_state = CHANNEL_IDLE;
-	ssd->channel_head[channel].next_state_predict_time = time;
-
-	ssd->channel_head[channel].chip_head[chip].current_state = CHIP_WRITE_BUSY;
-	ssd->channel_head[channel].chip_head[chip].current_time = ssd->current_time;
-	ssd->channel_head[channel].chip_head[chip].next_state = CHIP_IDLE;
-	ssd->channel_head[channel].chip_head[chip].next_state_predict_time = time + ssd->parameter->time_characteristics.tPROG;
-
-	return SUCCESS;
-}
 
 
 /*************************************************

@@ -500,8 +500,10 @@ struct parameter_value *load_parameters(char parameter_file[30])
 			sscanf(buf + next_eql,"%f",&p->gc_hard_threshold);         //gc硬阈值的设置，用于主动写gc策略中的阈值判断
 		}else if((res_eql=strcmp(buf,"allocation")) ==0){
 			sscanf(buf + next_eql,"%d",&p->allocation_scheme);		   //确定分配方式，0表示动态分配，即动态分配置各个channel上，静态分配表示按照地址分配
-		}else if((res_eql=strcmp(buf,"dynamic_allocation")) ==0){
-			sscanf(buf + next_eql,"%d",&p->dynamic_allocation);        //记录在采用哪种动态分配方式，0表示全动态，1表示channel定package，die，plane动态，2表示channel，package，die定plane动态
+		}else if((res_eql=strcmp(buf, "dynamic_allocation")) == 0){
+			sscanf(buf + next_eql, "%d", &p->dynamic_allocation);        //记录在采用哪种动态分配方式，0表示全动态，1表示channel定package，die，plane动态，2表示channel，package，die定plane动态
+		}else if((res_eql=strcmp(buf, "dynamic_allocation_priority")) == 0){
+			sscanf(buf + next_eql, "%d", &p->dynamic_allocation_priority);	 //表示ssd分配方式的优先级，0表示channel>chip>die>plane,1表示plane>channel>chip>die
 		}else if((res_eql=strcmp(buf,"advanced command")) ==0){
 			sscanf(buf + next_eql,"%d",&p->advanced_commands);         //是否使用高级命令，0表示不使用。利用二进制01分别表示random(00001)，copyback(00010)，two-plane-program(00100)，interleave(01000),two-plane-read(10000)是否使用，全部使用是11111，既31            
 		}else if((res_eql=strcmp(buf,"advanced command priority2")) ==0){

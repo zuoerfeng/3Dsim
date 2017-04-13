@@ -34,6 +34,7 @@ Zuo Lu	        2017/04/06	      1.0		    Creat 3D_SSDsim       617376665@qq.com
 
 //Global variable
 int make_age_free_page = 0;
+int plane_cmplt = 0;
 
 /********************************************************************************************************************************
 1，main函数中initiatio()函数用来初始化ssd,；2，make_aged()函数使SSD成为aged，aged的ssd相当于使用过一段时间的ssd，里面有失效页，
@@ -67,6 +68,8 @@ void main()
 		pre_process_write(ssd);   //将有效块中的free_page全部置为无效，保证最多一个有效块中包含有free page,满足实际ssd的机制
 	}
 
+	//此时预处理完成之后，应该保证每个plane的页偏移地址是一致的
+	
 	for (i=0;i<ssd->parameter->channel_number;i++)
 	{
 		for (m = 0; m < ssd->parameter->chip_channel[i]; m++)
@@ -75,12 +78,17 @@ void main()
 			{
 				for (k = 0; k < ssd->parameter->plane_die; k++)
 				{	
+					/*
+					for (p = 0; p < ssd->parameter->block_plane; p++)
+					{
+						printf("%d,0,%d,%d,%d,%d:  %5d\n", i, m, j, k,p, ssd->channel_head[0].chip_head[0].die_head[0].plane_head[0].blk_head[456].last_write_page);
+					}
+					*/
 					printf("%d,0,%d,%d,%d:  %5d\n", i, m, j, k, ssd->channel_head[i].chip_head[m].die_head[j].plane_head[k].free_page);
 				}
 			}
 		}
 	}
-
 
 	fprintf(ssd->outputfile,"\t\t\t\t\t\t\t\t\tOUTPUT\n");
 	fprintf(ssd->outputfile,"****************** TRACE INFO ******************\n");
@@ -110,11 +118,34 @@ struct ssd_info *simulate(struct ssd_info *ssd)
 	unsigned int a=0,b=0;
 	errno_t err;
 
+	
+	unsigned int channel_num = 0, chip_num = 0, die_num = 0;
+	unsigned int i, j, k,m,p;
+
 	printf("\n");
 	printf("begin simulating.......................\n");
 	printf("\n");
 	printf("\n");
 	printf("   ^o^    OK, please wait a moment, and enjoy music and coffee   ^o^    \n");
+
+	//清空预处理时候分配令牌
+	channel_num = ssd->parameter->channel_number;
+	chip_num = ssd->parameter->chip_channel[0];
+	die_num = ssd->parameter->die_chip;
+	ssd->token = 0;
+	for (i = 0; i < channel_num; i++)
+	{
+		for (j = 0; j < chip_num; j++)
+		{
+			for (k = 0; k < die_num; k++)
+			{
+				ssd->channel_head[i].chip_head[j].die_head[k].token = 0;
+			}
+			ssd->channel_head[i].chip_head[j].token = 0;
+		}
+		ssd->channel_head[i].token = 0;
+	}
+
 
 	if((err=fopen_s(&(ssd->tracefile),ssd->tracefilename,"r"))!=0)
 	{  
@@ -173,14 +204,18 @@ struct ssd_info *process(struct ssd_info *ssd)
 	*初始认为需要调整，置为1，当任何一个channel处理了传送命令或者数据时，这个值置为0，表示不需要调整；
 	**********************************************************************************************************/
 	int old_ppn = -1, flag_die = -1;
-	unsigned int i, chan, random_num;
+	unsigned int i,j,k, chan, random_num;
 	unsigned int flag = 0, new_write = 0, chg_cur_time_flag = 1, flag2 = 0, flag_gc = 0;
 	__int64 time, channel_time = 0x7fffffffffffffff;
 	struct sub_request *sub;
+	
+	unsigned int  m, p;
+	unsigned int channel = 0, chip = 0, die = 0;
 
 #ifdef DEBUG
 	printf("enter process,  current time:%I64u\n", ssd->current_time);
 #endif
+
 
 	/*********************************************************
 	*判断是否有读写子请求，如果有那么flag令为0，没有flag就为1
@@ -188,6 +223,7 @@ struct ssd_info *process(struct ssd_info *ssd)
 	**********************************************************/
 
 	/*ftl层*/
+	//主动gc，由于遍历了所有的channel，所有gc操作无效块的擦拭偏移一样，再次写的时候plane的偏移地址都是一样的
 	for (i = 0; i<ssd->parameter->channel_number; i++)
 	{
 		if ((ssd->channel_head[i].subs_r_head == NULL) && (ssd->channel_head[i].subs_w_head == NULL) && (ssd->subs_w_head == NULL))
@@ -218,8 +254,6 @@ struct ssd_info *process(struct ssd_info *ssd)
 	time = ssd->current_time;
 	services_2_r_cmd_trans_and_complete(ssd);                                            /*处理当前状态是SR_R_C_A_TRANSFER或者当前状态是SR_COMPLETE，或者下一状态是SR_COMPLETE并且下一状态预计时间小于当前状态时间*/
 	
-	
-	
 	/*****************************************
 	*循环处理所有channel上的读写子请求
 	*发读请求命令，传读写数据，都需要占用总线，
@@ -229,22 +263,42 @@ struct ssd_info *process(struct ssd_info *ssd)
 	{
 		i = (random_num + chan) % ssd->parameter->channel_number;
 		flag = 0;
-		flag_gc = 0;                                                                       /*每次进入channel时，将gc的标志位置为0，默认认为没有进行gc操作*/
-		if ((ssd->channel_head[i].current_state == CHANNEL_IDLE) || (ssd->channel_head[i].next_state == CHANNEL_IDLE&&ssd->channel_head[i].next_state_predict_time <= ssd->current_time))
+		flag_gc = 0;																		/*每次进入channel时，将gc的标志位置为0，默认认为没有进行gc操作*/
+
+		//gc channel操作同步于写操作，这样可以保证擦除的无效块的偏移是一致的，保证所有的plane页内偏移一致
+		if ((ssd->channel_head[channel].current_state == CHANNEL_IDLE) || (ssd->channel_head[channel].next_state == CHANNEL_IDLE&&ssd->channel_head[channel].next_state_predict_time <= ssd->current_time))
 		{
-			
 			/*ftl层*/
 			if (ssd->gc_request>0)                                                       /*有gc操作，需要进行一定的判断*/
 			{
-				if (ssd->channel_head[i].gc_command != NULL)
+				if (ssd->channel_head[channel].gc_command != NULL)
 				{
-					flag_gc = gc(ssd, i, 0);                                                 /*gc函数返回一个值，表示是否执行了gc操作，如果执行了gc操作，这个channel在这个时刻不能服务其他的请求*/
+					flag_gc = gc(ssd, channel, 0);                                                 /*gc函数返回一个值，表示是否执行了gc操作，如果执行了gc操作，这个channel在这个时刻不能服务其他的请求*/
 				}
 				if (flag_gc == 1)                                                          /*执行过gc操作，需要跳出此次循环*/
 				{
 					continue;
 				}
 			}
+		}
+
+		//读操作状态推进，要随机遍历所有channel推进状态
+		if ((ssd->channel_head[i].current_state == CHANNEL_IDLE) || (ssd->channel_head[i].next_state == CHANNEL_IDLE&&ssd->channel_head[i].next_state_predict_time <= ssd->current_time))
+		{
+			/*
+			//*ftl层
+			if (ssd->gc_request>0)                                                       //有gc操作，需要进行一定的判断
+			{
+				if (ssd->channel_head[i].gc_command != NULL)
+				{
+					flag_gc = gc(ssd, i, 0);                                                 //gc函数返回一个值，表示是否执行了gc操作，如果执行了gc操作，这个channel在这个时刻不能服务其他的请求
+				}
+				if (flag_gc == 1)                                                          //执行过gc操作，需要跳出此次循环
+				{
+					continue;
+				}
+			}
+			*/
 
 			/*fcl+flash层*/
 			sub = ssd->channel_head[i].subs_r_head;                                        /*先处理读请求*/
@@ -254,14 +308,64 @@ struct ssd_info *process(struct ssd_info *ssd)
 				services_2_r_data_trans(ssd, i, &flag, &chg_cur_time_flag);
 
 			}
+
+			//开始进行写请求的状态转变
 			if (flag == 0)                                                                  /*if there are no read request to take channel, we can serve write requests*/
 			{
-				services_2_write(ssd, i, &flag, &chg_cur_time_flag);
+				//表示当前写过程完成
+				//services_2_write(ssd, channel, &flag, &chg_cur_time_flag);
+				if (ssd->parameter->dynamic_allocation_priority == 1)
+				{
+					//这个函数返回代表此时一个channel上的superpage 写完成，进行下一个channel 
+					channel = ssd->token;
+					chip = ssd->channel_head[channel].token;
+					die = ssd->channel_head[channel].chip_head[chip].token;
 
+					//表示当前写过程完成
+					services_2_write(ssd, channel, &flag, &chg_cur_time_flag);
+
+					//当多个plane同时写完之后，才能进行channel增加
+					if (plane_cmplt == 1)
+					{
+						ssd->token = (ssd->token + 1) % ssd->parameter->channel_number;
+						plane_cmplt = 0;
+						if (channel == (ssd->parameter->channel_number - 1))
+							ssd->channel_head[ssd->token].chip_head[chip].token = (die + 1) % ssd->parameter->die_chip;
+						else
+							ssd->channel_head[ssd->token].chip_head[chip].token = die;
+					}
+					//printf("aaa\n");
+				}
+				else
+				{
+					services_2_write(ssd, i, &flag, &chg_cur_time_flag); 
+				}
 			}
 		}
-	}
 
+		/*此时用来查看plane内的偏移地址是否相同，从而验证我们代码的有效性*/
+		for (j = 0; j < ssd->parameter->die_chip; j++)
+		{
+			for (i = 0; i<ssd->parameter->channel_number; i++)
+			{
+				for (m = 0; m < ssd->parameter->chip_channel[i]; m++)
+				{
+					for (k = 0; k < ssd->parameter->plane_die; k++)
+					{
+						for (p = 0; p < ssd->parameter->block_plane; p++)
+						{
+							if ((ssd->channel_head[i].chip_head[m].die_head[j].plane_head[k].blk_head[p].free_page_num > 0) && (ssd->channel_head[i].chip_head[m].die_head[j].plane_head[k].blk_head[p].free_page_num < ssd->parameter->page_block))
+							{
+								printf("%d %d %d %d %d,%5d,%5d\n", i, m, j, k, p, ssd->channel_head[i].chip_head[m].die_head[j].plane_head[k].blk_head[p].last_write_page, plane_cmplt);
+								//getchar();
+							}
+						}
+					}
+				}
+			}
+		}
+
+	}
 	return ssd;
 }
 
@@ -741,12 +845,13 @@ struct ssd_info *pre_process_write(struct ssd_info *ssd)
 					//查看是否有空闲块
 					for (p = 0; p < ssd->parameter->block_plane; p++)
 					{
-						if ((ssd->channel_head[i].chip_head[m].die_head[j].plane_head[k].blk_head[p].free_page_num == make_age_free_page) && (ssd->channel_head[i].chip_head[m].die_head[j].plane_head[k].blk_head[p].free_page_num < ssd->parameter->page_block != 0))
+						//if ((ssd->channel_head[i].chip_head[m].die_head[j].plane_head[k].blk_head[p].free_page_num == make_age_free_page) && (ssd->channel_head[i].chip_head[m].die_head[j].plane_head[k].blk_head[p].free_page_num < ssd->parameter->page_block))
+						if ((ssd->channel_head[i].chip_head[m].die_head[j].plane_head[k].blk_head[p].free_page_num > 0) && (ssd->channel_head[i].chip_head[m].die_head[j].plane_head[k].blk_head[p].free_page_num < ssd->parameter->page_block))
 						{
 							ssd->channel_head[i].chip_head[m].die_head[j].plane_head[k].free_page = ssd->channel_head[i].chip_head[m].die_head[j].plane_head[k].free_page - ssd->channel_head[i].chip_head[m].die_head[j].plane_head[k].blk_head[p].free_page_num;
 							ssd->channel_head[i].chip_head[m].die_head[j].plane_head[k].blk_head[p].free_page_num = 0;
 							ssd->channel_head[i].chip_head[m].die_head[j].plane_head[k].blk_head[p].invalid_page_num = ssd->parameter->page_block;
-							ssd->channel_head[i].chip_head[m].die_head[j].plane_head[k].blk_head[p].last_write_page = ssd->parameter->page_block;
+							ssd->channel_head[i].chip_head[m].die_head[j].plane_head[k].blk_head[p].last_write_page = ssd->parameter->page_block-1;
 							for (n = 0; n < ssd->parameter->page_block; n++)
 							{
 								ssd->channel_head[i].chip_head[m].die_head[j].plane_head[k].blk_head[p].page_head[n].valid_state = 0;        //表示某一页失效，同时标记valid和free状态都为0

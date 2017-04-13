@@ -29,7 +29,7 @@ Zuo Lu	        2017/04/06	      1.0		    Creat 3D_SSDsim       617376665@qq.com
 #include "ftl.h"
 #include "fcl.h"
 
-
+extern int plane_cmplt;
 /******************************************************
 *函数的功能是在给出的channel，chip，die上面寻找读子请求
 *这个子请求的ppn要与相应的plane的寄存器里面的ppn相符
@@ -435,8 +435,8 @@ Status services_2_write(struct ssd_info * ssd, unsigned int channel, unsigned in
 	int j = 0, chip = 0;
 	unsigned int k = 0;
 	unsigned int  old_ppn = 0, new_ppn = 0;
-	unsigned int chip_token = 0, die_token = 0, plane_token = 0, address_ppn = 0;
-	unsigned int  die = 0, plane = 0;
+	unsigned int chip_token = 0, die_token = 0;
+	//unsigned int  die = 0, plane = 0;
 	long long time = 0;
 	struct sub_request * sub = NULL, *p = NULL;
 	struct sub_request * sub_twoplane_one = NULL, *sub_twoplane_two = NULL;
@@ -466,65 +466,20 @@ Status services_2_write(struct ssd_info * ssd, unsigned int channel, unsigned in
 						{
 							break;
 						}
-						die_token = ssd->channel_head[channel].chip_head[chip_token].token;
-						if (((ssd->parameter->advanced_commands&AD_INTERLEAVE) != AD_INTERLEAVE) && ((ssd->parameter->advanced_commands&AD_TWOPLANE) != AD_TWOPLANE))       //can't use advanced commands
+						if (dynamic_advanced_process(ssd, channel, chip_token) == NULL)
 						{
-							printf("write:normal command !\n");
-							getchar();
-							sub = find_write_sub_request(ssd, channel);
-							if (sub == NULL)
-							{
-								break;
-							}
-
-							if (sub->current_state == SR_WAIT)
-							{
-								plane_token = ssd->channel_head[channel].chip_head[chip_token].die_head[die_token].token;
-
-								get_ppn(ssd, channel, chip_token, die_token, plane_token, sub);
-
-								ssd->channel_head[channel].chip_head[chip_token].die_head[die_token].token = (ssd->channel_head[channel].chip_head[chip_token].die_head[die_token].token + 1) % ssd->parameter->plane_die;
-
-								*change_current_time_flag = 0;
-
-								if (ssd->parameter->ad_priority2 == 0)
-								{
-									ssd->real_time_subreq--;
-								}
-								go_one_step(ssd, sub, NULL, SR_W_TRANSFER, NORMAL);       /*执行普通的状态的转变。*/
-								delete_w_sub_request(ssd, channel, sub);                /*删掉处理完后的写子请求*/
-
-								*channel_busy_flag = 1;
-								/**************************************************************************
-								*跳出for循环前，修改令牌
-								*这里的token的变化完全取决于在这个channel chip die plane下写是否成功
-								*成功了就break 没成功token就要变化直到找到能写成功的channel chip die plane
-								***************************************************************************/
-								ssd->channel_head[channel].chip_head[chip_token].token = (ssd->channel_head[channel].chip_head[chip_token].token + 1) % ssd->parameter->die_chip;
-								ssd->channel_head[channel].token = (ssd->channel_head[channel].token + 1) % ssd->parameter->chip_channel[channel];
-								break;
-							}
+							*channel_busy_flag = 0;
 						}
-						else                                                          /*use advanced commands*/
+						else
 						{
-							if (dynamic_advanced_process(ssd, channel, chip_token) == NULL)
-							{
-								*channel_busy_flag = 0;
-							}
-							else
-							{
-								*channel_busy_flag = 1;                                 /*执行了一个请求，传输了数据，占用了总线，需要跳出到下一个channel*/
-								ssd->channel_head[channel].chip_head[chip_token].token = (ssd->channel_head[channel].chip_head[chip_token].token + 1) % ssd->parameter->die_chip;
-								ssd->channel_head[channel].token = (ssd->channel_head[channel].token + 1) % ssd->parameter->chip_channel[channel];
-								break;
-							}
+							*channel_busy_flag = 1;                                 /*执行了一个请求，传输了数据，占用了总线，需要跳出到下一个channel*/
+							//ssd->channel_head[channel].chip_head[chip_token].token = (ssd->channel_head[channel].chip_head[chip_token].token + 1) % ssd->parameter->die_chip;
+							ssd->channel_head[channel].token = (ssd->channel_head[channel].token + 1) % ssd->parameter->chip_channel[channel];
+							break;
 						}
-
-						ssd->channel_head[channel].chip_head[chip_token].token = (ssd->channel_head[channel].chip_head[chip_token].token + 1) % ssd->parameter->die_chip;
 					}
 				}
-
-				ssd->channel_head[channel].token = (ssd->channel_head[channel].token + 1) % ssd->parameter->chip_channel[channel];
+				ssd->channel_head[channel].token = (ssd->channel_head[channel].token + 1) % ssd->parameter->chip_channel[channel];  //更新chip
 			}
 		}
 	}
@@ -540,10 +495,10 @@ Status services_2_write(struct ssd_info * ssd, unsigned int channel, unsigned in
 *****************************************************************************************************************************/
 struct ssd_info *dynamic_advanced_process(struct ssd_info *ssd, unsigned int channel, unsigned int chip)
 {
-	unsigned int die = 0, plane = 0;
+	//unsigned int die = 0, plane = 0;
 	unsigned int subs_count = 0;
-	int flag;
-	unsigned int gate;                                                                    /*record the max subrequest that can be executed in the same channel. it will be used when channel-level priority order is highest and allocation scheme is full dynamic allocation*/
+	unsigned int plane_count = 0;
+	int flag;                                                                   /*record the max subrequest that can be executed in the same channel. it will be used when channel-level priority order is highest and allocation scheme is full dynamic allocation*/
 	unsigned int plane_place;                                                             /*record which plane has sub request in static allocation*/
 	struct sub_request *sub = NULL, *p = NULL, *sub0 = NULL, *sub1 = NULL, *sub2 = NULL, *sub3 = NULL, *sub0_rw = NULL, *sub1_rw = NULL, *sub2_rw = NULL, *sub3_rw = NULL;
 	struct sub_request ** subs = NULL;
@@ -555,31 +510,16 @@ struct ssd_info *dynamic_advanced_process(struct ssd_info *ssd, unsigned int cha
 	unsigned int mask = 0x00000001;
 	unsigned int i = 0, j = 0;
 
-	max_sub_num = (ssd->parameter->die_chip)*(ssd->parameter->plane_die);
-	gate = max_sub_num;
+	plane_count = ssd->parameter->plane_die;
+	//ssd->real_time_subreq = 0;
+	max_sub_num = (ssd->parameter->die_chip)*(ssd->parameter->plane_die);    //这里考虑到了chip die之间的并行性，故max_sub_num表示一个chip上最多同时执行的请求数
+	//gate = max_sub_num;
 	subs = (struct sub_request **)malloc(max_sub_num*sizeof(struct sub_request *));
 	alloc_assert(subs, "sub_request");
 
 	for (i = 0; i<max_sub_num; i++)
 	{
-		subs[i] = NULL;
-	}
-
-	if ((ssd->parameter->allocation_scheme == 0) && (ssd->parameter->dynamic_allocation == 0) && (ssd->parameter->ad_priority2 == 0))
-	{
-		gate = ssd->real_time_subreq / ssd->parameter->channel_number;
-
-		if (gate == 0)
-		{
-			gate = 1;
-		}
-		else
-		{
-			if (ssd->real_time_subreq%ssd->parameter->channel_number != 0)
-			{
-				gate++;
-			}
-		}
+		subs[i] = NULL;  //可执行请求数组
 	}
 
 	if ((ssd->parameter->allocation_scheme == 0))                                           /*全动态分配，需要从ssd->subs_w_head上选取等待服务的子请求*/
@@ -595,14 +535,15 @@ struct ssd_info *dynamic_advanced_process(struct ssd_info *ssd, unsigned int cha
 
 		subs_count = 0;
 
-		while ((sub != NULL) && (subs_count<max_sub_num) && (subs_count<gate))
+		//while ((sub != NULL) && (subs_count<max_sub_num) && (subs_count<gate))
+		while ((sub != NULL) && (subs_count<max_sub_num))
 		{
 			if (sub->current_state == SR_WAIT)
 			{
 				if ((sub->update == NULL) || ((sub->update != NULL) && ((sub->update->current_state == SR_COMPLETE) || ((sub->update->next_state == SR_COMPLETE) && (sub->update->next_state_predict_time <= ssd->current_time)))))    //没有需要提前读出的页
 				{
-					subs[subs_count] = sub;
-					subs_count++;
+					subs[subs_count] = sub;			//将目前状态是wait的子请求放入数组中去
+					subs_count++;					//目前处理等待状态的子请求的个数
 				}
 			}
 
@@ -622,39 +563,91 @@ struct ssd_info *dynamic_advanced_process(struct ssd_info *ssd, unsigned int cha
 			free(plane_bits);
 			return NULL;
 		}
+
+		//写子请求不止两个，即可以进行高级命令
 		if (subs_count >= 2)
-		{
+		{	
 			/*********************************************
 			*two plane,interleave都可以使用
 			*在这个channel上，选用interleave_two_plane执行
 			**********************************************/
-
-			if (((ssd->parameter->advanced_commands&AD_TWOPLANE) == AD_TWOPLANE) && ((ssd->parameter->advanced_commands&AD_INTERLEAVE) != AD_INTERLEAVE))
+			if (ssd->parameter->dynamic_allocation_priority == 1)						//动态分配方式的选择
 			{
-				if (subs_count>ssd->parameter->plane_die)
+				/*
+				while (subs_count != 0)
 				{
-					for (i = ssd->parameter->plane_die; i<subs_count; i++)
+					if ((ssd->parameter->advanced_commands&AD_TWOPLANE) == AD_TWOPLANE && plane_cmplt == 0)
 					{
-						subs[i] = NULL;
+						if (get_ppn_for_advanced_commands(ssd, channel, chip, subs, plane_count, TWO_PLANE) == SUCCESS)
+						{
+							for (i = 0; i < subs_count - plane_count; i++)
+								subs[i] = subs[i + plane_count];
+							for (i = subs_count - plane_count; i < subs_count; i++)
+								subs[i] = NULL;
+							subs_count = subs_count - plane_count;
+						}
+						else
+						{
+							for (i = 0; i < subs_count - 1; i++)
+								subs[i] = subs[i + 1];
+							for (i = subs_count - 1; i < subs_count; i++)
+								subs[i] = NULL;
+							subs_count = subs_count - 1;
+						}
 					}
-					subs_count = ssd->parameter->plane_die;
+					else
+					{
+						break;
+					}
 				}
-				get_ppn_for_advanced_commands(ssd, channel, chip, subs, subs_count, TWO_PLANE);
+				*/
+				if ((ssd->parameter->advanced_commands&AD_TWOPLANE) == AD_TWOPLANE && plane_cmplt == 0)
+				{
+					if (subs_count>ssd->parameter->plane_die)
+					{
+						for (i = ssd->parameter->plane_die; i<subs_count; i++)
+						{
+							subs[i] = NULL;
+						}
+						subs_count = ssd->parameter->plane_die;
+					}
+					get_ppn_for_advanced_commands(ssd, channel, chip, subs, subs_count, TWO_PLANE);
+				}
+				else
+				{
+
+				}
 			}
 			else
 			{
-				for (i = 1; i<subs_count; i++)
+				if ( (ssd->parameter->advanced_commands&AD_TWOPLANE) == AD_TWOPLANE )
 				{
-					subs[i] = NULL;
+					if (subs_count>ssd->parameter->plane_die)
+					{
+						for (i = ssd->parameter->plane_die; i<subs_count; i++)
+						{
+							subs[i] = NULL;
+						}
+						subs_count = ssd->parameter->plane_die;
+					}
+					get_ppn_for_advanced_commands(ssd, channel, chip, subs, subs_count, TWO_PLANE);
 				}
-				subs_count = 1;
-				get_ppn_for_normal_command(ssd, channel, chip, subs[0]);
+				else
+				{
+					for (i = 1; i<subs_count; i++)
+					{
+						subs[i] = NULL;
+					}
+					subs_count = 1;
+					get_ppn_for_normal_command(ssd, channel, chip, subs[0]);
+				}
 			}
 
 		}//if(subs_count>=2)
 		else if (subs_count == 1)     //only one request
 		{
 			get_ppn_for_normal_command(ssd, channel, chip, subs[0]);
+			printf("lz:normal_wr_2\n");
 		}
 
 	}//if ((ssd->parameter->allocation_scheme==0)) 
