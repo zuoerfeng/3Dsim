@@ -84,35 +84,47 @@ greed MPW command=0;            #±íÊ¾ÊÇ·ñÌ°À·µØÊ¹ÓÃmulti-plane write¸ß¼¶ÃüÁî£¬0±
 aged=1;                         #1±íÊ¾ĞèÒª½«Õâ¸öSSD±ä³Éaged£¬0±íÊ¾ĞèÒª½«Õâ¸öSSD±£³Önon-aged
 aged ratio=0.5;                #±íÊ¾ÎªÁËÊ¹SSD±ä³ÉagedµÄSSD£¬ĞèÒª½«SSDÖĞÌáÇ°ÖÃÎªÊ§Ğ§µÄ±ÈÂÊ
 -----------------------simulation output----------------------
-the 0 channel, 0 chip, 0 die, 0 plane has :            95 erase operations
-the 0 channel, 0 chip, 0 die, 1 plane has :            95 erase operations
-the 0 channel, 0 chip, 1 die, 0 plane has :            95 erase operations
-the 0 channel, 0 chip, 1 die, 1 plane has :            95 erase operations
-the 1 channel, 0 chip, 0 die, 0 plane has :            95 erase operations
-the 1 channel, 0 chip, 0 die, 1 plane has :            95 erase operations
-the 1 channel, 0 chip, 1 die, 0 plane has :            96 erase operations
-the 1 channel, 0 chip, 1 die, 1 plane has :            95 erase operations
+the 0 channel, 0 chip, 0 die, 0 plane has :  93 erase operations,2363 read operations,1367 write operations,935 pre_process write operations
+the 0 channel, 0 chip, 0 die, 1 plane has :  93 erase operations,946 read operations,1367 write operations,935 pre_process write operations
+the 0 channel, 0 chip, 1 die, 0 plane has :  93 erase operations,2515 read operations,1367 write operations,935 pre_process write operations
+the 0 channel, 0 chip, 1 die, 1 plane has :  93 erase operations,1252 read operations,1366 write operations,934 pre_process write operations
+the 1 channel, 0 chip, 0 die, 0 plane has :  93 erase operations,2093 read operations,1367 write operations,935 pre_process write operations
+the 1 channel, 0 chip, 0 die, 1 plane has :  93 erase operations,1016 read operations,1367 write operations,935 pre_process write operations
+the 1 channel, 0 chip, 1 die, 0 plane has :  94 erase operations,2426 read operations,1366 write operations,934 pre_process write operations
+the 1 channel, 0 chip, 1 die, 1 plane has :  93 erase operations,1164 read operations,1366 write operations,934 pre_process write operations
 
 
 ---------------------------statistic data---------------------------
 min lsn:           132
 max lsn:       1002411
-read count:         14994
-program count:         25941                        include the flash write count leaded by read requests
-the read operation leaded by un-covered update count:           758
-erase count:           761
-direct erase count:           761
-multi-plane program count:          4812
-multi-plane read count:          2644
-write flash count:         19480
+read count:         13775
+the read operation leaded by un-covered update count:           359
+the read operation leaded by gc read count:             0
+
+program count:         10933
+the write operation leaded by pre_process write count:          7477
+the write operation leaded by un-covered update count:           359
+the write operation leaded by gc read count:             0
+
+erase count:           745
+direct erase count:           745
+
+multi-plane program count:          4320
+multi-plane read count:          2626
+
+write flash count:         18410
+
 read request count:          4077
 write request count:          5922
-read request average size:     12.187248
-write request average size:      9.841548
-read request average response time:           150135
-write request average response time:           230353
-buffer read hits:          1126
-buffer read miss:           123
-buffer write hits:         14407
-buffer write miss:         32682
-erase:           761
+
+read request average size:     12.187269
+write request average size:      9.841634
+
+read request average response time:           151188
+write request average response time:           207432
+
+buffer read hits:          1299
+buffer read miss:           134
+buffer write hits:         16285
+buffer write miss:         25944
+

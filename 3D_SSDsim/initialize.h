@@ -160,18 +160,25 @@ struct ssd_info{
 	unsigned int token;                  //在动态分配中，为防止每次分配在第一个channel需要维持一个令牌，每次从令牌所指的位置开始分配
 	unsigned int gc_request;             //记录在SSD中，当前时刻有多少gc操作的请求
 
-	unsigned int write_request_count;    //记录写操作的次数
-	unsigned int read_request_count;     //记录读操作的次数
 	__int64 write_avg;                   //记录用于计算写请求平均响应时间的时间
 	__int64 read_avg;                    //记录用于计算读请求平均响应时间的时间
 
 	unsigned int min_lsn;
 	unsigned int max_lsn;
+
 	unsigned long read_count;
+	unsigned long update_read_count;      //记录因为更新操作导致的额外读出操作
+	unsigned long gc_read_count;			 //记录gc导致的读操作
+
 	unsigned long program_count;
+	unsigned long pre_all_write;		 //记录预处理写操作
+	unsigned long update_write_count;	 //记录更新的写操作
+	unsigned long gc_write_count;		 //记录gc导致的写操作
+
 	unsigned long erase_count;
-	unsigned long direct_erase_count;
-	unsigned long copy_back_count;
+	unsigned long direct_erase_count;    //记录被直接擦除的无效块
+
+	//记录高级命令执行读写操作
 	unsigned long m_plane_read_count;
 	unsigned long m_plane_prog_count;
 	unsigned long interleave_count;
@@ -182,13 +189,18 @@ struct ssd_info{
 	unsigned long mplane_erase_conut;
 	unsigned long interleave_mplane_erase_count;
 	unsigned long gc_copy_back;
+	unsigned long copy_back_count;
+
 	unsigned long write_flash_count;     //实际产生的对flash的写操作
 	unsigned long waste_page_count;      //记录因为高级命令的限制导致的页浪费
+
+	unsigned long write_request_count;    //记录写操作的次数
+	unsigned long read_request_count;     //记录读操作的次数
+	
 	float ave_read_size;
 	float ave_write_size;
 	unsigned int request_queue_length;
-	unsigned int update_read_count;      //记录因为更新操作导致的额外读出操作
-
+	
 	char parameterfilename[30];
 	char tracefilename[30];
 	char outputfilename[30];
@@ -213,9 +225,6 @@ struct ssd_info{
 
 struct channel_info{
 	int chip;                            //表示在该总线上有多少颗粒
-	unsigned long read_count;
-	unsigned long program_count;
-	unsigned long erase_count;
 	unsigned int token;                  //在动态分配中，为防止每次分配在第一个chip需要维持一个令牌，每次从令牌所指的位置开始分配
 
 	int current_state;                   //channel has serveral states, including idle, command/address transfer,data transfer,unknown
@@ -229,6 +238,11 @@ struct channel_info{
 	struct sub_request *subs_w_head;     //channel上的写请求队列头，先服务处于队列头的子请求
 	struct sub_request *subs_w_tail;     //channel上的写请求队列，新加进来的子请求加到队尾
 	struct gc_operation *gc_command;     //记录需要产生gc的位置
+
+	unsigned long channel_read_count;	 //记录channel内的读写擦次数
+	unsigned long channel_program_count;
+	unsigned long channel_erase_count;
+
 	struct chip_info *chip_head;        
 };
 
@@ -247,9 +261,9 @@ struct chip_info{
 	__int64 current_time;               //记录该通道的当前时间
 	__int64 next_state_predict_time;    //the predict time of next state, used to decide the sate at the moment
  
-	unsigned long read_count;           //how many read count in the process of workload
-	unsigned long program_count;
-	unsigned long erase_count;
+	unsigned long chip_read_count;      //记录chip内的读写擦次数
+	unsigned long chip_program_count;
+	unsigned long chip_erase_count;
 
     struct ac_time_characteristics ac_timing;  
 	struct die_info *die_head;
@@ -259,6 +273,11 @@ struct chip_info{
 struct die_info{
 
 	unsigned int token;                 //在动态分配中，为防止每次分配在第一个plane需要维持一个令牌，每次从令牌所指的位置开始分配
+
+	unsigned long die_read_count;		//记录blk内的读写擦次数
+	unsigned long die_program_count;
+	unsigned long die_erase_count;
+
 	struct plane_info *plane_head;
 	
 };
@@ -270,6 +289,12 @@ struct plane_info{
 	unsigned int ers_invalid;           //记录该plane中擦除失效的块数
 	unsigned int active_block;          //if a die has a active block, 该项表示其物理块号
 	int can_erase_block;                //记录在一个plane中准备在gc操作中被擦除操作的块,-1表示还没有找到合适的块
+
+	unsigned long plane_read_count;		//记录plane内的读写擦次数
+	unsigned long plane_program_count;
+	unsigned long plane_erase_count;
+	unsigned long pre_plane_write_count;
+
 	struct direct_erase *erase_node;    //用来记录可以直接删除的块号,在获取新的ppn时，每当出现invalid_page_num==64时，将其添加到这个指针上，供GC操作时直接删除
 	struct blk_info *blk_head;
 };
@@ -277,6 +302,10 @@ struct plane_info{
 
 struct blk_info{
 	unsigned int erase_count;          //块的擦除次数，该项记录在ram中，用于GC
+	unsigned int page_read_count;	   //记录块的read page次数	
+	unsigned int page_write_count;	   //记录块的write page次数
+	unsigned int pre_write_count;	   //记录预处理时候write page的次数
+
 	unsigned int free_page_num;        //记录该块中的free页个数，同上
 	unsigned int invalid_page_num;     //记录该块中失效页的个数，同上
 	int last_write_page;               //记录最近一次写操作执行的页数,-1表示该块没有一页被写过
@@ -288,7 +317,7 @@ struct page_info{                      //lpn记录该物理页存储的逻辑页，当该逻辑页
 	int valid_state;                   //indicate the page is valid or invalid
 	int free_state;                    //each bit indicates the subpage is free or occupted. 1 indicates that the bit is free and 0 indicates that the bit is used
 	unsigned int lpn;                 
-	unsigned int written_count;        //记录该页被写的次数
+	unsigned int written_count;        //记录该页被写的次数	  
 };
 
 
@@ -531,3 +560,4 @@ struct die_info * initialize_die(struct die_info * p_die,struct parameter_value 
 struct chip_info * initialize_chip(struct chip_info * p_chip,struct parameter_value *parameter,long long current_time );
 struct ssd_info * initialize_channels(struct ssd_info * ssd );
 struct dram_info * initialize_dram(struct ssd_info * ssd);
+void initialize_statistic(struct ssd_info * ssd);

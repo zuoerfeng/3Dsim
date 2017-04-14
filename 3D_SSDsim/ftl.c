@@ -112,15 +112,18 @@ struct ssd_info *pre_process_page(struct ssd_info *ssd)
 					***************************************************************/
 					ppn = get_ppn_for_pre_process(ssd, lsn);
 					location = find_location(ssd, ppn);
-					ssd->program_count++;
-					ssd->channel_head[location->channel].program_count++;
-					ssd->channel_head[location->channel].chip_head[location->chip].program_count++;
+
+					//ssd->program_count++;
+					//ssd->channel_head[location->channel].program_count++;
+					//ssd->channel_head[location->channel].chip_head[location->chip].program_count++;
+					ssd->pre_all_write++;
 					ssd->dram->map->map_entry[lpn].pn = ppn;
 					ssd->dram->map->map_entry[lpn].state = set_entry_state(ssd, lsn, sub_size);   //0001
+					ssd->channel_head[location->channel].chip_head[location->chip].die_head[location->die].plane_head[location->plane].blk_head[location->block].pre_write_count++;
 					ssd->channel_head[location->channel].chip_head[location->chip].die_head[location->die].plane_head[location->plane].blk_head[location->block].page_head[location->page].lpn = lpn;
 					ssd->channel_head[location->channel].chip_head[location->chip].die_head[location->die].plane_head[location->plane].blk_head[location->block].page_head[location->page].valid_state = ssd->dram->map->map_entry[lpn].state;
 					ssd->channel_head[location->channel].chip_head[location->chip].die_head[location->die].plane_head[location->plane].blk_head[location->block].page_head[location->page].free_state = ((~ssd->dram->map->map_entry[lpn].state)&full_page);
-
+					
 					free(location);
 					location = NULL;
 				}//if(ssd->dram->map->map_entry[lpn].state==0)
@@ -129,13 +132,15 @@ struct ssd_info *pre_process_page(struct ssd_info *ssd)
 					map_entry_new = set_entry_state(ssd, lsn, sub_size);      /*得到新的状态，并与原来的状态相或的到一个状态*/
 					map_entry_old = ssd->dram->map->map_entry[lpn].state;
 					modify = map_entry_new | map_entry_old;
-					ppn = ssd->dram->map->map_entry[lpn].pn;
+					ppn = ssd->dram->map->map_entry[lpn].pn;				/*这里没有必要把最新的状态刷到闪存上去，因为此时表已经建立起来了，表里面记录的状态最新的即可*/
 					location = find_location(ssd, ppn);
 
-					ssd->program_count++;
-					ssd->channel_head[location->channel].program_count++;
-					ssd->channel_head[location->channel].chip_head[location->chip].program_count++;
+					//ssd->program_count++;
+					//ssd->channel_head[location->channel].program_count++;
+					//ssd->channel_head[location->channel].chip_head[location->chip].program_count++;
+					//ssd->pre_all_write++;
 					ssd->dram->map->map_entry[lsn / ssd->parameter->subpage_page].state = modify;
+					//ssd->channel_head[location->channel].chip_head[location->chip].die_head[location->die].plane_head[location->plane].blk_head[location->block].pre_write_count++;
 					ssd->channel_head[location->channel].chip_head[location->chip].die_head[location->die].plane_head[location->plane].blk_head[location->block].page_head[location->page].valid_state = modify;
 					ssd->channel_head[location->channel].chip_head[location->chip].die_head[location->die].plane_head[location->plane].blk_head[location->block].page_head[location->page].free_state = ((~modify)&full_page);
 
@@ -379,9 +384,10 @@ struct ssd_info *get_ppn(struct ssd_info *ssd, unsigned int channel, unsigned in
 	sub->location->block = active_block;
 	sub->location->page = page;
 
+	ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[plane].blk_head[active_block].page_write_count++;
 	ssd->program_count++;                                                           /*修改ssd的program_count,free_page等变量*/
-	ssd->channel_head[channel].program_count++;
-	ssd->channel_head[channel].chip_head[chip].program_count++;
+	//ssd->channel_head[channel].program_count++;
+	//ssd->channel_head[channel].chip_head[chip].program_count++;
 	ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[plane].free_page--;
 	ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[plane].blk_head[active_block].page_head[page].lpn = lpn;
 	ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[plane].blk_head[active_block].page_head[page].valid_state = sub->state;
@@ -584,7 +590,7 @@ Status get_ppn_for_advanced_commands(struct ssd_info *ssd, unsigned int channel,
 					if (state != SUCCESS)
 					{
 						get_ppn_for_normal_command(ssd, channel, chip, subs[0]);           /*没找到，那么就当普通命令来处理*/
-						printf("lz:normal_wr_3\n");
+						printf("lz:normal_wr_2\n");
 						return FAILURE;
 					}
 					else
@@ -617,6 +623,7 @@ Status get_ppn_for_advanced_commands(struct ssd_info *ssd, unsigned int channel,
 				ssd->channel_head[channel].chip_head[chip].token = (die + 1) % ssd->parameter->die_chip;
 			}
 			compute_serve_time(ssd, channel, chip, die, subs, valid_subs_count, TWO_PLANE);
+			printf("lz:mutli_plane_wr_3\n");
 			return SUCCESS;
 		}//else if(command==TWO_PLANE)
 		else
@@ -919,9 +926,10 @@ unsigned int get_ppn_for_gc(struct ssd_info *ssd, unsigned int channel, unsigned
 
 	ppn = find_ppn(ssd, channel, chip, die, plane, block, page);
 
+	ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[plane].blk_head[active_block].page_write_count++;
 	ssd->program_count++;
-	ssd->channel_head[channel].program_count++;
-	ssd->channel_head[channel].chip_head[chip].program_count++;
+	//ssd->channel_head[channel].program_count++;
+	//ssd->channel_head[channel].chip_head[chip].program_count++;
 	ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[plane].free_page--;
 	ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[plane].blk_head[active_block].page_head[page].written_count++;
 	ssd->write_flash_count++;

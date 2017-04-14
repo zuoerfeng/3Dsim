@@ -796,8 +796,9 @@ Status allocate_location(struct ssd_info * ssd, struct sub_request *sub_req)
 		{
 			if ((sub_req->state&ssd->dram->map->map_entry[sub_req->lpn].state) != ssd->dram->map->map_entry[sub_req->lpn].state)
 			{
-				ssd->read_count++;
+				//ssd->read_count++;
 				ssd->update_read_count++;
+				ssd->update_write_count++;
 
 				update = (struct sub_request *)malloc(sizeof(struct sub_request));
 				alloc_assert(update, "update");
@@ -844,34 +845,38 @@ Status allocate_location(struct ssd_info * ssd, struct sub_request *sub_req)
 		//只考虑全动态分配
 		switch (ssd->parameter->dynamic_allocation)
 		{
-		case 0:
-		{
-			sub_req->location->channel = -1;
-			sub_req->location->chip = -1;
-			sub_req->location->die = -1;
-			sub_req->location->plane = -1;
-			sub_req->location->block = -1;
-			sub_req->location->page = -1;        //挂载在ssdinfo上，因为全动态分配，不知道具体挂载到哪个channel上面
-
-			if (ssd->subs_w_tail != NULL)
+			case 0:
 			{
-				ssd->subs_w_tail->next_node = sub_req;
-				ssd->subs_w_tail = sub_req;
-			}
-			else
-			{
-				ssd->subs_w_tail = sub_req;
-				ssd->subs_w_head = sub_req;
-			}
+				sub_req->location->channel = -1;
+				sub_req->location->chip = -1;
+				sub_req->location->die = -1;
+				sub_req->location->plane = -1;
+				sub_req->location->block = -1;
+				sub_req->location->page = -1;        //挂载在ssdinfo上，因为全动态分配，不知道具体挂载到哪个channel上面
 
-			if (update != NULL)
-			{
-				sub_req->update = update;
-			}
+				if (ssd->subs_w_tail != NULL)
+				{
+					ssd->subs_w_tail->next_node = sub_req;
+					ssd->subs_w_tail = sub_req;
+				}
+				else
+				{
+					ssd->subs_w_tail = sub_req;
+					ssd->subs_w_head = sub_req;
+				}
 
-			break;
-		}
+				if (update != NULL)
+				{
+					sub_req->update = update;
+					sub_req->state = (sub_req->state | update->state);
+					sub_req->size = size(sub_req->state);
+				}
+
+				break;
+			}
 		}
 	}
+
+
 	return SUCCESS;
 }

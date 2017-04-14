@@ -52,8 +52,8 @@ Status erase_operation(struct ssd_info * ssd, unsigned int channel, unsigned int
 		ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[plane].blk_head[block].page_head[i].lpn = -1;
 	}
 	ssd->erase_count++;
-	ssd->channel_head[channel].erase_count++;
-	ssd->channel_head[channel].chip_head[chip].erase_count++;
+//	ssd->channel_head[channel].erase_count++;
+//	ssd->channel_head[channel].chip_head[chip].erase_count++;
 	ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[plane].free_page += ssd->parameter->page_block;
 
 	return SUCCESS;
@@ -81,15 +81,19 @@ Status move_page(struct ssd_info * ssd, struct local *location, unsigned int * t
 
 	(*transfer_size) += size(valid_state);
 
+	//迁移到新的有效页
 	ssd->channel_head[new_location->channel].chip_head[new_location->chip].die_head[new_location->die].plane_head[new_location->plane].blk_head[new_location->block].page_head[new_location->page].free_state = free_state;
 	ssd->channel_head[new_location->channel].chip_head[new_location->chip].die_head[new_location->die].plane_head[new_location->plane].blk_head[new_location->block].page_head[new_location->page].lpn = lpn;
 	ssd->channel_head[new_location->channel].chip_head[new_location->chip].die_head[new_location->die].plane_head[new_location->plane].blk_head[new_location->block].page_head[new_location->page].valid_state = valid_state;
+	ssd->gc_write_count++;
 
-
+	//读出旧的有效页操作
 	ssd->channel_head[location->channel].chip_head[location->chip].die_head[location->die].plane_head[location->plane].blk_head[location->block].page_head[location->page].free_state = 0;
 	ssd->channel_head[location->channel].chip_head[location->chip].die_head[location->die].plane_head[location->plane].blk_head[location->block].page_head[location->page].lpn = 0;
 	ssd->channel_head[location->channel].chip_head[location->chip].die_head[location->die].plane_head[location->plane].blk_head[location->block].page_head[location->page].valid_state = 0;
 	ssd->channel_head[location->channel].chip_head[location->chip].die_head[location->die].plane_head[location->plane].blk_head[location->block].invalid_page_num++;
+	ssd->gc_read_count++;
+	ssd->channel_head[location->channel].chip_head[location->chip].die_head[location->die].plane_head[location->plane].blk_head[location->block].page_read_count++;
 
 	if (old_ppn == ssd->dram->map->map_entry[lpn].pn)                                                     /*修改映射表*/
 	{
@@ -194,9 +198,10 @@ struct ssd_info *flash_page_state_modify(struct ssd_info *ssd, struct sub_reques
 	sub->location->block = block;
 	sub->location->page = page;
 
+	ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[plane].blk_head[block].page_write_count++;
 	ssd->program_count++;
-	ssd->channel_head[channel].program_count++;
-	ssd->channel_head[channel].chip_head[chip].program_count++;
+	//ssd->channel_head[channel].program_count++;
+	//ssd->channel_head[channel].chip_head[chip].program_count++;
 	ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[plane].free_page--;
 	ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[plane].blk_head[block].page_head[page].lpn = sub->lpn;
 	ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[plane].blk_head[block].page_head[page].valid_state = sub->state;

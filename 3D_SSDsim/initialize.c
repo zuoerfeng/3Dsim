@@ -111,6 +111,9 @@ struct ssd_info *initiation(struct ssd_info *ssd)
 	ssd->min_lsn=0x7fffffff;
 	ssd->page=ssd->parameter->chip_num*ssd->parameter->die_chip*ssd->parameter->plane_die*ssd->parameter->block_plane*ssd->parameter->page_block;
 
+	//初始化统计参数
+	initialize_statistic(ssd);
+
 	//初始化 dram
 	ssd->dram = (struct dram_info *)malloc(sizeof(struct dram_info));
 	alloc_assert(ssd->dram,"ssd->dram");
@@ -122,7 +125,6 @@ struct ssd_info *initiation(struct ssd_info *ssd)
 	alloc_assert(ssd->channel_head,"ssd->channel_head");
 	memset(ssd->channel_head,0,ssd->parameter->channel_number * sizeof(struct channel_info));
 	initialize_channels(ssd );
-	
 
 	printf("\n");
 	if((err=fopen_s(&ssd->outputfile,ssd->outputfilename,"w")) != 0)
@@ -186,6 +188,29 @@ struct ssd_info *initiation(struct ssd_info *ssd)
 }
 
 
+
+void initialize_statistic(struct ssd_info * ssd)
+{
+	//初始化统计参数
+	ssd->read_count = 0;
+	ssd->update_read_count = 0;
+	ssd->gc_read_count = 0;
+	ssd->program_count = 0;
+	ssd->pre_all_write = 0;
+	ssd->update_write_count = 0;
+	ssd->gc_write_count = 0;
+	ssd->erase_count = 0;
+	ssd->direct_erase_count = 0;
+	ssd->m_plane_read_count = 0;
+	ssd->read_request_count = 0;
+	ssd->write_flash_count = 0;
+	ssd->write_request_count = 0;
+	ssd->read_request_count = 0;
+	ssd->ave_read_size = 0.0;
+	ssd->ave_write_size = 0.0;
+}
+
+
 struct dram_info * initialize_dram(struct ssd_info * ssd)
 {
 	unsigned int page_num;
@@ -222,10 +247,16 @@ struct blk_info * initialize_block(struct blk_info * p_block,struct parameter_va
 	unsigned int i;
 	struct page_info * p_page;
 	
+	p_block->erase_count = 0;
+	p_block->page_read_count = 0;
+	p_block->page_write_count = 0;
+	p_block->pre_write_count = 0;
+
 	p_block->free_page_num = parameter->page_block;	// all pages are free
 	p_block->last_write_page = -1;	// no page has been programmed
 
 	p_block->page_head = (struct page_info *)malloc(parameter->page_block * sizeof(struct page_info));
+
 	alloc_assert(p_block->page_head,"p_block->page_head");
 	memset(p_block->page_head,0,parameter->page_block * sizeof(struct page_info));
 
@@ -244,6 +275,10 @@ struct plane_info * initialize_plane(struct plane_info * p_plane,struct paramete
 	struct blk_info * p_block;
 	p_plane->add_reg_ppn = -1;  //plane 里面的额外寄存器additional register -1 表示无数据
 	p_plane->free_page=parameter->block_plane*parameter->page_block;
+	p_plane->plane_read_count = 0;
+	p_plane->plane_program_count = 0;
+	p_plane->plane_erase_count = 0;
+	p_plane->pre_plane_write_count = 0;
 
 	p_plane->blk_head = (struct blk_info *)malloc(parameter->block_plane * sizeof(struct blk_info));
 	alloc_assert(p_plane->blk_head,"p_plane->blk_head");
@@ -262,6 +297,9 @@ struct die_info * initialize_die(struct die_info * p_die,struct parameter_value 
 	unsigned int i;
 	struct plane_info * p_plane;
 
+	p_die->die_read_count = 0;
+	p_die->die_program_count = 0;
+	p_die->die_erase_count = 0;
 	p_die->token=0;
 		
 	p_die->plane_head = (struct plane_info*)malloc(parameter->plane_die * sizeof(struct plane_info));
@@ -294,9 +332,9 @@ struct chip_info * initialize_chip(struct chip_info * p_chip,struct parameter_va
 	p_chip->ers_limit = parameter->ers_limit;
 	p_chip->token=0;
 	p_chip->ac_timing = parameter->time_characteristics;		
-	p_chip->read_count = 0;
-	p_chip->program_count = 0;
-	p_chip->erase_count = 0;
+	p_chip->chip_read_count = 0;
+	p_chip->chip_program_count = 0;
+	p_chip->chip_erase_count = 0;
 
 	p_chip->die_head = (struct die_info *)malloc(parameter->die_chip * sizeof(struct die_info));
 	alloc_assert(p_chip->die_head,"p_chip->die_head");
@@ -320,6 +358,9 @@ struct ssd_info * initialize_channels(struct ssd_info * ssd )
 	// set the parameter of each channel
 	for (i = 0; i< ssd->parameter->channel_number; i++)
 	{
+		ssd->channel_head[i].channel_read_count = 0;
+		ssd->channel_head[i].channel_program_count = 0;
+		ssd->channel_head[i].channel_erase_count = 0;
 		p_channel = &(ssd->channel_head[i]);
 		p_channel->chip = ssd->parameter->chip_channel[i];
 		p_channel->current_state = CHANNEL_IDLE;

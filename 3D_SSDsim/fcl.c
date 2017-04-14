@@ -647,7 +647,7 @@ struct ssd_info *dynamic_advanced_process(struct ssd_info *ssd, unsigned int cha
 		else if (subs_count == 1)     //only one request
 		{
 			get_ppn_for_normal_command(ssd, channel, chip, subs[0]);
-			printf("lz:normal_wr_2\n");
+			printf("lz:normal_wr_1\n");
 		}
 
 	}//if ((ssd->parameter->allocation_scheme==0)) 
@@ -1404,6 +1404,7 @@ Status go_one_step(struct ssd_info * ssd, struct sub_request * sub1, struct sub_
 			ssd->channel_head[location->channel].chip_head[location->chip].die_head[location->die].plane_head[location->plane].add_reg_ppn = sub->ppn;
 			//printf("r_data_trans read\n");
 			ssd->read_count++;
+			ssd->channel_head[location->channel].chip_head[location->chip].die_head[location->die].plane_head[location->plane].blk_head[location->block].page_read_count++;
 
 			ssd->channel_head[location->channel].current_state = CHANNEL_C_A_TRANSFER;
 			ssd->channel_head[location->channel].current_time = ssd->current_time;
@@ -1505,6 +1506,7 @@ Status go_one_step(struct ssd_info * ssd, struct sub_request * sub1, struct sub_
 
 			ssd->channel_head[sub_twoplane_one->location->channel].chip_head[sub_twoplane_one->location->chip].die_head[sub_twoplane_one->location->die].plane_head[sub_twoplane_one->location->plane].add_reg_ppn = sub_twoplane_one->ppn;
 			ssd->read_count++;
+			ssd->channel_head[location->channel].chip_head[location->chip].die_head[location->die].plane_head[location->plane].blk_head[location->block].page_read_count++;
 
 			sub_twoplane_two->current_time = ssd->current_time;
 			sub_twoplane_two->current_state = SR_R_C_A_TRANSFER;
@@ -1514,6 +1516,7 @@ Status go_one_step(struct ssd_info * ssd, struct sub_request * sub1, struct sub_
 
 			ssd->channel_head[sub_twoplane_two->location->channel].chip_head[sub_twoplane_two->location->chip].die_head[sub_twoplane_two->location->die].plane_head[sub_twoplane_two->location->plane].add_reg_ppn = sub_twoplane_two->ppn;
 			ssd->read_count++;
+			ssd->channel_head[location->channel].chip_head[location->chip].die_head[location->die].plane_head[location->plane].blk_head[location->block].page_read_count++;
 			ssd->m_plane_read_count++;
 
 			ssd->channel_head[location->channel].current_state = CHANNEL_C_A_TRANSFER;
