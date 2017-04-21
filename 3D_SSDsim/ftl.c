@@ -328,6 +328,7 @@ struct ssd_info *get_ppn(struct ssd_info *ssd, unsigned int channel, unsigned in
 		if (ssd->dram->map->map_entry[lpn].pn != 0)
 		{
 			printf("Error in get_ppn()\n");
+			//getchar();
 		}
 		ssd->dram->map->map_entry[lpn].pn = find_ppn(ssd, channel, chip, die, plane, block, page);
 		ssd->dram->map->map_entry[lpn].state = sub->state;
@@ -338,7 +339,9 @@ struct ssd_info *get_ppn(struct ssd_info *ssd, unsigned int channel, unsigned in
 		location = find_location(ssd, ppn);
 		if (ssd->channel_head[location->channel].chip_head[location->chip].die_head[location->die].plane_head[location->plane].blk_head[location->block].page_head[location->page].lpn != lpn)
 		{
+
 			printf("\nError in get_ppn()\n");
+			//getchar();
 		}
 
 		ssd->channel_head[location->channel].chip_head[location->chip].die_head[location->die].plane_head[location->plane].blk_head[location->block].page_head[location->page].valid_state = 0;             /*表示某一页失效，同时标记valid和free状态都为0*/
@@ -818,6 +821,7 @@ int uninterrupt_gc(struct ssd_info *ssd, unsigned int channel, unsigned int chip
 		printf("\n\n Error in uninterrupt_gc().\n");
 		return ERROR;
 	}
+
 	active_block = ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[plane].active_block;
 
 	invalid_page = 0;

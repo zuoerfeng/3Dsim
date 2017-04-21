@@ -36,6 +36,7 @@ Zuo Lu	        2017/04/06	      1.0		    Creat 3D_SSDsim       617376665@qq.com
 int make_age_free_page = 0;
 int plane_cmplt = 0;
 
+
 /********************************************************************************************************************************
 1，main函数中initiatio()函数用来初始化ssd,；2，make_aged()函数使SSD成为aged，aged的ssd相当于使用过一段时间的ssd，里面有失效页，
 non_aged的ssd是新的ssd，无失效页，失效页的比例可以在初始化参数中设置；3，pre_process_page()函数提前扫一遍读请求，把读请求
@@ -81,7 +82,7 @@ void main()
 					/*
 					for (p = 0; p < ssd->parameter->block_plane; p++)
 					{
-						printf("%d,0,%d,%d,%d,%d:  %5d\n", i, m, j, k,p, ssd->channel_head[0].chip_head[0].die_head[0].plane_head[0].blk_head[456].last_write_page);
+						printf("%d,0,%d,%d,%d,%d:  %5d\n", i, m, j, k, p, ssd->channel_head[i].chip_head[m].die_head[j].plane_head[k].blk_head[p].last_write_page);
 					}
 					*/
 					printf("%d,0,%d,%d,%d:  %5d\n", i, m, j, k, ssd->channel_head[i].chip_head[m].die_head[j].plane_head[k].free_page);
@@ -99,6 +100,7 @@ void main()
 
 	printf("\n");
 	printf("the simulation is completed!\n");
+
 	system("pause");
 /* 	_CrtDumpMemoryLeaks(); */
 }
@@ -302,6 +304,8 @@ struct ssd_info *process(struct ssd_info *ssd)
 
 			/*fcl+flash层*/
 			sub = ssd->channel_head[i].subs_r_head;                                        /*先处理读请求*/
+
+
 			services_2_r_wait(ssd, i, &flag, &chg_cur_time_flag);                           /*处理处于等待状态的读子请求*/
 			if ((flag == 0) && (ssd->channel_head[i].subs_r_head != NULL))                      /*if there are no new read request and data is ready in some dies, send these data to controller and response this request*/
 			{
@@ -400,7 +404,7 @@ void trace_output(struct ssd_info* ssd){
 		flag = 1;
 		start_time = 0;
 		end_time = 0;
-		if(req->response_time != 0)
+		if(req->response_time != 0)													//请求在buff中命中
 		{
 			fprintf(ssd->outputfile,"%16I64u %10u %6u %2u %16I64u %16I64u %10I64u\n",req->time,req->lsn, req->size, req->operation, req->begin_time, req->response_time, req->response_time-req->time);
 			fflush(ssd->outputfile);
@@ -419,6 +423,7 @@ void trace_output(struct ssd_info* ssd){
 			else
 			{
 				ssd->write_request_count++;
+				//request_lz_count++;
 				ssd->write_avg=ssd->write_avg+(req->response_time-req->time);
 			}
 
@@ -469,7 +474,7 @@ void trace_output(struct ssd_info* ssd){
 				}
 			}
 		}
-		else
+		else																		//请求在buff中未命中
 		{
 			flag=1;
 			while(sub != NULL)
@@ -480,6 +485,7 @@ void trace_output(struct ssd_info* ssd){
 					start_time = sub->begin_time;
 				if(end_time < sub->complete_time)
 					end_time = sub->complete_time;
+
 				if((sub->current_state == SR_COMPLETE)||((sub->next_state==SR_COMPLETE)&&(sub->next_state_predict_time<=ssd->current_time)))	// if any sub-request is not completed, the request is not completed
 				{
 					sub = sub->next_subs;
@@ -487,12 +493,12 @@ void trace_output(struct ssd_info* ssd){
 				else
 				{
 					flag=0;
-					break;
+					break;																														 //判断出当前子请求没有全部完成，此时这个请求不能从队列上删除，跳到下一个队列
 				}
 				
 			}
 
-			if (flag == 1)
+			if (flag == 1)				//flag=1，表示这个请求完成了，需要从队列上去除
 			{		
 				fprintf(ssd->outputfile,"%16I64u %10u %6u %2u %16I64u %16I64u %10I64u\n",req->time,req->lsn, req->size, req->operation, start_time, end_time, end_time-req->time);
 				fflush(ssd->outputfile);
@@ -545,7 +551,7 @@ void trace_output(struct ssd_info* ssd){
 						ssd->request_queue_length--;
 					}
 					else
-					{
+					{	
 						ssd->request_queue = req->next_node;
 						pre_node = req;
 						req = req->next_node;
@@ -554,6 +560,12 @@ void trace_output(struct ssd_info* ssd){
 						free(pre_node);
 						pre_node = NULL;
 						ssd->request_queue_length--;
+
+
+						if (ssd->request_queue->lsn == 817773)
+						{
+							printf("lz\n");
+						}
 					}
 				}
 				else
@@ -582,10 +594,10 @@ void trace_output(struct ssd_info* ssd){
 			}
 			else
 			{	
-				pre_node = req;
+				pre_node = req;									//该请求未完成，跳转计算请求队列的下一个请求，把该请求给pre_node节点
 				req = req->next_node;
 			}
-		}		
+		}//遍历整个请求链上所有的请求，没有执行完的不动，执行完成了删除该请求节点		
 	}
 }
 
@@ -746,6 +758,9 @@ void statistic_output(struct ssd_info *ssd)
 	fprintf(ssd->statisticfile,"buffer read miss: %13d\n",ssd->dram->buffer->read_miss_hit);
 	fprintf(ssd->statisticfile,"buffer write hits: %13d\n",ssd->dram->buffer->write_hit);
 	fprintf(ssd->statisticfile,"buffer write miss: %13d\n",ssd->dram->buffer->write_miss_hit);
+
+	//fprintf(ssd->statisticfile, "buffer write hit request count : %13d\n", request_lz_count);
+
 	fprintf(ssd->statisticfile, "\n");
 	fflush(ssd->statisticfile);
 
@@ -894,33 +909,54 @@ struct ssd_info *pre_process_write(struct ssd_info *ssd)
 						//if ((ssd->channel_head[i].chip_head[m].die_head[j].plane_head[k].blk_head[p].free_page_num == make_age_free_page) && (ssd->channel_head[i].chip_head[m].die_head[j].plane_head[k].blk_head[p].free_page_num < ssd->parameter->page_block))
 						if ((ssd->channel_head[i].chip_head[m].die_head[j].plane_head[k].blk_head[p].free_page_num > 0) && (ssd->channel_head[i].chip_head[m].die_head[j].plane_head[k].blk_head[p].free_page_num < ssd->parameter->page_block))
 						{
-							ssd->channel_head[i].chip_head[m].die_head[j].plane_head[k].free_page = ssd->channel_head[i].chip_head[m].die_head[j].plane_head[k].free_page - ssd->channel_head[i].chip_head[m].die_head[j].plane_head[k].blk_head[p].free_page_num;
-							ssd->channel_head[i].chip_head[m].die_head[j].plane_head[k].blk_head[p].free_page_num = 0;
-							ssd->channel_head[i].chip_head[m].die_head[j].plane_head[k].blk_head[p].invalid_page_num = ssd->parameter->page_block;
-							ssd->channel_head[i].chip_head[m].die_head[j].plane_head[k].blk_head[p].last_write_page = ssd->parameter->page_block-1;
-							for (n = 0; n < ssd->parameter->page_block; n++)
+							if (ssd->channel_head[i].chip_head[m].die_head[j].plane_head[k].blk_head[p].free_page_num == make_age_free_page)
 							{
-								ssd->channel_head[i].chip_head[m].die_head[j].plane_head[k].blk_head[p].page_head[n].valid_state = 0;        //表示某一页失效，同时标记valid和free状态都为0
-								ssd->channel_head[i].chip_head[m].die_head[j].plane_head[k].blk_head[p].page_head[n].free_state = 0;         //表示某一页失效，同时标记valid和free状态都为0
-								ssd->channel_head[i].chip_head[m].die_head[j].plane_head[k].blk_head[p].page_head[n].lpn = 0;  //把valid_state free_state lpn都置为0表示页失效，检测的时候三项都检测，单独lpn=0可以是有效页
-							}
-							//整个页是无效页，故要将此block无效块 并添加到gc链上
+								ssd->channel_head[i].chip_head[m].die_head[j].plane_head[k].free_page = ssd->channel_head[i].chip_head[m].die_head[j].plane_head[k].free_page - ssd->channel_head[i].chip_head[m].die_head[j].plane_head[k].blk_head[p].free_page_num;
+								ssd->channel_head[i].chip_head[m].die_head[j].plane_head[k].blk_head[p].free_page_num = 0;
+								ssd->channel_head[i].chip_head[m].die_head[j].plane_head[k].blk_head[p].invalid_page_num = ssd->parameter->page_block;
+								ssd->channel_head[i].chip_head[m].die_head[j].plane_head[k].blk_head[p].last_write_page = ssd->parameter->page_block - 1;
 
-							new_direct_erase = (struct direct_erase *)malloc(sizeof(struct direct_erase));
-							alloc_assert(new_direct_erase, "new_direct_erase");
-							memset(new_direct_erase, 0, sizeof(struct direct_erase));
+								for (n = 0; n < ssd->parameter->page_block; n++)
+								{
+									ssd->channel_head[i].chip_head[m].die_head[j].plane_head[k].blk_head[p].page_head[n].valid_state = 0;        //表示某一页失效，同时标记valid和free状态都为0
+									ssd->channel_head[i].chip_head[m].die_head[j].plane_head[k].blk_head[p].page_head[n].free_state = 0;         //表示某一页失效，同时标记valid和free状态都为0
+									ssd->channel_head[i].chip_head[m].die_head[j].plane_head[k].blk_head[p].page_head[n].lpn = 0;  //把valid_state free_state lpn都置为0表示页失效，检测的时候三项都检测，单独lpn=0可以是有效页
+								}
+								//整个页是无效页，故要将此block无效块 并添加到gc链上
 
-							new_direct_erase->block = p;  //给出当前无效块的块号
-							new_direct_erase->next_node = NULL;
-							direct_erase_node = ssd->channel_head[i].chip_head[m].die_head[j].plane_head[k].erase_node;
-							if (direct_erase_node == NULL)
-							{
-								ssd->channel_head[i].chip_head[m].die_head[j].plane_head[k].erase_node = new_direct_erase;
+								new_direct_erase = (struct direct_erase *)malloc(sizeof(struct direct_erase));
+								alloc_assert(new_direct_erase, "new_direct_erase");
+								memset(new_direct_erase, 0, sizeof(struct direct_erase));
+
+								new_direct_erase->block = p;  //给出当前无效块的块号
+								new_direct_erase->next_node = NULL;
+								direct_erase_node = ssd->channel_head[i].chip_head[m].die_head[j].plane_head[k].erase_node;
+								if (direct_erase_node == NULL)
+								{
+									ssd->channel_head[i].chip_head[m].die_head[j].plane_head[k].erase_node = new_direct_erase;
+								}
+								else
+								{
+									new_direct_erase->next_node = ssd->channel_head[i].chip_head[m].die_head[j].plane_head[k].erase_node;
+									ssd->channel_head[i].chip_head[m].die_head[j].plane_head[k].erase_node = new_direct_erase;
+								}
 							}
 							else
 							{
-								new_direct_erase->next_node = ssd->channel_head[i].chip_head[m].die_head[j].plane_head[k].erase_node;
-								ssd->channel_head[i].chip_head[m].die_head[j].plane_head[k].erase_node = new_direct_erase;
+								for (n = (ssd->channel_head[i].chip_head[m].die_head[j].plane_head[k].blk_head[p].last_write_page + 1); n < ssd->parameter->page_block; n++)
+								{
+									ssd->channel_head[i].chip_head[m].die_head[j].plane_head[k].blk_head[p].page_head[n].valid_state = 0;        //表示某一页失效，同时标记valid和free状态都为0
+									ssd->channel_head[i].chip_head[m].die_head[j].plane_head[k].blk_head[p].page_head[n].free_state = 0;         //表示某一页失效，同时标记valid和free状态都为0
+									ssd->channel_head[i].chip_head[m].die_head[j].plane_head[k].blk_head[p].page_head[n].lpn = 0;  //把valid_state free_state lpn都置为0表示页失效，检测的时候三项都检测，单独lpn=0可以是有效页
+
+
+									ssd->channel_head[i].chip_head[m].die_head[j].plane_head[k].free_page = ssd->channel_head[i].chip_head[m].die_head[j].plane_head[k].free_page - ssd->channel_head[i].chip_head[m].die_head[j].plane_head[k].blk_head[p].free_page_num;
+									ssd->channel_head[i].chip_head[m].die_head[j].plane_head[k].blk_head[p].free_page_num = 0;
+									ssd->channel_head[i].chip_head[m].die_head[j].plane_head[k].blk_head[p].invalid_page_num = ssd->parameter->page_block;
+									ssd->channel_head[i].chip_head[m].die_head[j].plane_head[k].blk_head[p].last_write_page = ssd->parameter->page_block - 1;
+
+
+								}
 							}
 						}
 						//printf("%d,0,%d,%d,%d:%5d\n", i, j, k, p, ssd->channel_head[i].chip_head[m].die_head[j].plane_head[k].blk_head[p].free_page_num);

@@ -172,6 +172,8 @@ Status services_2_r_cmd_trans_and_complete(struct ssd_info * ssd)
 {
 	unsigned int i = 0;
 	struct sub_request * sub = NULL, *p = NULL;
+	
+
 	for (i = 0; i<ssd->parameter->channel_number; i++)                                       /*这个循环处理不需要channel的时间(读命令已经到达chip，chip由ready变为busy)，当读请求完成时，将其从channel的队列中取出*/
 	{
 		sub = ssd->channel_head[i].subs_r_head;
@@ -237,11 +239,10 @@ Status services_2_r_data_trans(struct ssd_info * ssd, unsigned int channel, unsi
 					break;
 				}
 			}
-
 			if (sub == NULL)
 			{
 				continue;
-			}
+			} 
 
 			/**************************************************************************************
 			*如果ssd支持高级命令，那没我们可以一起处理支持AD_TWOPLANE_READ，AD_INTERLEAVE的读子请求
@@ -318,8 +319,12 @@ int services_2_r_wait(struct ssd_info * ssd, unsigned int channel, unsigned int 
 
 		//find_interleave_twoplane_sub_request(ssd, channel, sub_twoplane_one, sub_twoplane_two, TWO_PLANE);
 
+
+
+
 		if (sub_twoplane_two != NULL)                                                     /*可以执行two plane read 操作*/
 		{
+
 			go_one_step(ssd, sub_twoplane_one, sub_twoplane_two, SR_R_C_A_TRANSFER, TWO_PLANE);
 
 			*change_current_time_flag = 0;
@@ -330,7 +335,8 @@ int services_2_r_wait(struct ssd_info * ssd, unsigned int channel, unsigned int 
 			while (sub != NULL)                                                            /*if there are read requests in queue, send one of them to target die*/
 			{
 				if (sub->current_state == SR_WAIT)
-				{	                                                                    /*注意下个这个判断条件与services_2_r_data_trans中判断条件的不同
+				{	   
+					/*注意下个这个判断条件与services_2_r_data_trans中判断条件的不同
 																						*/
 					if ((ssd->channel_head[sub->location->channel].chip_head[sub->location->chip].current_state == CHIP_IDLE) || ((ssd->channel_head[sub->location->channel].chip_head[sub->location->chip].next_state == CHIP_IDLE) &&
 						(ssd->channel_head[sub->location->channel].chip_head[sub->location->chip].next_state_predict_time <= ssd->current_time)))
@@ -1243,6 +1249,20 @@ struct ssd_info *delete_from_channel(struct ssd_info *ssd, unsigned int channel,
 struct sub_request *find_interleave_twoplane_page(struct ssd_info *ssd, struct sub_request *one_page, unsigned int command)
 {
 	struct sub_request *two_page;
+	two_page = malloc(sizeof(*two_page));
+
+	if (one_page->lpn == 13926)
+	{
+		printf("\n");
+	}
+
+
+
+
+	if (one_page->lpn == 21057)
+	{
+		printf("\n");
+	}
 
 	if (one_page->current_state != SR_WAIT)
 	{
@@ -1295,9 +1315,12 @@ struct sub_request *find_interleave_twoplane_page(struct ssd_info *ssd, struct s
 int find_interleave_twoplane_sub_request(struct ssd_info * ssd, unsigned int channel, struct sub_request ** sub_request_one, struct sub_request ** sub_request_two, unsigned int command)
 {
 	*sub_request_one = ssd->channel_head[channel].subs_r_head;
+
+
 	while ((*sub_request_one) != NULL)
 	{
-		*sub_request_two = find_interleave_twoplane_page(ssd, *sub_request_one, command);                //*找出两个可以做two_plane或者interleave的read子请求，包括位置条件和时间条件
+		(*sub_request_two) = find_interleave_twoplane_page(ssd, *sub_request_one, command);                //*找出两个可以做two_plane或者interleave的read子请求，包括位置条件和时间条件
+
 		if (*sub_request_two == NULL)
 		{
 			*sub_request_one = (*sub_request_one)->next_node;
@@ -1308,6 +1331,8 @@ int find_interleave_twoplane_sub_request(struct ssd_info * ssd, unsigned int cha
 		}
 	}
 
+	
+	/*
 	if (*sub_request_two != NULL)
 	{
 		if (ssd->request_queue != ssd->request_tail)
@@ -1324,10 +1349,14 @@ int find_interleave_twoplane_sub_request(struct ssd_info * ssd, unsigned int cha
 			}
 			else
 			{
+
 				*sub_request_two = NULL;
 			}
 		}//if (ssd->request_queue!=ssd->request_tail) 
 	}//if (sub_request_two!=NULL)
+	*/
+
+
 
 	if (*sub_request_two != NULL)
 	{
@@ -1353,6 +1382,9 @@ Status go_one_step(struct ssd_info * ssd, struct sub_request * sub1, struct sub_
 	struct sub_request * sub_twoplane_one = NULL, *sub_twoplane_two = NULL;
 	struct sub_request * sub_interleave_one = NULL, *sub_interleave_two = NULL;
 	struct local * location = NULL;
+
+	struct buffer_group *update_buffer_node = NULL, key;
+
 	if (sub1 == NULL)
 	{
 		return ERROR;
@@ -1366,7 +1398,6 @@ Status go_one_step(struct ssd_info * ssd, struct sub_request * sub1, struct sub_
 	{
 		sub = sub1;
 		location = sub1->location;
-
 
 		switch (aim_state)
 		{
@@ -1431,6 +1462,20 @@ Status go_one_step(struct ssd_info * ssd, struct sub_request * sub1, struct sub_
 			sub->next_state = SR_COMPLETE;
 			sub->next_state_predict_time = ssd->current_time + (sub->size*ssd->parameter->subpage_capacity)*ssd->parameter->time_characteristics.tRC;
 			sub->complete_time = sub->next_state_predict_time;
+
+
+			if (sub->update_read_flag == 1)
+			{
+				sub->update_read_flag = 0;
+				//更改buff存的部分写的扇区大小
+				key.group = sub->lpn;
+				update_buffer_node = (struct buffer_group*)avlTreeFind(ssd->dram->buffer, (TREE_NODE *)&key);    /*在平衡二叉树中寻找buffer node*/
+				update_buffer_node->stored = sub->state | update_buffer_node->stored;
+				update_buffer_node->dirty_clean = sub->state | update_buffer_node->stored;
+
+				update_buffer_node->partial_page = 0;
+			}
+
 
 			ssd->channel_head[location->channel].current_state = CHANNEL_DATA_TRANSFER;
 			ssd->channel_head[location->channel].current_time = ssd->current_time;
@@ -1545,6 +1590,29 @@ Status go_one_step(struct ssd_info * ssd, struct sub_request * sub1, struct sub_
 			sub_twoplane_two->next_state = SR_COMPLETE;
 			sub_twoplane_two->next_state_predict_time = sub_twoplane_two->current_time + (sub_twoplane_two->size*ssd->parameter->subpage_capacity)*ssd->parameter->time_characteristics.tRC;
 			sub_twoplane_two->complete_time = sub_twoplane_two->next_state_predict_time;
+
+
+			if (sub_twoplane_one->update_read_flag == 1)
+			{
+				sub_twoplane_one->update_read_flag = 0;
+				//更改buff存的部分写的扇区大小
+				key.group = sub_twoplane_one->lpn;
+				update_buffer_node = (struct buffer_group*)avlTreeFind(ssd->dram->buffer, (TREE_NODE *)&key);    /*在平衡二叉树中寻找buffer node*/
+				update_buffer_node->stored = sub_twoplane_one->state | update_buffer_node->stored;
+				update_buffer_node->dirty_clean = sub_twoplane_one->state | update_buffer_node->stored;
+				update_buffer_node->partial_page = 0;
+
+			}
+			else if (sub_twoplane_two->update_read_flag == 1)
+			{
+				sub_twoplane_two->update_read_flag = 0;
+				//更改buff存的部分写的扇区大小
+				key.group = sub_twoplane_two->lpn;
+				update_buffer_node = (struct buffer_group*)avlTreeFind(ssd->dram->buffer, (TREE_NODE *)&key);    /*在平衡二叉树中寻找buffer node*/
+				update_buffer_node->stored = sub_twoplane_two->state | update_buffer_node->stored;
+				update_buffer_node->dirty_clean = sub_twoplane_two->state | update_buffer_node->stored;
+				update_buffer_node->partial_page = 0;
+			}
 
 			ssd->channel_head[location->channel].current_state = CHANNEL_DATA_TRANSFER;
 			ssd->channel_head[location->channel].current_time = ssd->current_time;

@@ -350,6 +350,7 @@ typedef struct buffer_group{
 	unsigned int stored;                //indicate the sector is stored in buffer or not. 1 indicates the sector is stored and 0 indicate the sector isn't stored.EX.  00110011 indicates the first, second, fifth, sixth sector is stored in buffer.
 	unsigned int dirty_clean;           //it is flag of the data has been modified, one bit indicates one subpage. EX. 0001 indicates the first subpage is dirty
 	int flag;			                //indicates if this node is the last 20% of the LRU list	
+	unsigned int partial_page;					//部分写标志，初始化为0
 }buf_node;
 
 
@@ -414,6 +415,9 @@ struct sub_request{
 	struct sub_request *next_subs;    //指向属于同一个request的子请求
 	struct sub_request *next_node;    //指向同一个channel中下一个子请求结构体
 	struct sub_request *update;       //因为在写操作中存在更新操作，因为在动态分配方式中无法使用copyback操作，需要将原来的页读出后才能进行写操作，所以，将因更新产生的读操作挂在这个指针上
+
+	unsigned int update_read_flag;   //更新读完成的标志位
+
 };
 
 

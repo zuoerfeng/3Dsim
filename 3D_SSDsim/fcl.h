@@ -24,7 +24,7 @@ struct ssd_info *dynamic_advanced_process(struct ssd_info *ssd, unsigned int cha
 
 struct sub_request * find_read_sub_request(struct ssd_info * ssd, unsigned int channel, unsigned int chip, unsigned int die);
 struct sub_request * find_write_sub_request(struct ssd_info * ssd, unsigned int channel);
-struct sub_request *find_interleave_twoplane_page(struct ssd_info *ssd, struct sub_request *onepage, unsigned int command);
+struct sub_request *find_interleave_twoplane_page(struct ssd_info *ssd, struct sub_request *one_page, unsigned int command);
 int find_interleave_twoplane_sub_request(struct ssd_info * ssd, unsigned int channel, struct sub_request ** sub_request_one, struct sub_request ** sub_request_two, unsigned int command);
 
 struct ssd_info *delete_from_channel(struct ssd_info *ssd, unsigned int channel, struct sub_request * sub_req);

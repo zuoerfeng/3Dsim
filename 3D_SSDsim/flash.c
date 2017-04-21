@@ -112,6 +112,7 @@ Status move_page(struct ssd_info * ssd, struct local *location, unsigned int * t
 /*************************************************
 *这个函数的功能就是一个模拟一个实实在在的写操作
 *就是更改这个page的相关参数，以及整个ssd的统计参数
+*预处理时候调用，模拟的实际写
 **************************************************/
 Status write_page(struct ssd_info *ssd, unsigned int channel, unsigned int chip, unsigned int die, unsigned int plane, unsigned int active_block, unsigned int *ppn)
 {

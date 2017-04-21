@@ -1,5 +1,5 @@
 #parameter file
-dram capacity = 131074;     #the unit is B
+dram capacity = 131072;     #the unit is B
 chip number[0] = 1;
 chip number[1] = 1;
 chip number[2] = 0;

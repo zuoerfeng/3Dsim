@@ -56,6 +56,8 @@ int get_requests(struct ssd_info *ssd)
 	__int64 time_t = 0;
 	__int64 nearest_event_time;
 
+	extern int request_lz_count;
+
 #ifdef DEBUG
 	printf("enter get_requests,  current time:%I64u\n", ssd->current_time);
 #endif
@@ -156,6 +158,8 @@ int get_requests(struct ssd_info *ssd)
 	request1->complete_lsn_count = 0;         //record the count of lsn served by buffer
 	filepoint = ftell(ssd->tracefile);		// set the file point
 
+	//request_lz_count++;
+
 	if (ssd->request_queue == NULL)          //The queue is empty
 	{
 		ssd->request_queue = request1;
@@ -168,6 +172,19 @@ int get_requests(struct ssd_info *ssd)
 		ssd->request_tail = request1;
 		ssd->request_queue_length++;
 	}
+
+	if (ssd->request_queue->lsn == 817773)
+	{
+		printf("lz\n");
+	}
+
+
+
+	if (ssd->request_queue->lsn == 84231)
+	{
+		printf("lz\n");
+	}
+
 
 	if (request1->operation == 1)             //计算平均请求大小 1为读 0为写
 	{
