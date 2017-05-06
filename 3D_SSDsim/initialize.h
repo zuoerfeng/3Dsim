@@ -44,6 +44,7 @@ Zuo Lu	        2017/04/06	      1.0		    Creat 3D_SSDsim       617376665@qq.com
 
 #define READ 1
 #define WRITE 0
+#define UPDATE_READ 2
 
 /*********************************all states of each objects************************************************
 *一下定义了channel的空闲，命令地址传输，数据传输，传输，其他等状态
@@ -215,9 +216,13 @@ struct ssd_info{
     struct parameter_value *parameter;   //SSD参数因子
 	struct dram_info *dram;
 	struct request *request_queue;       //dynamic request queue
+	struct request *request_head;		 // the head of the request queue
 	struct request *request_tail;	     // the tail of the request queue
+	struct request *request_work;		 // the work point of the request queue
+
 	struct sub_request *subs_w_head;     //当采用全动态分配时，分配是不知道应该挂载哪个channel上，所以先挂在ssd上，等进入process函数时才挂到相应的channel的读请求队列上
 	struct sub_request *subs_w_tail;
+
 	struct event_node *event;            //事件队列，每产生一个新的事件，按照时间顺序加到这个队列，在simulate函数最后，根据这个队列队首的时间，确定时间
 	struct channel_info *channel_head;   //指向channel结构体数组的首地址
 };
@@ -350,7 +355,7 @@ typedef struct buffer_group{
 	unsigned int stored;                //indicate the sector is stored in buffer or not. 1 indicates the sector is stored and 0 indicate the sector isn't stored.EX.  00110011 indicates the first, second, fifth, sixth sector is stored in buffer.
 	unsigned int dirty_clean;           //it is flag of the data has been modified, one bit indicates one subpage. EX. 0001 indicates the first subpage is dirty
 	int flag;			                //indicates if this node is the last 20% of the LRU list	
-	unsigned int partial_page;					//部分写标志，初始化为0
+	unsigned int page_type;				//buff page type:0--full_page  1--partial_page
 }buf_node;
 
 
@@ -380,6 +385,7 @@ struct request{
 	unsigned int lsn;                  //请求的起始地址，逻辑地址
 	unsigned int size;                 //请求的大小，既多少个扇区
 	unsigned int operation;            //请求的种类，1为读，0为写
+	unsigned int cmplt_flag;		   //请求是否被执行，0表示未执行，1表示已执行
 
 	unsigned int* need_distr_flag;
 	unsigned int complete_lsn_count;   //record the count of lsn served by buffer

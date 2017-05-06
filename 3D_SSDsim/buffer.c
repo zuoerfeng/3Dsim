@@ -36,7 +36,8 @@ Zuo Lu	        2017/04/06	      1.0		    Creat 3D_SSDsim       617376665@qq.com
 
 extern int request_lz_count;
 extern int hit_flag;
-
+extern int buffer_full_flag;
+extern int lz_k;
 /**********************************************************************************************************************************************
 *首先buffer是个写buffer，就是为写请求服务的，因为读flash的时间tR为20us，写flash的时间tprog为200us，所以为写服务更能节省时间
 *  读操作：如果命中了buffer，从buffer读，不占用channel的I/O总线，没有命中buffer，从flash读，占用channel的I/O总线，但是不进buffer了
@@ -55,21 +56,27 @@ struct ssd_info *buffer_management(struct ssd_info *ssd)
 	struct request *new_request;
 	struct buffer_group *buffer_node, key;
 	unsigned int mask = 0, offset1 = 0, offset2 = 0;
+	unsigned int page_type;
+	unsigned int buff_free_count;
+	unsigned int request_flag = 0;
 
 #ifdef DEBUG
 	printf("enter buffer_management,  current time:%I64u\n", ssd->current_time);
 #endif
+
 	ssd->dram->current_time = ssd->current_time;
 	full_page = ~(0xffffffff << ssd->parameter->subpage_page);
 
-	new_request = ssd->request_tail;
+	//new_request = ssd->request_tail;
+	new_request = ssd->request_work;
 	lsn = new_request->lsn;
 	lpn = new_request->lsn / ssd->parameter->subpage_page;
 	last_lpn = (new_request->lsn + new_request->size - 1) / ssd->parameter->subpage_page;
 	first_lpn = new_request->lsn / ssd->parameter->subpage_page;   //计算lpn
 
+
 	//int型32位，也就是说need_distr_flag 是一个以bit为单位的状态位数组
-	new_request->need_distr_flag = (unsigned int*)malloc(sizeof(unsigned int)*((last_lpn - first_lpn + 1)*ssd->parameter->subpage_page / 32 + 1));
+ 	new_request->need_distr_flag = (unsigned int*)malloc(sizeof(unsigned int)*((last_lpn - first_lpn + 1)*ssd->parameter->subpage_page / 32 + 1));
 	alloc_assert(new_request->need_distr_flag, "new_request->need_distr_flag");
 	memset(new_request->need_distr_flag, 0, sizeof(unsigned int)*((last_lpn - first_lpn + 1)*ssd->parameter->subpage_page / 32 + 1));
 
@@ -146,25 +153,82 @@ struct ssd_info *buffer_management(struct ssd_info *ssd)
 	}
 	else if (new_request->operation == WRITE)
 	{
-		while (lpn <= last_lpn)
+		//if (new_request->lsn == 725320)
+			//getchar();
+
+		while (new_request->cmplt_flag == 0)
 		{
-			need_distb_flag = full_page;
-			mask = ~(0xffffffff << (ssd->parameter->subpage_page));
-			state = mask;
-
-			if (lpn == first_lpn)
+			//首先对该请求的所有lpn进行检查
+			lpn = new_request->lsn / ssd->parameter->subpage_page;
+			buff_free_count = ssd->dram->buffer->max_buffer_sector - ssd->dram->buffer->buffer_sector_count;
+			while (lpn <= last_lpn)
 			{
-				offset1 = ssd->parameter->subpage_page - ((lpn + 1)*ssd->parameter->subpage_page - new_request->lsn);
-				state = state&(0xffffffff << offset1);
-			}
-			if (lpn == last_lpn)
-			{
-				offset2 = ssd->parameter->subpage_page - ((lpn + 1)*ssd->parameter->subpage_page - (new_request->lsn + new_request->size));
-				state = state&(~(0xffffffff << offset2));
+				//在这个while里面，首先检查一遍buff这个时候可不可以放下，如果能够放下，就insertbuff，不能就阻塞buff
+				key.group = lpn;
+				buffer_node = (struct buffer_group*)avlTreeFind(ssd->dram->buffer, (TREE_NODE *)&key);	    //在buff中检查是否命中
+				if (buffer_node == NULL)
+				{
+					if (buff_free_count >= ssd->parameter->subpage_page)
+					{
+						buff_free_count = buff_free_count - ssd->parameter->subpage_page;
+					}
+					else  //buff已满，阻塞buff,跳出循环
+					{
+						buffer_full_flag = 1;
+						break;
+					}
+				}
+				lpn++;
 			}
 
-			ssd = insert2buffer(ssd, lpn, state, NULL, new_request);
-			lpn++;
+			if (buffer_full_flag == 0)
+			{
+				//buff此时未满，向buff中写入数据
+				lz_k++;
+				lpn = new_request->lsn / ssd->parameter->subpage_page;
+				while (lpn <= last_lpn)
+				{
+					need_distb_flag = full_page;
+					mask = ~(0xffffffff << (ssd->parameter->subpage_page));
+					state = mask;
+
+					if (lpn == first_lpn)
+					{
+						offset1 = ssd->parameter->subpage_page - ((lpn + 1)*ssd->parameter->subpage_page - new_request->lsn);
+						state = state&(0xffffffff << offset1);
+					}
+					if (lpn == last_lpn)
+					{
+						offset2 = ssd->parameter->subpage_page - ((lpn + 1)*ssd->parameter->subpage_page - (new_request->lsn + new_request->size));
+						state = state&(~(0xffffffff << offset2));
+					}
+
+					//计算lpn的类型，该lpn是full page还是partial page
+					if ((state&ssd->dram->map->map_entry[lpn].state) != ssd->dram->map->map_entry[lpn].state)
+						page_type = 1;
+					else
+						page_type = 0;
+
+					ssd = insert2buffer(ssd, lpn, state, page_type, NULL, new_request);
+					lpn++;
+				}
+				lpn = 0;
+				new_request->cmplt_flag = 1;			//该请求已经被执行
+				//printf("write insert,%d\n", lz_k);
+				//if (lz_k == 322931)
+					//getchar();
+
+			}
+			else
+			{
+				//buff满了，从buff的末尾替换两个请求下去
+				getout2buffer(ssd, NULL, new_request);
+				if (buffer_full_flag == 1)
+					break;
+
+				new_request->cmplt_flag = 0;			//该请求未被执行
+				//printf("write 2 lpn\n");
+			}
 		}
 	}
 
@@ -177,11 +241,6 @@ struct ssd_info *buffer_management(struct ssd_info *ssd)
 			if (new_request->need_distr_flag[j] != 0)
 			{
 				complete_flag = 0;
-				//ssd->dram->buffer->read_miss_hit++;
-			}
-			else
-			{
-				//ssd->dram->buffer->read_hit++;
 			}
 		}
 	}
@@ -192,6 +251,8 @@ struct ssd_info *buffer_management(struct ssd_info *ssd)
 	**************************************************************/
 	if ((complete_flag == 1) && (new_request->subs == NULL))
 	{
+		//request_lz_count++;
+		new_request->cmplt_flag = 1;
 		new_request->begin_time = ssd->current_time;
 		new_request->response_time = ssd->current_time + 1000;
 	}
@@ -200,10 +261,114 @@ struct ssd_info *buffer_management(struct ssd_info *ssd)
 }
 
 
+
+struct ssd_info * getout2buffer(struct ssd_info *ssd, struct sub_request *sub, struct request *req)
+{
+	unsigned int req_write_counts = 0;
+	struct buffer_group *pt;
+	unsigned int sub_req_state = 0, sub_req_size = 0, sub_req_lpn = 0, sub_req_type = 0;
+	struct sub_request *sub_req = NULL;
+
+
+	//末尾节点替换
+	pt = ssd->dram->buffer->buffer_tail;
+	if (pt->page_type == 0 && pt->LRU_link_pre->page_type == 0)
+	{
+		//发送两个full page,并删除这两个节点
+		for (req_write_counts = 0; req_write_counts < 2; req_write_counts++)
+		{
+			//printf("write\n");
+			ssd->dram->buffer->write_miss_hit++;
+			pt = ssd->dram->buffer->buffer_tail;
+
+			sub_req_state = pt->stored;
+			sub_req_size = size(pt->stored);
+			sub_req_lpn = pt->group;
+			sub_req_type = pt->page_type;
+			sub_req = NULL;
+			sub_req = creat_sub_request(ssd, sub_req_lpn, sub_req_size, sub_req_state, sub_req_type, req, WRITE);
+
+			//删除节点
+			ssd->dram->buffer->buffer_sector_count = ssd->dram->buffer->buffer_sector_count - ssd->parameter->subpage_page;
+
+			if (pt == ssd->dram->buffer->buffer_tail)
+			{
+				if (ssd->dram->buffer->buffer_head->LRU_link_next == NULL){
+					ssd->dram->buffer->buffer_head = NULL;
+					ssd->dram->buffer->buffer_tail = NULL;
+				}
+				else{
+					ssd->dram->buffer->buffer_tail = pt->LRU_link_pre;
+					ssd->dram->buffer->buffer_tail->LRU_link_next = NULL;
+				}
+			}
+			else
+			{
+				printf("buffer_tail delete failed\n");
+				getchar();
+			}
+			
+			avlTreeDel(ssd->dram->buffer, (TREE_NODE *)pt);
+			pt->LRU_link_next = NULL;
+			pt->LRU_link_pre = NULL;
+			AVL_TREENODE_FREE(ssd->dram->buffer, (TREE_NODE *)pt);
+			pt = NULL;
+		}
+
+		//取消阻塞buff
+		buffer_full_flag = 0;
+
+
+	}
+	else if (pt->page_type == 1)
+	{
+		//发送一个pre read
+		//printf("update read\n");
+		//getchar();
+		sub_req_state = pt->stored;
+		sub_req_size = size(pt->stored);
+		sub_req_lpn = pt->group;
+		sub_req_type = pt->page_type;
+		sub_req = NULL;
+		sub_req = creat_sub_request(ssd, sub_req_lpn, sub_req_size, sub_req_state, sub_req_type, req, UPDATE_READ);
+	}
+	else if (pt->LRU_link_pre->page_type == 1)
+	{
+		//发送一个pre read
+		//printf("update read\n");
+		//getchar();
+		sub_req_state = pt->LRU_link_pre->stored;
+		sub_req_size = size(pt->LRU_link_pre->stored);
+		sub_req_lpn = pt->LRU_link_pre->group;
+		sub_req_type = pt->LRU_link_pre->page_type;
+		sub_req = NULL;
+		sub_req = creat_sub_request(ssd, sub_req_lpn, sub_req_size, sub_req_state, sub_req_type, req, UPDATE_READ);
+	}
+	else
+	{
+		//发送两个pre read
+		//printf("update read\n");
+		//getchar();
+		for (req_write_counts = 0; req_write_counts < 2; req_write_counts++)
+		{
+			sub_req_state = pt->stored;
+			sub_req_size = size(pt->stored);
+			sub_req_lpn = pt->group;
+			sub_req_type = pt->page_type;
+			sub_req = NULL;
+			sub_req = creat_sub_request(ssd, sub_req_lpn, sub_req_size, sub_req_state, sub_req_type, req, UPDATE_READ);
+
+			pt = pt->LRU_link_pre;
+		}
+	}
+	return ssd;
+}
+
+
 /*******************************************************************************
 *insert2buffer这个函数是专门为写请求分配子请求服务的在buffer_management中被调用。
 ********************************************************************************/
-struct ssd_info * insert2buffer(struct ssd_info *ssd, unsigned int lpn, int state, struct sub_request *sub, struct request *req )
+struct ssd_info * insert2buffer(struct ssd_info *ssd, unsigned int lpn, int state,unsigned int page_type, struct sub_request *sub, struct request *req )
 {
 	int write_back_count, flag = 0;                                                             /*flag表示为写入新数据腾空间是否完成，0表示需要进一步腾，1表示已经腾空*/
 	unsigned int i, lsn, add_flag, hit_flag, sector_count, active_region_flag = 0;
@@ -211,9 +376,10 @@ struct ssd_info * insert2buffer(struct ssd_info *ssd, unsigned int lpn, int stat
 	unsigned int page_size=0;
 	struct buffer_group *buffer_node = NULL, *pt, *new_node = NULL, key;
 	struct sub_request *sub_req = NULL, *update = NULL;
-	int req_write_counts = 0;
+	unsigned int req_write_counts = 0;
+	unsigned int full_page_flag = 0;
+	unsigned int page_flag = 0;
 
-	unsigned int sub_req_state = 0, sub_req_size = 0, sub_req_lpn = 0;
 
 #ifdef DEBUG
 	printf("enter insert2buffer,  current time:%I64u, lpn:%d, state:%d,\n", ssd->current_time, lpn, state);
@@ -223,6 +389,7 @@ struct ssd_info * insert2buffer(struct ssd_info *ssd, unsigned int lpn, int stat
 	key.group = lpn;
 	buffer_node = (struct buffer_group*)avlTreeFind(ssd->dram->buffer, (TREE_NODE *)&key);    /*在平衡二叉树中寻找buffer node*/
 	page_size = ssd->parameter->subpage_page;
+	flag = 0;
 
 	/************************************************************************************************
 	*没有命中。
@@ -237,106 +404,15 @@ struct ssd_info * insert2buffer(struct ssd_info *ssd, unsigned int lpn, int stat
 		if (free_sector >= page_size)
 		{
 			flag = 1;		//可直接添加进buff，认为该请求已经完成
-			ssd->dram->buffer->write_hit++;
+			//ssd->dram->buffer->write_hit++;
 		}
 		if (flag == 0)      //没用命中，并且此时buff中剩余扇区空间不够，发生替换，替换lpn到闪存上去，
 		{
-			write_back_count = page_size - free_sector;
-			ssd->dram->buffer->write_miss_hit++;			//以page为单位
-
-			if(write_back_count>0)
-			{	
-				//write_back_count大于0，表示此时需要替换写回，修改为一次写两个请求
-				for (req_write_counts = 0; req_write_counts < 2; req_write_counts++)				//替换两个请求下去，故i=2
-				{
-					if(ssd->dram->buffer->buffer_tail->partial_page == 1)							//如果末尾节点是部分写页，则写不下去，将末尾节点和前一个节点交换
-					{
-						pt = ssd->dram->buffer->buffer_tail->LRU_link_pre;
-						while (pt->partial_page == 1)
-						{
-							pt = pt->LRU_link_pre;
-							if (pt == ssd->dram->buffer->buffer_head)
-							{
-								printf("Error! all the partial page in buffer\n");
-								getchar();
-							}
-						}
-						
-						//把full_page节点放到对尾
-						if (ssd->dram->buffer->buffer_head == pt)
-						{
-							pt->LRU_link_next->LRU_link_pre = NULL;
-							ssd->dram->buffer->buffer_head = pt->LRU_link_next;
-						}
-						else
-						{
-							pt->LRU_link_pre->LRU_link_next = pt->LRU_link_next;
-							pt->LRU_link_next->LRU_link_pre = pt->LRU_link_pre;
-						}				
-						pt->LRU_link_pre = ssd->dram->buffer->buffer_tail;
-						ssd->dram->buffer->buffer_tail->LRU_link_next = pt;
-						pt->LRU_link_next = NULL;
-						ssd->dram->buffer->buffer_tail = pt;
-					}
-
-					sub_req = NULL; 
-					sub_req_state = ssd->dram->buffer->buffer_tail->stored;
-					sub_req_size = size(ssd->dram->buffer->buffer_tail->stored);
-					sub_req_lpn = ssd->dram->buffer->buffer_tail->group;
-					sub_req = creat_sub_request(ssd, sub_req_lpn, sub_req_size, sub_req_state, req, WRITE);
-
-					if (sub_req == NULL)
-					{
-						ssd->dram->buffer->buffer_tail->partial_page = 1;
-						req_write_counts--;
-						continue;
-					}
-					else
-					{
-						ssd->dram->buffer->buffer_tail->partial_page = 0;
-					}
-					/**********************************************************************************
-					*req不为空，表示这个insert2buffer函数是在buffer_management中调用，传递了request进来
-					*req为空，表示这个函数是在process函数中处理一对多映射关系的读的时候，需要将这个读出
-					*的数据加到buffer中，这可能产生实时的写回操作，需要将这个实时的写回操作的子请求挂在
-					*这个读请求的总请求上
-					***********************************************************************************/
-					if (req != NULL)
-					{
-					}
-					else
-					{
-						sub_req->next_subs = sub->next_subs;
-						sub->next_subs = sub_req;
-					}
-
-					/*********************************************************************
-					*写请求插入到了平衡二叉树，这时就要修改dram的buffer_sector_count；
-					*维持平衡二叉树调用avlTreeDel()和AVL_TREENODE_FREE()函数；维持LRU算法；
-					**********************************************************************/
-					ssd->dram->buffer->buffer_sector_count = ssd->dram->buffer->buffer_sector_count - page_size;
-
-					pt = ssd->dram->buffer->buffer_tail;
-					avlTreeDel(ssd->dram->buffer, (TREE_NODE *)pt);			//删除末尾节点
-
-
-					if (ssd->dram->buffer->buffer_head->LRU_link_next == NULL){
-						ssd->dram->buffer->buffer_head = NULL;
-						ssd->dram->buffer->buffer_tail = NULL;
-					}
-					else{
-						ssd->dram->buffer->buffer_tail = ssd->dram->buffer->buffer_tail->LRU_link_pre;
-						ssd->dram->buffer->buffer_tail->LRU_link_next = NULL;
-					}
-					pt->LRU_link_next = NULL;
-					pt->LRU_link_pre = NULL;
-					AVL_TREENODE_FREE(ssd->dram->buffer, (TREE_NODE *)pt);
-					pt = NULL;
-				}
-			}
+			printf("Error! insert2buff error,no free space\n");
+			getchar();
 		}
 
-
+			
 		//没有命中，将此lpn写入到buff中
 		/******************************************************************************
 		*生成一个buffer node，根据这个页的情况分别赋值个各个成员，添加到队首和二叉树中
@@ -349,9 +425,10 @@ struct ssd_info * insert2buffer(struct ssd_info *ssd, unsigned int lpn, int stat
 		new_node->group = lpn;
 		new_node->stored = state;
 		new_node->dirty_clean = state;
+		new_node->page_type = page_type;
+
 		new_node->LRU_link_pre = NULL;
 		new_node->LRU_link_next = ssd->dram->buffer->buffer_head;
-		new_node->partial_page = 0;
 		if (ssd->dram->buffer->buffer_head != NULL){
 			ssd->dram->buffer->buffer_head->LRU_link_pre = new_node;
 		}
@@ -363,85 +440,50 @@ struct ssd_info * insert2buffer(struct ssd_info *ssd, unsigned int lpn, int stat
 		avlTreeAdd(ssd->dram->buffer, (TREE_NODE *)new_node);
 
 		ssd->dram->buffer->buffer_sector_count += page_size;
+
 	}
 	/****************************************************************************************
-	*在buffer中命中的情况
+	*在buffer中命中的情况,完全命中则直接返回，部分命中，合并扇区后返回
 	*****************************************************************************************/
 	else
 	{
-		ssd->dram->buffer->write_hit++;
-		for (i = 0; i<ssd->parameter->subpage_page; i++)
+		if (state == buffer_node->stored)
 		{
-			/*************************************************************
-			*判断state第i位是不是1
-			*并且判断第i个sector是否存在buffer中，1表示存在，0表示不存在。
-			**************************************************************/
-			if ((state >> i) % 2 != 0)
-			{
-				lsn = lpn*ssd->parameter->subpage_page + i;
-				hit_flag = 0;
-				hit_flag = (buffer_node->stored)&(0x00000001 << i);
-
-				if (hit_flag != 0)				                                          /*命中了，需要将该节点移到buffer的队首，并且将命中的lsn进行标记*/
-				{
-					active_region_flag = 1;                                             /*用来记录在这个buffer node中的lsn是否被命中，用于后面对阈值的判定*/
-
-					if (req != NULL)
-					{
-						if (ssd->dram->buffer->buffer_head != buffer_node)
-						{
-							if (ssd->dram->buffer->buffer_tail == buffer_node)
-							{
-								ssd->dram->buffer->buffer_tail = buffer_node->LRU_link_pre;
-								buffer_node->LRU_link_pre->LRU_link_next = NULL;
-							}
-							else if (buffer_node != ssd->dram->buffer->buffer_head)
-							{
-								buffer_node->LRU_link_pre->LRU_link_next = buffer_node->LRU_link_next;
-								buffer_node->LRU_link_next->LRU_link_pre = buffer_node->LRU_link_pre;
-							}
-							buffer_node->LRU_link_next = ssd->dram->buffer->buffer_head;
-							ssd->dram->buffer->buffer_head->LRU_link_pre = buffer_node;
-							buffer_node->LRU_link_pre = NULL;
-							ssd->dram->buffer->buffer_head = buffer_node;
-						}
-						req->complete_lsn_count++;                                        /*关键 当在buffer中命中时 就用req->complete_lsn_count++表示往buffer中写了数据。*/
-					}
-					else
-					{
-					}
-				}
-				else   //该lsn未命中，则合并lsn
-				{
-					/*将新的lsn加到所述的buffer节点中*/
-					add_flag = 0x00000001 << (lsn%ssd->parameter->subpage_page);
-
-					if (ssd->dram->buffer->buffer_head != buffer_node)                      /*如果该buffer节点不在buffer的队首，需要将这个节点提到队首*/
-					{
-						if (ssd->dram->buffer->buffer_tail == buffer_node)
-						{
-							buffer_node->LRU_link_pre->LRU_link_next = NULL;
-							ssd->dram->buffer->buffer_tail = buffer_node->LRU_link_pre;
-						}
-						else
-						{
-							buffer_node->LRU_link_pre->LRU_link_next = buffer_node->LRU_link_next;
-							buffer_node->LRU_link_next->LRU_link_pre = buffer_node->LRU_link_pre;
-						}
-						buffer_node->LRU_link_next = ssd->dram->buffer->buffer_head;
-						ssd->dram->buffer->buffer_head->LRU_link_pre = buffer_node;
-						buffer_node->LRU_link_pre = NULL;
-						ssd->dram->buffer->buffer_head = buffer_node;
-					}
-					buffer_node->stored = buffer_node->stored | add_flag;
-					buffer_node->dirty_clean = buffer_node->dirty_clean | add_flag;
-					req->complete_lsn_count++;
-				}
-			}
+			ssd->dram->buffer->write_hit++;
 		}
+		else
+		{
+			buffer_node->stored = buffer_node->stored | state;
+			buffer_node->dirty_clean = buffer_node->dirty_clean | state;
+
+			//合并后判断此时buff存在的节点page类型
+			if ((buffer_node->stored&ssd->dram->map->map_entry[lpn].state) != ssd->dram->map->map_entry[lpn].state)
+				buffer_node->page_type = 1;
+			else
+				buffer_node->page_type = 0;
+
+			ssd->dram->buffer->write_hit++;
+		}
+		//命中了lpn，将该节点移动到头部
+		if (ssd->dram->buffer->buffer_head != buffer_node)
+		{
+			if (ssd->dram->buffer->buffer_tail == buffer_node)
+			{
+				ssd->dram->buffer->buffer_tail = buffer_node->LRU_link_pre;
+				buffer_node->LRU_link_pre->LRU_link_next = NULL;
+			}
+			else if (buffer_node != ssd->dram->buffer->buffer_head)
+			{
+				buffer_node->LRU_link_pre->LRU_link_next = buffer_node->LRU_link_next;
+				buffer_node->LRU_link_next->LRU_link_pre = buffer_node->LRU_link_pre;
+			}
+			buffer_node->LRU_link_next = ssd->dram->buffer->buffer_head;
+			ssd->dram->buffer->buffer_head->LRU_link_pre = buffer_node;
+			buffer_node->LRU_link_pre = NULL;
+			ssd->dram->buffer->buffer_head = buffer_node;
+		}
+		req->complete_lsn_count++;
 	}
-	
-	
 	//printf("bufff_count,%d\n",avlTreeCount(ssd->dram->buffer));
 	return ssd;
 }
@@ -466,7 +508,8 @@ struct ssd_info *distribute(struct ssd_info *ssd)
 #endif
 	full_page = ~(0xffffffff << ssd->parameter->subpage_page);
 
-	req = ssd->request_tail;
+	//req = ssd->request_tail;
+	req = ssd->request_work;
 	if (req->response_time != 0){
 		return ssd;
 	}
@@ -480,7 +523,8 @@ struct ssd_info *distribute(struct ssd_info *ssd)
 		if (req->distri_flag == 0)
 		{
 			//如果还有一些读请求需要处理
-			if (req->complete_lsn_count != ssd->request_tail->size)
+			//if (req->complete_lsn_count != ssd->request_tail->size)
+			if (req->complete_lsn_count != ssd->request_work->size)
 			{
 				first_lsn = req->lsn;
 				last_lsn = first_lsn + req->size;
@@ -515,7 +559,8 @@ struct ssd_info *distribute(struct ssd_info *ssd)
 							}
 							else
 							{
-								sub = creat_sub_request(ssd, lpn, sub_size, 0, req, req->operation);
+								printf("normal read\n");
+								sub = creat_sub_request(ssd, lpn, sub_size, 0, 0, req, req->operation);
 							}
 						}
 					}
@@ -531,6 +576,7 @@ struct ssd_info *distribute(struct ssd_info *ssd)
 
 		}
 	}
+	req->cmplt_flag = 1;   //读请求被执行了
 	return ssd;
 }
 
@@ -555,7 +601,8 @@ struct ssd_info *no_buffer_distribute(struct ssd_info *ssd)
 	unsigned int sub_state = 0;
 
 	ssd->dram->current_time = ssd->current_time;
-	req = ssd->request_tail;
+	//req = ssd->request_tail;
+	req = ssd->request_work;
 	lsn = req->lsn;
 	lpn = req->lsn / ssd->parameter->subpage_page;
 	last_lpn = (req->lsn + req->size - 1) / ssd->parameter->subpage_page;
@@ -656,12 +703,15 @@ unsigned int size(unsigned int stored)
 /**********************************************
 *这个函数的功能是根据lpn，size，state创建子请求
 **********************************************/
-struct sub_request * creat_sub_request(struct ssd_info * ssd, unsigned int lpn, int size, unsigned int state, struct request * req, unsigned int operation)
+struct sub_request * creat_sub_request(struct ssd_info * ssd, unsigned int lpn, int page_size, unsigned int state,unsigned int page_type, struct request *req, unsigned int operation)
 {
 	struct sub_request* sub = NULL, *sub_r = NULL;
 	struct channel_info * p_ch = NULL;
 	struct local * loc = NULL;
 	unsigned int flag = 0;
+	struct sub_request * update = NULL;
+	struct local *location = NULL;
+
 
 	sub = (struct sub_request*)malloc(sizeof(struct sub_request));                        /*申请一个子请求的结构*/
 	alloc_assert(sub, "sub_request");
@@ -676,6 +726,7 @@ struct sub_request * creat_sub_request(struct ssd_info * ssd, unsigned int lpn, 
 	sub->next_subs = NULL;
 	sub->update = NULL;
 
+	//把该子请求挂在当前的请求上
 	if (req != NULL)
 	{
 		sub->next_subs = req->subs;
@@ -696,7 +747,7 @@ struct sub_request * creat_sub_request(struct ssd_info * ssd, unsigned int lpn, 
 		sub->next_state = SR_R_C_A_TRANSFER;
 		sub->next_state_predict_time = 0x7fffffffffffffff;
 		sub->lpn = lpn;
-		sub->size = size;                                                               /*需要计算出该子请求的请求大小*/
+		sub->size = page_size;                                                               /*需要计算出该子请求的请求大小*/
 
 		p_ch = &ssd->channel_head[loc->channel];
 		sub->ppn = ssd->dram->map->map_entry[lpn].pn;
@@ -751,20 +802,71 @@ struct sub_request * creat_sub_request(struct ssd_info * ssd, unsigned int lpn, 
 		sub->current_state = SR_WAIT;
 		sub->current_time = ssd->current_time;
 		sub->lpn = lpn;
-		sub->size = size;
+		sub->size = page_size;
 		sub->state = state;
 		sub->begin_time = ssd->current_time;
+		sub->update_read_flag = 0;
 
+		//写请求的动态分配
 		if (allocate_location(ssd, sub) == ERROR)
 		{
 			free(sub->location);
 			sub->location = NULL;
 			free(sub);
 			sub = NULL;
-			//printf("lz111\n");
-			req->subs = NULL;
+			//req->subs = NULL;
+			printf("allocate_location error \n");
 			return NULL;
-			
+		}
+	}
+	else if (operation == UPDATE_READ)
+	{
+		//partial page需要产生更新读
+		ssd->update_read_count++;
+
+		/*
+		update = (struct sub_request *)malloc(sizeof(struct sub_request));
+		alloc_assert(update, "update");
+		memset(update, 0, sizeof(struct sub_request));
+		*/
+
+		if (sub == NULL)
+		{
+			return ERROR;
+		}
+		sub->location = NULL;
+		sub->next_node = NULL;
+		sub->next_subs = NULL;
+		sub->update = NULL;
+		location = find_location(ssd, ssd->dram->map->map_entry[lpn].pn);
+		sub->location = location;
+		sub->begin_time = ssd->current_time;
+		sub->current_state = SR_WAIT;
+		sub->current_time = 0x7fffffffffffffff;
+		sub->next_state = SR_R_C_A_TRANSFER;
+		sub->next_state_predict_time = 0x7fffffffffffffff;
+		sub->lpn = lpn;
+		sub->state = ((ssd->dram->map->map_entry[lpn].state^state) & 0x7fffffff);
+		sub->size = size(sub->state);
+		sub->ppn = ssd->dram->map->map_entry[lpn].pn;
+		sub->operation = READ;
+		sub->update_read_flag = page_type;
+
+		if (sub->update_read_flag == 0)
+		{
+			printf("not in partial page!\n");
+			getchar();
+		}
+
+		if (ssd->channel_head[location->channel].subs_r_tail != NULL)            /*产生新的读请求，并且挂到channel的subs_r_tail队列尾*/
+		{
+			ssd->channel_head[location->channel].subs_r_tail->next_node = sub;
+			ssd->channel_head[location->channel].subs_r_tail = sub;
+		}
+		else
+		{
+			ssd->channel_head[location->channel].subs_r_tail = sub;
+			ssd->channel_head[location->channel].subs_r_head = sub;
 		}
 	}
 	else
@@ -794,79 +896,26 @@ Status allocate_location(struct ssd_info * ssd, struct sub_request *sub_req)
 	die_num = ssd->parameter->die_chip;
 	plane_num = ssd->parameter->plane_die;
 
-
 	if (ssd->parameter->allocation_scheme == 0)                                          /*动态分配的情况*/
 	{
-		/******************************************************************
-		* 在动态分配中，因为页的更新操作使用不了copyback操作，
-		*需要产生一个读请求，并且只有这个读请求完成后才能进行这个页的写操作
-		*******************************************************************/
-		if (ssd->dram->map->map_entry[sub_req->lpn].state != 0)
-		{
-			if ((sub_req->state&ssd->dram->map->map_entry[sub_req->lpn].state) != ssd->dram->map->map_entry[sub_req->lpn].state)
-			{
-				//ssd->read_count++;
-				ssd->update_read_count++;
-				//ssd->update_write_count++;
-
-				update = (struct sub_request *)malloc(sizeof(struct sub_request));
-				alloc_assert(update, "update");
-				memset(update, 0, sizeof(struct sub_request));
-
-				if (update == NULL)
-				{
-					return ERROR;
-				}
-				update->location = NULL;
-				update->next_node = NULL;
-				update->next_subs = NULL;
-				update->update = NULL;
-				location = find_location(ssd, ssd->dram->map->map_entry[sub_req->lpn].pn);
-				update->location = location;
-				update->begin_time = ssd->current_time;
-				update->current_state = SR_WAIT;
-				update->current_time = 0x7fffffffffffffff;
-				update->next_state = SR_R_C_A_TRANSFER;
-				update->next_state_predict_time = 0x7fffffffffffffff;
-				update->lpn = sub_req->lpn;
-				update->state = ((ssd->dram->map->map_entry[sub_req->lpn].state^sub_req->state) & 0x7fffffff);
-				update->size = size(update->state);
-				update->ppn = ssd->dram->map->map_entry[sub_req->lpn].pn;
-				update->operation = READ;
-				update->update_read_flag = 1;
-
-				if (ssd->channel_head[location->channel].subs_r_tail != NULL)            /*产生新的读请求，并且挂到channel的subs_r_tail队列尾*/
-				{
-					ssd->channel_head[location->channel].subs_r_tail->next_node = update;
-					ssd->channel_head[location->channel].subs_r_tail = update;
-				}
-				else
-				{
-					ssd->channel_head[location->channel].subs_r_tail = update;
-					ssd->channel_head[location->channel].subs_r_head = update;
-				}
-
-				return ERROR;		//更新写操作，只放pre read 不执行写操作
-			}
-			
-		}
 		/***************************************
 		*一下是动态分配的几种情况
 		*0：全动态分配
 		*1：表示channel定package，die，plane动态
 		****************************************/
 		//只考虑全动态分配
-		switch (ssd->parameter->dynamic_allocation)
+		if (ssd->parameter->dynamic_allocation == 0)
 		{
-			case 0:
-			{
-				sub_req->location->channel = -1;
-				sub_req->location->chip = -1;
-				sub_req->location->die = -1;
-				sub_req->location->plane = -1;
-				sub_req->location->block = -1;
-				sub_req->location->page = -1;        //挂载在ssdinfo上，因为全动态分配，不知道具体挂载到哪个channel上面
 
+			sub_req->location->channel = -1;
+			sub_req->location->chip = -1;
+			sub_req->location->die = -1;
+			sub_req->location->plane = -1;
+			sub_req->location->block = -1;
+			sub_req->location->page = -1;        //挂载在ssdinfo上，因为全动态分配，不知道具体挂载到哪个channel上面
+
+			if (sub_req != NULL)	     //该写请求为普通写请求，挂载在普通写请求队列上
+			{
 				if (ssd->subs_w_tail != NULL)
 				{
 					ssd->subs_w_tail->next_node = sub_req;
@@ -877,21 +926,12 @@ Status allocate_location(struct ssd_info * ssd, struct sub_request *sub_req)
 					ssd->subs_w_tail = sub_req;
 					ssd->subs_w_head = sub_req;
 				}
-
-				if (update != NULL)
-				{
-					sub_req->update = update;
-					sub_req->state = (sub_req->state | update->state);
-					sub_req->size = size(sub_req->state);
-				}
-
-				break;
+			}
+			else
+			{
+				return ERROR;
 			}
 		}
 	}
-
-
-
-
 	return SUCCESS;
 }

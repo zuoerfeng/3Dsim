@@ -24,3 +24,4 @@ unsigned int size(unsigned int);
 struct ssd_info *insert2buffer(struct ssd_info *, unsigned int, int, struct sub_request *, struct request *);
 struct sub_request * creat_sub_request(struct ssd_info * ssd, unsigned int lpn, int size, unsigned int state, struct request * req, unsigned int operation);
 int allocate_location(struct ssd_info * ssd, struct sub_request *sub_req);
+struct ssd_info * getout2buffer(struct ssd_info *ssd, struct sub_request *sub, struct request *req);

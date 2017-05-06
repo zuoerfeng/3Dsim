@@ -89,7 +89,7 @@ struct ssd_info *initiation(struct ssd_info *ssd)
 //	strcpy_s(ssd->tracefilename, 50, "16M_2KB_sequence_RandW.ascii");
 //	strcpy_s(ssd->tracefilename, 25, "financial2.ascii");
 	strcpy_s(ssd->tracefilename, 25, "example.ascii");
-//	strcpy_s(ssd->tracefilename,25,"CFS.ascii");
+//	strcpy_s(ssd->tracefilename,50,"update_16_count.ascii");
 //	strcpy_s(ssd->tracefilename,25,"DevDivRelease.ascii");
 
 //	printf("\ninput output file name:");
@@ -403,7 +403,7 @@ struct parameter_value *load_parameters(char parameter_file[30])
 	p = (struct parameter_value *)malloc(sizeof(struct parameter_value));
 	alloc_assert(p,"parameter_value");
 	memset(p,0,sizeof(struct parameter_value));
-	p->queue_length=5;
+	p->queue_length=4;
 	memset(buf,0,BUFSIZE);
 		
 	if((ferr = fopen_s(&fp,parameter_file,"r"))!= 0)

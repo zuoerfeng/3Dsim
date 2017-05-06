@@ -35,6 +35,12 @@ Zuo Lu	        2017/04/06	      1.0		    Creat 3D_SSDsim       617376665@qq.com
 //Global variable
 int make_age_free_page = 0;
 int plane_cmplt = 0;
+int buffer_full_flag = 0;
+int request_lz_count = 0;
+int trace_over_flag = 0;
+int lz_k=0;
+__int64 compare_time = 0;
+
 
 
 /********************************************************************************************************************************
@@ -96,7 +102,7 @@ void main()
 
 	ssd=simulate(ssd);
 	statistic_output(ssd);  
-/*	free_all_node(ssd);*/
+	free_all_node(ssd);
 
 	printf("\n");
 	printf("the simulation is completed!\n");
@@ -159,30 +165,47 @@ struct ssd_info *simulate(struct ssd_info *ssd)
 	fflush(ssd->outputfile);
 
 	while(flag!=100)      
-	{
-        
+	{        
 		/*interface层*/
 		flag = get_requests(ssd);        
 		
 		/*buffer层*/
-		if(flag == 1)
+		if (flag == 1 || (flag == 0 && ssd->request_work != NULL))
 		{   
 			//printf("once\n");
 			if (ssd->parameter->dram_capacity!=0)
 			{
-				buffer_management(ssd);  
-				distribute(ssd); 
+				if (buffer_full_flag == 0)				//buff未阻塞状态方可执行buff操作
+				{
+					buffer_management(ssd);
+					distribute(ssd);
+				}
 			} 
 			else
 			{
 				no_buffer_distribute(ssd);
-			}		
+			}
+
+			if (ssd->request_work->cmplt_flag == 1)
+			{
+				if (ssd->request_work != ssd->request_tail)
+					ssd->request_work = ssd->request_work->next_node;
+				else
+					ssd->request_work = NULL;
+			}
 		}
+		
 
 		/*ftl+fcl+flash层*/
 		process(ssd);    
 		trace_output(ssd);
-		if(flag == 0 && ssd->request_queue == NULL)
+		
+		/*
+		if (trace_over_flag == 1)
+			flag = 0;
+		*/
+
+		if (flag == 0 && ssd->request_queue == NULL)
 			flag = 100;
 	}
 
@@ -238,6 +261,8 @@ struct ssd_info *process(struct ssd_info *ssd)
 			break;
 		}
 	}
+
+
 	if (flag == 1)
 	{
 		ssd->flag = 1;
@@ -267,27 +292,10 @@ struct ssd_info *process(struct ssd_info *ssd)
 		flag = 0;
 		flag_gc = 0;																		/*每次进入channel时，将gc的标志位置为0，默认认为没有进行gc操作*/
 
-		//gc channel操作同步于写操作，这样可以保证擦除的无效块的偏移是一致的，保证所有的plane页内偏移一致
-		if ((ssd->channel_head[channel].current_state == CHANNEL_IDLE) || (ssd->channel_head[channel].next_state == CHANNEL_IDLE&&ssd->channel_head[channel].next_state_predict_time <= ssd->current_time))
-		{
-			/*ftl层*/
-			if (ssd->gc_request>0)                                                       /*有gc操作，需要进行一定的判断*/
-			{
-				if (ssd->channel_head[channel].gc_command != NULL)
-				{
-					flag_gc = gc(ssd, channel, 0);                                                 /*gc函数返回一个值，表示是否执行了gc操作，如果执行了gc操作，这个channel在这个时刻不能服务其他的请求*/
-				}
-				if (flag_gc == 1)                                                          /*执行过gc操作，需要跳出此次循环*/
-				{
-					continue;
-				}
-			}
-		}
-
 		//读操作状态推进，要随机遍历所有channel推进状态
 		if ((ssd->channel_head[i].current_state == CHANNEL_IDLE) || (ssd->channel_head[i].next_state == CHANNEL_IDLE&&ssd->channel_head[i].next_state_predict_time <= ssd->current_time))
 		{
-			/*
+			
 			//*ftl层
 			if (ssd->gc_request>0)                                                       //有gc操作，需要进行一定的判断
 			{
@@ -300,24 +308,23 @@ struct ssd_info *process(struct ssd_info *ssd)
 					continue;
 				}
 			}
-			*/
+			
 
 			/*fcl+flash层*/
 			sub = ssd->channel_head[i].subs_r_head;                                        /*先处理读请求*/
 
-
 			services_2_r_wait(ssd, i, &flag, &chg_cur_time_flag);                           /*处理处于等待状态的读子请求*/
+
 			if ((flag == 0) && (ssd->channel_head[i].subs_r_head != NULL))                      /*if there are no new read request and data is ready in some dies, send these data to controller and response this request*/
 			{
 				services_2_r_data_trans(ssd, i, &flag, &chg_cur_time_flag);
 
 			}
 
+
 			//开始进行写请求的状态转变
 			if (flag == 0)                                                                  /*if there are no read request to take channel, we can serve write requests*/
-			{
-				//表示当前写过程完成
-				//services_2_write(ssd, channel, &flag, &chg_cur_time_flag);
+			{			
 				if (ssd->parameter->dynamic_allocation_priority == 1)
 				{
 					//这个函数返回代表此时一个channel上的superpage 写完成，进行下一个channel 
@@ -339,11 +346,13 @@ struct ssd_info *process(struct ssd_info *ssd)
 							ssd->channel_head[ssd->token].chip_head[chip].token = die;
 					}
 					//printf("aaa\n");
+					
 				}
 				else
 				{
 					services_2_write(ssd, i, &flag, &chg_cur_time_flag); 
 				}
+				
 			}
 		}
 
@@ -385,6 +394,7 @@ void trace_output(struct ssd_info* ssd){
 	__int64 start_time, end_time;
 	struct request *req, *pre_node;
 	struct sub_request *sub, *tmp;
+	unsigned int i;
 
 #ifdef DEBUG
 	printf("enter trace_output,  current time:%I64u\n",ssd->current_time);
@@ -404,35 +414,34 @@ void trace_output(struct ssd_info* ssd){
 		flag = 1;
 		start_time = 0;
 		end_time = 0;
-		if(req->response_time != 0)													//请求在buff中命中
+		if (req->response_time != 0 && req->cmplt_flag == 1)
 		{
-			fprintf(ssd->outputfile,"%16I64u %10u %6u %2u %16I64u %16I64u %10I64u\n",req->time,req->lsn, req->size, req->operation, req->begin_time, req->response_time, req->response_time-req->time);
+			fprintf(ssd->outputfile, "%16lld %10d %6d %2d %16lld %16lld %10lld\n", req->time, req->lsn, req->size, req->operation, req->begin_time, req->response_time, req->response_time - req->time);
 			fflush(ssd->outputfile);
 
-			if(req->response_time-req->begin_time==0)
+			if (req->response_time - req->begin_time == 0)
 			{
 				printf("the response time is 0?? \n");
 				getchar();
 			}
 
-			if (req->operation==READ)
+			if (req->operation == READ)
 			{
 				ssd->read_request_count++;
-				ssd->read_avg=ssd->read_avg+(req->response_time-req->time);
-			} 
+				ssd->read_avg = ssd->read_avg + (req->response_time - req->time);
+			}
 			else
 			{
 				ssd->write_request_count++;
-				//request_lz_count++;
-				ssd->write_avg=ssd->write_avg+(req->response_time-req->time);
+				ssd->write_avg = ssd->write_avg + (req->response_time - req->time);
 			}
 
-			if(pre_node == NULL)
+			if (pre_node == NULL)
 			{
-				if(req->next_node == NULL)
+				if (req->next_node == NULL)
 				{
 					free(req->need_distr_flag);
-					req->need_distr_flag=NULL;
+					req->need_distr_flag = NULL;
 					free(req);
 					req = NULL;
 					ssd->request_queue = NULL;
@@ -445,7 +454,7 @@ void trace_output(struct ssd_info* ssd){
 					pre_node = req;
 					req = req->next_node;
 					free(pre_node->need_distr_flag);
-					pre_node->need_distr_flag=NULL;
+					pre_node->need_distr_flag = NULL;
 					free((void *)pre_node);
 					pre_node = NULL;
 					ssd->request_queue_length--;
@@ -453,11 +462,11 @@ void trace_output(struct ssd_info* ssd){
 			}
 			else
 			{
-				if(req->next_node == NULL)
+				if (req->next_node == NULL)
 				{
 					pre_node->next_node = NULL;
 					free(req->need_distr_flag);
-					req->need_distr_flag=NULL;
+					req->need_distr_flag = NULL;
 					free(req);
 					req = NULL;
 					ssd->request_tail = pre_node;
@@ -467,83 +476,97 @@ void trace_output(struct ssd_info* ssd){
 				{
 					pre_node->next_node = req->next_node;
 					free(req->need_distr_flag);
-					req->need_distr_flag=NULL;
+					req->need_distr_flag = NULL;
 					free((void *)req);
 					req = pre_node->next_node;
 					ssd->request_queue_length--;
 				}
 			}
 		}
-		else																		//请求在buff中未命中
+		else if (req->response_time == 0 && req->cmplt_flag == 1)
 		{
-			flag=1;
-			while(sub != NULL)
+			flag = 1;
+			while (sub != NULL)
 			{
-				if(start_time == 0)
+				if (start_time == 0)
 					start_time = sub->begin_time;
-				if(start_time > sub->begin_time)
+				if (start_time > sub->begin_time)
 					start_time = sub->begin_time;
-				if(end_time < sub->complete_time)
+				if (end_time < sub->complete_time)
 					end_time = sub->complete_time;
 
-				if((sub->current_state == SR_COMPLETE)||((sub->next_state==SR_COMPLETE)&&(sub->next_state_predict_time<=ssd->current_time)))	// if any sub-request is not completed, the request is not completed
+				if (trace_over_flag == 1)
+					compare_time = ssd->current_time * 2;
+				else
+					compare_time = ssd->current_time;
+
+
+				if ((sub->current_state == SR_COMPLETE) || ((sub->next_state == SR_COMPLETE) && (sub->next_state_predict_time <= compare_time)))	// if any sub-request is not completed, the request is not completed
 				{
 					sub = sub->next_subs;
+
+
+					if (end_time - start_time == 0)
+					{
+						printf("the response time is 0?? \n");
+						getchar();
+					}
 				}
 				else
 				{
-					flag=0;
-					break;																														 //判断出当前子请求没有全部完成，此时这个请求不能从队列上删除，跳到下一个队列
+					flag = 0;
+					break;
 				}
-				
+
 			}
 
-			if (flag == 1)				//flag=1，表示这个请求完成了，需要从队列上去除
-			{		
-				fprintf(ssd->outputfile,"%16I64u %10u %6u %2u %16I64u %16I64u %10I64u\n",req->time,req->lsn, req->size, req->operation, start_time, end_time, end_time-req->time);
+			if (flag == 1)
+			{
+				//fprintf(ssd->outputfile,"%10I64u %10u %6u %2u %16I64u %16I64u %10I64u\n",req->time,req->lsn, req->size, req->operation, start_time, end_time, end_time-req->time);
+				fprintf(ssd->outputfile, "%16lld %10d %6d %2d %16lld %16lld %10lld\n", req->time, req->lsn, req->size, req->operation, start_time, end_time, end_time - req->time);
 				fflush(ssd->outputfile);
 
-				if(end_time-start_time==0)
+				if (end_time - start_time == 0)
 				{
 					printf("the response time is 0?? \n");
 					getchar();
 				}
 
-				if (req->operation==READ)
+				if (req->operation == READ)
 				{
 					ssd->read_request_count++;
-					ssd->read_avg=ssd->read_avg+(end_time-req->time);
-				} 
+					ssd->read_avg = ssd->read_avg + (end_time - req->time);
+				}
 				else
 				{
 					ssd->write_request_count++;
-					ssd->write_avg=ssd->write_avg+(end_time-req->time);
+					ssd->write_avg = ssd->write_avg + (end_time - req->time);
 				}
 
-				while(req->subs!=NULL)
+				while (req->subs != NULL)
 				{
 					tmp = req->subs;
 					req->subs = tmp->next_subs;
-					if (tmp->update!=NULL)
+					if (tmp->update != NULL)
 					{
 						free(tmp->update->location);
-						tmp->update->location=NULL;
+						tmp->update->location = NULL;
 						free(tmp->update);
-						tmp->update=NULL;
+						tmp->update = NULL;
 					}
 					free(tmp->location);
-					tmp->location=NULL;
+					tmp->location = NULL;
 					free(tmp);
-					tmp=NULL;
-					
+					tmp = NULL;
+
 				}
-				
-				if(pre_node == NULL)
+
+				if (pre_node == NULL)
 				{
-					if(req->next_node == NULL)
+					if (req->next_node == NULL)
 					{
 						free(req->need_distr_flag);
-						req->need_distr_flag=NULL;
+						req->need_distr_flag = NULL;
 						free(req);
 						req = NULL;
 						ssd->request_queue = NULL;
@@ -551,40 +574,34 @@ void trace_output(struct ssd_info* ssd){
 						ssd->request_queue_length--;
 					}
 					else
-					{	
+					{
 						ssd->request_queue = req->next_node;
 						pre_node = req;
 						req = req->next_node;
 						free(pre_node->need_distr_flag);
-						pre_node->need_distr_flag=NULL;
+						pre_node->need_distr_flag = NULL;
 						free(pre_node);
 						pre_node = NULL;
 						ssd->request_queue_length--;
-
-
-						if (ssd->request_queue->lsn == 817773)
-						{
-							printf("lz\n");
-						}
 					}
 				}
 				else
 				{
-					if(req->next_node == NULL)
+					if (req->next_node == NULL)
 					{
 						pre_node->next_node = NULL;
 						free(req->need_distr_flag);
-						req->need_distr_flag=NULL;
+						req->need_distr_flag = NULL;
 						free(req);
 						req = NULL;
-						ssd->request_tail = pre_node;	
+						ssd->request_tail = pre_node;
 						ssd->request_queue_length--;
 					}
 					else
 					{
 						pre_node->next_node = req->next_node;
 						free(req->need_distr_flag);
-						req->need_distr_flag=NULL;
+						req->need_distr_flag = NULL;
 						free(req);
 						req = pre_node->next_node;
 						ssd->request_queue_length--;
@@ -593,11 +610,16 @@ void trace_output(struct ssd_info* ssd){
 				}
 			}
 			else
-			{	
-				pre_node = req;									//该请求未完成，跳转计算请求队列的下一个请求，把该请求给pre_node节点
+			{
+				pre_node = req;
 				req = req->next_node;
 			}
-		}//遍历整个请求链上所有的请求，没有执行完的不动，执行完成了删除该请求节点		
+		}
+		else
+		{
+			pre_node = req;
+			req = req->next_node;
+		}
 	}
 }
 
@@ -700,7 +722,7 @@ void statistic_output(struct ssd_info *ssd)
 	fprintf(ssd->outputfile,"read request average size: %13f\n",ssd->ave_read_size);
 	fprintf(ssd->outputfile,"write request average size: %13f\n",ssd->ave_write_size);
 	fprintf(ssd->outputfile, "\n");
-	fprintf(ssd->outputfile,"read request average response time: %16I64u\n",ssd->read_avg/ssd->read_request_count);
+//	fprintf(ssd->outputfile,"read request average response time: %16I64u\n",ssd->read_avg/ssd->read_request_count);
 	fprintf(ssd->outputfile,"write request average response time: %16I64u\n",ssd->write_avg/ssd->write_request_count);
 	fprintf(ssd->outputfile, "\n");
 	fprintf(ssd->outputfile,"buffer read hits: %13d\n",ssd->dram->buffer->read_hit);
@@ -751,7 +773,7 @@ void statistic_output(struct ssd_info *ssd)
 	fprintf(ssd->statisticfile,"read request average size: %13f\n",ssd->ave_read_size);
 	fprintf(ssd->statisticfile,"write request average size: %13f\n",ssd->ave_write_size);
 	fprintf(ssd->statisticfile, "\n");
-	fprintf(ssd->statisticfile,"read request average response time: %16I64u\n",ssd->read_avg/ssd->read_request_count);
+//	fprintf(ssd->statisticfile,"read request average response time: %16I64u\n",ssd->read_avg/ssd->read_request_count);
 	fprintf(ssd->statisticfile,"write request average response time: %16I64u\n",ssd->write_avg/ssd->write_request_count);
 	fprintf(ssd->statisticfile, "\n");
 	fprintf(ssd->statisticfile,"buffer read hits: %13d\n",ssd->dram->buffer->read_hit);
@@ -759,7 +781,7 @@ void statistic_output(struct ssd_info *ssd)
 	fprintf(ssd->statisticfile,"buffer write hits: %13d\n",ssd->dram->buffer->write_hit);
 	fprintf(ssd->statisticfile,"buffer write miss: %13d\n",ssd->dram->buffer->write_miss_hit);
 
-	//fprintf(ssd->statisticfile, "buffer write hit request count : %13d\n", request_lz_count);
+	fprintf(ssd->statisticfile, "buffer write hit request count : %13d\n", request_lz_count);
 
 	fprintf(ssd->statisticfile, "\n");
 	fflush(ssd->statisticfile);

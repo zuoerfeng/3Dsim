@@ -30,6 +30,7 @@ Zuo Lu	        2017/04/06	      1.0		    Creat 3D_SSDsim       617376665@qq.com
 #include "fcl.h"
 
 extern int plane_cmplt;
+extern int buffer_full_flag;
 /******************************************************
 *函数的功能是在给出的channel，chip，die上面寻找读子请求
 *这个子请求的ppn要与相应的plane的寄存器里面的ppn相符
@@ -292,6 +293,10 @@ Status services_2_r_data_trans(struct ssd_info * ssd, unsigned int channel, unsi
 			break;
 		}
 	}
+
+	if (*channel_busy_flag == 0)
+		//printf("\n");
+
 	return SUCCESS;
 }
 
@@ -309,7 +314,6 @@ int services_2_r_wait(struct ssd_info * ssd, unsigned int channel, unsigned int 
 
 	sub = ssd->channel_head[channel].subs_r_head;
 
-
 	if ((ssd->parameter->advanced_commands&AD_TWOPLANE_READ) == AD_TWOPLANE_READ)         /*to find whether there are two sub request can be served by two plane operation*/
 	{
 		sub_twoplane_one = NULL;
@@ -319,14 +323,10 @@ int services_2_r_wait(struct ssd_info * ssd, unsigned int channel, unsigned int 
 
 		//find_interleave_twoplane_sub_request(ssd, channel, sub_twoplane_one, sub_twoplane_two, TWO_PLANE);
 
-
-
-
 		if (sub_twoplane_two != NULL)                                                     /*可以执行two plane read 操作*/
 		{
 
 			go_one_step(ssd, sub_twoplane_one, sub_twoplane_two, SR_R_C_A_TRANSFER, TWO_PLANE);
-
 			*change_current_time_flag = 0;
 			*channel_busy_flag = 1;                                                       /*已经占用了这个周期的总线，不用执行die中数据的回传*/
 		}
@@ -336,8 +336,7 @@ int services_2_r_wait(struct ssd_info * ssd, unsigned int channel, unsigned int 
 			{
 				if (sub->current_state == SR_WAIT)
 				{	   
-					/*注意下个这个判断条件与services_2_r_data_trans中判断条件的不同
-																						*/
+					/*注意下个这个判断条件与services_2_r_data_trans中判断条件的不同*/
 					if ((ssd->channel_head[sub->location->channel].chip_head[sub->location->chip].current_state == CHIP_IDLE) || ((ssd->channel_head[sub->location->channel].chip_head[sub->location->chip].next_state == CHIP_IDLE) &&
 						(ssd->channel_head[sub->location->channel].chip_head[sub->location->chip].next_state_predict_time <= ssd->current_time)))
 					{
@@ -349,12 +348,18 @@ int services_2_r_wait(struct ssd_info * ssd, unsigned int channel, unsigned int 
 					}
 					else
 					{
-						/*因为die的busy导致的阻塞*/
+						*channel_busy_flag = 0;
 					}
 				}
 				sub = sub->next_node;
 			}
 		}
+
+		if (*channel_busy_flag == 0)
+		{
+			//printf("chip busy,%d\n",channel);
+		}
+
 	}
 
 	/*******************************
@@ -446,19 +451,17 @@ Status services_2_write(struct ssd_info * ssd, unsigned int channel, unsigned in
 	long long time = 0;
 	struct sub_request * sub = NULL, *p = NULL;
 	struct sub_request * sub_twoplane_one = NULL, *sub_twoplane_two = NULL;
-	struct sub_request * sub_interleave_one = NULL, *sub_interleave_two = NULL;
 
 	/************************************************************************************************************************
-	*写子请求挂在两个地方一个是channel_head[channel].subs_w_head，另外一个是ssd->subs_w_head，所以要保证至少有一个队列不为空
-	*同时子请求的处理还分为动态分配和静态分配。
+	*由于是动态分配，所有的写子请求挂在ssd->subs_w_head，即分配前不知道写在哪个channel上
 	*************************************************************************************************************************/
-	if ((ssd->channel_head[channel].subs_w_head != NULL) || (ssd->subs_w_head != NULL))
+	if (ssd->subs_w_head != NULL)
 	{
 		if (ssd->parameter->allocation_scheme == 0)                                       /*动态分配*/
 		{
-			for (j = 0; j<ssd->channel_head[channel].chip; j++)
+			for (j = 0; j<ssd->channel_head[channel].chip; j++)							  //遍历所有的chip
 			{
-				if ((ssd->channel_head[channel].subs_w_head == NULL) && (ssd->subs_w_head == NULL))
+				if (ssd->subs_w_head == NULL)											  //写请求处理完即停止循环
 				{
 					break;
 				}
@@ -607,6 +610,7 @@ struct ssd_info *dynamic_advanced_process(struct ssd_info *ssd, unsigned int cha
 					}
 				}
 				*/
+
 				if ((ssd->parameter->advanced_commands&AD_TWOPLANE) == AD_TWOPLANE && plane_cmplt == 0)
 				{
 					if (subs_count>ssd->parameter->plane_die)
@@ -1253,7 +1257,7 @@ struct sub_request *find_interleave_twoplane_page(struct ssd_info *ssd, struct s
 
 	if (one_page->lpn == 13926)
 	{
-		printf("\n");
+		//printf("\n");
 	}
 
 
@@ -1261,7 +1265,7 @@ struct sub_request *find_interleave_twoplane_page(struct ssd_info *ssd, struct s
 
 	if (one_page->lpn == 21057)
 	{
-		printf("\n");
+		//printf("\n");
 	}
 
 	if (one_page->current_state != SR_WAIT)
@@ -1330,32 +1334,6 @@ int find_interleave_twoplane_sub_request(struct ssd_info * ssd, unsigned int cha
 			break;
 		}
 	}
-
-	
-	/*
-	if (*sub_request_two != NULL)
-	{
-		if (ssd->request_queue != ssd->request_tail)
-		{                                                                                         //*确保interleave read的子请求是第一个请求的子请求
-			if ((ssd->request_queue->lsn - ssd->parameter->subpage_page)<((*sub_request_one)->lpn*ssd->parameter->subpage_page))
-			{
-				if ((ssd->request_queue->lsn + ssd->request_queue->size + ssd->parameter->subpage_page)>((*sub_request_one)->lpn*ssd->parameter->subpage_page))
-				{
-				}
-				else
-				{
-					*sub_request_two = NULL;
-				}
-			}
-			else
-			{
-
-				*sub_request_two = NULL;
-			}
-		}//if (ssd->request_queue!=ssd->request_tail) 
-	}//if (sub_request_two!=NULL)
-	*/
-
 
 
 	if (*sub_request_two != NULL)
@@ -1472,8 +1450,9 @@ Status go_one_step(struct ssd_info * ssd, struct sub_request * sub1, struct sub_
 				update_buffer_node = (struct buffer_group*)avlTreeFind(ssd->dram->buffer, (TREE_NODE *)&key);    /*在平衡二叉树中寻找buffer node*/
 				update_buffer_node->stored = sub->state | update_buffer_node->stored;
 				update_buffer_node->dirty_clean = sub->state | update_buffer_node->stored;
+				update_buffer_node->page_type = 0;
+				buffer_full_flag = 0;   //解除buff的阻塞
 
-				update_buffer_node->partial_page = 0;
 			}
 
 
@@ -1600,8 +1579,8 @@ Status go_one_step(struct ssd_info * ssd, struct sub_request * sub1, struct sub_
 				update_buffer_node = (struct buffer_group*)avlTreeFind(ssd->dram->buffer, (TREE_NODE *)&key);    /*在平衡二叉树中寻找buffer node*/
 				update_buffer_node->stored = sub_twoplane_one->state | update_buffer_node->stored;
 				update_buffer_node->dirty_clean = sub_twoplane_one->state | update_buffer_node->stored;
-				update_buffer_node->partial_page = 0;
-
+				update_buffer_node->page_type = 0;
+				buffer_full_flag = 0;
 			}
 			else if (sub_twoplane_two->update_read_flag == 1)
 			{
@@ -1611,7 +1590,8 @@ Status go_one_step(struct ssd_info * ssd, struct sub_request * sub1, struct sub_
 				update_buffer_node = (struct buffer_group*)avlTreeFind(ssd->dram->buffer, (TREE_NODE *)&key);    /*在平衡二叉树中寻找buffer node*/
 				update_buffer_node->stored = sub_twoplane_two->state | update_buffer_node->stored;
 				update_buffer_node->dirty_clean = sub_twoplane_two->state | update_buffer_node->stored;
-				update_buffer_node->partial_page = 0;
+				update_buffer_node->page_type = 0;
+				buffer_full_flag = 0;
 			}
 
 			ssd->channel_head[location->channel].current_state = CHANNEL_DATA_TRANSFER;

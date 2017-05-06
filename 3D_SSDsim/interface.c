@@ -32,6 +32,9 @@ Zuo Lu	        2017/04/06	      1.0		    Creat 3D_SSDsim       617376665@qq.com
 #include "ftl.h"
 #include "fcl.h"
 
+extern int buffer_full_flag ;
+extern int trace_over_flag ;
+extern int compare_time;
 
 
 /********    get_request    ******************************************************
@@ -49,7 +52,7 @@ int get_requests(struct ssd_info *ssd)
 {
 	char buffer[200];
 	unsigned int lsn = 0;
-	int device, size, ope, large_lsn, i = 0, j = 0;
+	int device, size=0, ope, large_lsn, i = 0, j = 0;
 	struct request *request1;
 	int flag = 1;
 	long filepoint;
@@ -61,15 +64,25 @@ int get_requests(struct ssd_info *ssd)
 #ifdef DEBUG
 	printf("enter get_requests,  current time:%I64u\n", ssd->current_time);
 #endif
+	
+	if (feof(ssd->tracefile))
+		return 0;
 
-	if (feof(ssd->tracefile)){
-		return 100;
-	}
-
-
+	/*
 	filepoint = ftell(ssd->tracefile);
 	fgets(buffer, 200, ssd->tracefile);
 	sscanf(buffer, "%I64u %d %d %d %d", &time_t, &device, &lsn, &size, &ope);
+	*/
+
+	while (TRUE)
+	{
+		filepoint = ftell(ssd->tracefile);
+		fgets(buffer, 200, ssd->tracefile);
+		sscanf(buffer, "%I64u %d %d %d %d", &time_t, &device, &lsn, &size, &ope);
+
+		if (size < (ssd->parameter->dram_capacity / 512))
+			break;
+	}
 
 	if ((device<0) && (lsn<0) && (size<0) && (ope<0))
 	{
@@ -79,6 +92,11 @@ int get_requests(struct ssd_info *ssd)
 		ssd->min_lsn = lsn;
 	if (lsn>ssd->max_lsn)
 		ssd->max_lsn = lsn;
+
+	if (time_t == 227934203125)
+		getchar();
+
+
 	/******************************************************************************************************
 	*上层文件系统发送给SSD的任何读写命令包括两个部分（LSN，size） LSN是逻辑扇区号，对于文件系统而言，它所看到的存
 	*储空间是一个线性的连续空间。例如，读请求（260，6）表示的是需要读取从扇区号为260的逻辑扇区开始，总共6个扇区。
@@ -89,9 +107,21 @@ int get_requests(struct ssd_info *ssd)
 	lsn = lsn%large_lsn;
 
 	nearest_event_time = find_nearest_event(ssd);
+
 	if (nearest_event_time == 0x7fffffffffffffff)
 	{
 		ssd->current_time = time_t;
+		if (buffer_full_flag == 1)
+		{
+			fseek(ssd->tracefile, filepoint, 0);
+			return -1;
+		}
+		else if (ssd->request_queue_length >= ssd->parameter->queue_length)
+		{
+			fseek(ssd->tracefile, filepoint, 0);
+			return 0;
+		}
+
 
 		//if (ssd->request_queue_length>ssd->parameter->queue_length)    //如果请求队列的长度超过了配置文件中所设置的长度                     
 		//{
@@ -100,7 +130,7 @@ int get_requests(struct ssd_info *ssd)
 	}
 	else
 	{
-		if (nearest_event_time<time_t)
+		if ( (nearest_event_time<time_t) || (buffer_full_flag == 1))
 		{
 			/*******************************************************************************
 			*回滚，即如果没有把time_t赋给ssd->current_time，则trace文件已读的一条记录回滚
@@ -117,7 +147,8 @@ int get_requests(struct ssd_info *ssd)
 		}
 		else
 		{
-			if (ssd->request_queue_length >= ssd->parameter->queue_length)
+			//两个条件，请求超过队列或者buff被阻塞
+			if ( (ssd->request_queue_length >= ssd->parameter->queue_length)  ||  (buffer_full_flag == 1) )
 			{
 				fseek(ssd->tracefile, filepoint, 0);
 				ssd->current_time = nearest_event_time;
@@ -130,14 +161,19 @@ int get_requests(struct ssd_info *ssd)
 		}
 	}
 
+
 	if (time_t < 0)
 	{
 		printf("error!\n");
 		while (1){}
 	}
-	if (feof(ssd->tracefile)){
+
+
+	if (feof(ssd->tracefile))      //判断是否读完整个trace
+	{
 		request1 = NULL;
-		return 100;
+		trace_over_flag = 1;
+		return 0;
 	}
 
 	request1 = (struct request*)malloc(sizeof(struct request));
@@ -158,33 +194,24 @@ int get_requests(struct ssd_info *ssd)
 	request1->complete_lsn_count = 0;         //record the count of lsn served by buffer
 	filepoint = ftell(ssd->tracefile);		// set the file point
 
-	//request_lz_count++;
-
+//	request_lz_count++;
 	if (ssd->request_queue == NULL)          //The queue is empty
 	{
 		ssd->request_queue = request1;
 		ssd->request_tail = request1;
+		ssd->request_work = request1;
 		ssd->request_queue_length++;
 	}
 	else
 	{
 		(ssd->request_tail)->next_node = request1;
 		ssd->request_tail = request1;
+		if (ssd->request_work == NULL)
+			ssd->request_work = request1;
 		ssd->request_queue_length++;
 	}
 
-	if (ssd->request_queue->lsn == 817773)
-	{
-		printf("lz\n");
-	}
-
-
-
-	if (ssd->request_queue->lsn == 84231)
-	{
-		printf("lz\n");
-	}
-
+	//printf("%d\n", ssd->request_queue_length);
 
 	if (request1->operation == 1)             //计算平均请求大小 1为读 0为写
 	{
