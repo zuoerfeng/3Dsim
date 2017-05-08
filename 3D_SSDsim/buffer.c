@@ -34,7 +34,7 @@ Zuo Lu	        2017/04/06	      1.0		    Creat 3D_SSDsim       617376665@qq.com
 #include "ftl.h"
 #include "fcl.h"
 
-extern int request_lz_count;
+extern __int64 request_lz_count;
 extern int hit_flag;
 extern int buffer_full_flag;
 extern int lz_k;
@@ -74,14 +74,15 @@ struct ssd_info *buffer_management(struct ssd_info *ssd)
 	last_lpn = (new_request->lsn + new_request->size - 1) / ssd->parameter->subpage_page;
 	first_lpn = new_request->lsn / ssd->parameter->subpage_page;   //计算lpn
 
-
-	//int型32位，也就是说need_distr_flag 是一个以bit为单位的状态位数组
- 	new_request->need_distr_flag = (unsigned int*)malloc(sizeof(unsigned int)*((last_lpn - first_lpn + 1)*ssd->parameter->subpage_page / 32 + 1));
-	alloc_assert(new_request->need_distr_flag, "new_request->need_distr_flag");
-	memset(new_request->need_distr_flag, 0, sizeof(unsigned int)*((last_lpn - first_lpn + 1)*ssd->parameter->subpage_page / 32 + 1));
-
 	if (new_request->operation == READ)
 	{
+
+		//int型32位，也就是说need_distr_flag 是一个以bit为单位的状态位数组
+		//_CrtSetBreakAlloc(34459);
+		new_request->need_distr_flag = (unsigned int*)malloc(sizeof(unsigned int)*((last_lpn - first_lpn + 1)*ssd->parameter->subpage_page / 32 + 1));
+		alloc_assert(new_request->need_distr_flag, "new_request->need_distr_flag");
+		memset(new_request->need_distr_flag, 0, sizeof(unsigned int)*((last_lpn - first_lpn + 1)*ssd->parameter->subpage_page / 32 + 1));
+
 		while (lpn <= last_lpn)
 		{
 			/************************************************************************************************
@@ -374,7 +375,7 @@ struct ssd_info * insert2buffer(struct ssd_info *ssd, unsigned int lpn, int stat
 	unsigned int i, lsn, add_flag, hit_flag, sector_count, active_region_flag = 0;
 	unsigned int free_sector;
 	unsigned int page_size=0;
-	struct buffer_group *buffer_node = NULL, *pt, *new_node = NULL, key;
+	struct buffer_group *buffer_node = NULL, *new_node = NULL, key;
 	struct sub_request *sub_req = NULL, *update = NULL;
 	unsigned int req_write_counts = 0;
 	unsigned int full_page_flag = 0;
@@ -614,7 +615,7 @@ struct ssd_info *no_buffer_distribute(struct ssd_info *ssd)
 		{
 			sub_state = (ssd->dram->map->map_entry[lpn].state & 0x7fffffff);
 			sub_size = size(sub_state);
-			sub = creat_sub_request(ssd, lpn, sub_size, sub_state, req, req->operation);
+			sub = creat_sub_request(ssd, lpn, sub_size, sub_state,0, req, req->operation);
 			lpn++;
 		}
 	}
@@ -636,7 +637,7 @@ struct ssd_info *no_buffer_distribute(struct ssd_info *ssd)
 			}
 			sub_size = size(state);
 
-			sub = creat_sub_request(ssd, lpn, sub_size, state, req, req->operation);
+			sub = creat_sub_request(ssd, lpn, sub_size, state,0, req, req->operation);
 			lpn++;
 		}
 	}
@@ -713,6 +714,11 @@ struct sub_request * creat_sub_request(struct ssd_info * ssd, unsigned int lpn, 
 	struct local *location = NULL;
 
 
+	if (req->lsn == 91389)
+		printf("lz\n");
+
+
+	//_CrtSetBreakAlloc(33672);
 	sub = (struct sub_request*)malloc(sizeof(struct sub_request));                        /*申请一个子请求的结构*/
 	alloc_assert(sub, "sub_request");
 	memset(sub, 0, sizeof(struct sub_request));
@@ -725,6 +731,7 @@ struct sub_request * creat_sub_request(struct ssd_info * ssd, unsigned int lpn, 
 	sub->next_node = NULL;
 	sub->next_subs = NULL;
 	sub->update = NULL;
+
 
 	//把该子请求挂在当前的请求上
 	if (req != NULL)
@@ -795,6 +802,7 @@ struct sub_request * creat_sub_request(struct ssd_info * ssd, unsigned int lpn, 
 	{
 		sub->ppn = 0;
 		sub->operation = WRITE;
+		//_CrtSetBreakAlloc(33673);
 		sub->location = (struct local *)malloc(sizeof(struct local));
 		alloc_assert(sub->location, "sub->location");
 		memset(sub->location, 0, sizeof(struct local));
@@ -808,13 +816,13 @@ struct sub_request * creat_sub_request(struct ssd_info * ssd, unsigned int lpn, 
 		sub->update_read_flag = 0;
 
 		//写请求的动态分配
+
 		if (allocate_location(ssd, sub) == ERROR)
 		{
 			free(sub->location);
 			sub->location = NULL;
 			free(sub);
 			sub = NULL;
-			//req->subs = NULL;
 			printf("allocate_location error \n");
 			return NULL;
 		}
@@ -832,12 +840,9 @@ struct sub_request * creat_sub_request(struct ssd_info * ssd, unsigned int lpn, 
 
 		if (sub == NULL)
 		{
-			return ERROR;
+			return NULL;
 		}
-		sub->location = NULL;
-		sub->next_node = NULL;
-		sub->next_subs = NULL;
-		sub->update = NULL;
+
 		location = find_location(ssd, ssd->dram->map->map_entry[lpn].pn);
 		sub->location = location;
 		sub->begin_time = ssd->current_time;
@@ -878,6 +883,9 @@ struct sub_request * creat_sub_request(struct ssd_info * ssd, unsigned int lpn, 
 		printf("\nERROR ! Unexpected command.\n");
 		return NULL;
 	}
+
+//	if (req->lsn == 91389)
+//		printf("lz\n");
 
 	return sub;
 }

@@ -23,6 +23,8 @@ Zuo Lu	        2017/04/06	      1.0		    Creat 3D_SSDsim       617376665@qq.com
 #include <stdio.h>
 #include <time.h>
 #include <string.h>
+#include <crtdbg.h>  
+
 
 #include "ssd.h"
 #include "initialize.h"
@@ -32,11 +34,12 @@ Zuo Lu	        2017/04/06	      1.0		    Creat 3D_SSDsim       617376665@qq.com
 #include "ftl.h"
 #include "fcl.h"
 
+
 //Global variable
 int make_age_free_page = 0;
 int plane_cmplt = 0;
 int buffer_full_flag = 0;
-int request_lz_count = 0;
+__int64 request_lz_count = 0;
 int trace_over_flag = 0;
 int lz_k=0;
 __int64 compare_time = 0;
@@ -108,7 +111,7 @@ void main()
 	printf("the simulation is completed!\n");
 
 	system("pause");
-/* 	_CrtDumpMemoryLeaks(); */
+ 	_CrtDumpMemoryLeaks();
 }
 
 
@@ -488,6 +491,12 @@ void trace_output(struct ssd_info* ssd){
 			flag = 1;
 			while (sub != NULL)
 			{
+				if ( (sub->lpn == 13992 | sub->lpn == 13991)  &&  (req->lsn == 91389))
+					printf("lz\n");
+
+				if (req->lsn == 91389)
+					printf("lz\n");
+
 				if (start_time == 0)
 					start_time = sub->begin_time;
 				if (start_time > sub->begin_time)
@@ -495,17 +504,19 @@ void trace_output(struct ssd_info* ssd){
 				if (end_time < sub->complete_time)
 					end_time = sub->complete_time;
 
+				/*
 				if (trace_over_flag == 1)
-					compare_time = ssd->current_time * 2;
+				{
+					compare_time = ssd->current_time * 10;
+
+				}
 				else
 					compare_time = ssd->current_time;
+				*/
 
-
-				if ((sub->current_state == SR_COMPLETE) || ((sub->next_state == SR_COMPLETE) && (sub->next_state_predict_time <= compare_time)))	// if any sub-request is not completed, the request is not completed
+				if ((sub->current_state == SR_COMPLETE) || ((sub->next_state == SR_COMPLETE) && (sub->next_state_predict_time <= ssd->current_time)))	// if any sub-request is not completed, the request is not completed
 				{
 					sub = sub->next_subs;
-
-
 					if (end_time - start_time == 0)
 					{
 						printf("the response time is 0?? \n");
@@ -543,6 +554,14 @@ void trace_output(struct ssd_info* ssd){
 					ssd->write_avg = ssd->write_avg + (end_time - req->time);
 				}
 
+
+				if (req->lsn == 91389 && req->size == 64)
+				{
+					printf("ERROR\n");
+				}
+
+
+				//该请求执行完成，释放所有子请求
 				while (req->subs != NULL)
 				{
 					tmp = req->subs;
@@ -558,7 +577,6 @@ void trace_output(struct ssd_info* ssd){
 					tmp->location = NULL;
 					free(tmp);
 					tmp = NULL;
-
 				}
 
 				if (pre_node == NULL)
@@ -781,7 +799,7 @@ void statistic_output(struct ssd_info *ssd)
 	fprintf(ssd->statisticfile,"buffer write hits: %13d\n",ssd->dram->buffer->write_hit);
 	fprintf(ssd->statisticfile,"buffer write miss: %13d\n",ssd->dram->buffer->write_miss_hit);
 
-	fprintf(ssd->statisticfile, "buffer write hit request count : %13d\n", request_lz_count);
+//	fprintf(ssd->statisticfile, "buffer write hit request count : %13d\n", request_lz_count);
 
 	fprintf(ssd->statisticfile, "\n");
 	fflush(ssd->statisticfile);

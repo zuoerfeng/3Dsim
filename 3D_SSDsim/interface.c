@@ -59,7 +59,7 @@ int get_requests(struct ssd_info *ssd)
 	__int64 time_t = 0;
 	__int64 nearest_event_time;
 
-	extern int request_lz_count;
+	extern __int64 request_lz_count;
 
 #ifdef DEBUG
 	printf("enter get_requests,  current time:%I64u\n", ssd->current_time);
@@ -84,6 +84,8 @@ int get_requests(struct ssd_info *ssd)
 			break;
 	}
 
+
+
 	if ((device<0) && (lsn<0) && (size<0) && (ope<0))
 	{
 		return 100;
@@ -93,8 +95,8 @@ int get_requests(struct ssd_info *ssd)
 	if (lsn>ssd->max_lsn)
 		ssd->max_lsn = lsn;
 
-	if (time_t == 227934203125)
-		getchar();
+//	if (time_t == 3866624023)
+//		getchar();
 
 
 	/******************************************************************************************************
@@ -210,6 +212,20 @@ int get_requests(struct ssd_info *ssd)
 			ssd->request_work = request1;
 		ssd->request_queue_length++;
 	}
+
+	request_lz_count++;
+
+	printf("request:%I64u\n", request_lz_count);
+
+	if (request_lz_count == 3698862)
+		printf("lz\n");
+
+	if (request_lz_count == 3698863)
+		printf("lz\n");
+
+	if (request_lz_count == 3698864)
+		printf("lz\n");
+
 
 	//printf("%d\n", ssd->request_queue_length);
 

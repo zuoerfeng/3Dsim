@@ -84,3 +84,46 @@ greed MPW command=1;            #±íÊ¾ÊÇ·ñÌ°À·µØÊ¹ÓÃmulti-plane write¸ß¼¶ÃüÁî£¬0±
 aged=1;                         #1±íÊ¾ĞèÒª½«Õâ¸öSSD±ä³Éaged£¬0±íÊ¾ĞèÒª½«Õâ¸öSSD±£³Önon-aged
 aged ratio=0.2;                #±íÊ¾ÎªÁËÊ¹SSD±ä³ÉagedµÄSSD£¬ĞèÒª½«SSDÖĞÌáÇ°ÖÃÎªÊ§Ğ§µÄ±ÈÂÊ
 -----------------------simulation output----------------------
+the 0 channel, 0 chip, 0 die, 0 plane has :  40 erase operations,2790 read operations,1521 write operations,935 pre_process write operations
+the 0 channel, 0 chip, 0 die, 1 plane has :  40 erase operations,554 read operations,1521 write operations,935 pre_process write operations
+the 0 channel, 0 chip, 1 die, 0 plane has :  40 erase operations,3079 read operations,1520 write operations,935 pre_process write operations
+the 0 channel, 0 chip, 1 die, 1 plane has :  40 erase operations,664 read operations,1520 write operations,934 pre_process write operations
+the 1 channel, 0 chip, 0 die, 0 plane has :  33 erase operations,2463 read operations,1120 write operations,935 pre_process write operations
+the 1 channel, 0 chip, 0 die, 1 plane has :  33 erase operations,563 read operations,1120 write operations,935 pre_process write operations
+the 1 channel, 0 chip, 1 die, 0 plane has :  33 erase operations,3017 read operations,1119 write operations,934 pre_process write operations
+the 1 channel, 0 chip, 1 die, 1 plane has :  33 erase operations,510 read operations,1119 write operations,934 pre_process write operations
+
+
+---------------------------statistic data---------------------------
+min lsn:           132
+max lsn:       1002411
+read count:         13640
+the read operation leaded by un-covered update count:           261
+the read operation leaded by gc read count:             0
+
+program count:         10560
+the write operation leaded by pre_process write count:          7477
+the write operation leaded by un-covered update count:             0
+the write operation leaded by gc read count:             0
+
+erase count:           292
+direct erase count:           292
+
+multi-plane program count:          5280
+multi-plane read count:          4649
+
+write flash count:         18037
+
+read request count:          4077
+write request count:          5922
+
+read request average size:     12.190793
+write request average size:      9.843405
+
+write request average response time:         47181561
+
+buffer read hits:           143
+buffer read miss:         13795
+buffer write hits:          8412
+buffer write miss:         10560
+

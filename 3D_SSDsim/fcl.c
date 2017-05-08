@@ -1253,20 +1253,6 @@ struct ssd_info *delete_from_channel(struct ssd_info *ssd, unsigned int channel,
 struct sub_request *find_interleave_twoplane_page(struct ssd_info *ssd, struct sub_request *one_page, unsigned int command)
 {
 	struct sub_request *two_page;
-	two_page = malloc(sizeof(*two_page));
-
-	if (one_page->lpn == 13926)
-	{
-		//printf("\n");
-	}
-
-
-
-
-	if (one_page->lpn == 21057)
-	{
-		//printf("\n");
-	}
 
 	if (one_page->current_state != SR_WAIT)
 	{
