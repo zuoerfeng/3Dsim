@@ -409,7 +409,7 @@ struct ssd_info *get_ppn(struct ssd_info *ssd, unsigned int channel, unsigned in
 			gc_node->next_node = NULL;
 			gc_node->chip = chip;
 			gc_node->die = die;
-			gc_node->plane = plane;
+			gc_node->plane[0] = plane;
 			gc_node->block = 0xffffffff;
 			gc_node->page = 0;
 			gc_node->state = GC_WAIT;
@@ -640,13 +640,9 @@ Status get_ppn_for_advanced_commands(struct ssd_info *ssd, unsigned int channel,
 
 /******************************************************************************************下面是ftl层gc操作******************************************************************************************/
 /************************************************************************************************************
-*flag用来标记gc函数是在ssd整个都是idle的情况下被调用的（1），还是确定了channel，chip，die，plane被调用（0）
-*进入gc函数，需要判断是否是不可中断的gc操作，如果是，需要将一整块目标block完全擦除后才算完成；如果是可中断的，
-*在进行GC操作前，需要判断该channel，die是否有子请求在等待操作，如果没有则开始一步一步的操作，找到目标
-*块后，一次执行一个copyback操作，跳出gc函数，待时间向前推进后，再做下一个copyback或者erase操作
-*进入gc函数不一定需要进行gc操作，需要进行一定的判断，当处于硬阈值以下时，必须进行gc操作；当处于软阈值以下时，
-*需要判断，看这个channel上是否有子请求在等待(有写子请求等待就不行，gc的目标die处于busy状态也不行)，如果
-*有就不执行gc，跳出，否则可以执行一步操作
+*gc操作，对于无效块，采用mutli erase选取两个plane内偏移地址相同的无效块进行擦除，对于有效块，选取两个plane
+*内部无效页最多的块进行擦除，并迁移有效页，这样作的目的是保证了mutli 命中的利用性，即对于die来看，每次擦除的
+*是super block,在进行mutli plane write的时候，只需要保证页偏移一致，不用保证blcok的偏移地址一致即可。
 ************************************************************************************************************/
 unsigned int gc(struct ssd_info *ssd, unsigned int channel, unsigned int flag)
 {
@@ -683,7 +679,6 @@ unsigned int gc(struct ssd_info *ssd, unsigned int channel, unsigned int flag)
 	{
 		//只考虑全局分配，故静态分配直接去除
 		if ((ssd->parameter->allocation_scheme == 0) && (ssd->parameter->dynamic_allocation == 0))
-			//if ((ssd->parameter->allocation_scheme==1)||((ssd->parameter->allocation_scheme==0)&&(ssd->parameter->dynamic_allocation==1)))
 		{
 			if ((ssd->channel_head[channel].subs_r_head != NULL) || (ssd->channel_head[channel].subs_w_head != NULL))    /*队列上有请求，先服务请求*/
 			{
@@ -706,6 +701,7 @@ Status gc_for_channel(struct ssd_info *ssd, unsigned int channel)
 	unsigned int current_state = 0, next_state = 0;
 	long long next_state_predict_time = 0;
 	struct gc_operation *gc_node = NULL, *gc_p = NULL;
+	unsigned int planeA, planeB;
 
 	/*******************************************************************************************
 	*查找每一个gc_node，获取gc_node所在的chip的当前状态，下个状态，下个状态的预计时间
@@ -724,7 +720,7 @@ Status gc_for_channel(struct ssd_info *ssd, unsigned int channel)
 			{
 				flag_priority = 1;
 				//printf("lz:gc_uninterrupt\n");
-				break;
+				break;																	/*处理当前channel gc请求链上最近的空闲节点*/
 			}
 		}
 		gc_node = gc_node->next_node;
@@ -737,14 +733,22 @@ Status gc_for_channel(struct ssd_info *ssd, unsigned int channel)
 
 	chip = gc_node->chip;
 	die = gc_node->die;
-	plane = gc_node->plane;
+	//plane = gc_node->plane;																/*gc请求中会执行哪个plane没有空闲块，需要去gc操作*/
+	planeA = gc_node->plane[0];
+	planeB = gc_node->plane[1];
+
+	if (planeA == 0 && planeB == 0)
+	{
+		printf("Error!cannot get two plane for erase\n");
+		getchar();
+	}
 
 	if (gc_node->priority == GC_UNINTERRUPT)
 	{
-		flag_direct_erase = gc_direct_erase(ssd, channel, chip, die, plane);
+		flag_direct_erase = gc_direct_erase(ssd, channel, chip, die, planeA, planeB);
 		if (flag_direct_erase != SUCCESS)
 		{
-			flag_gc = uninterrupt_gc(ssd, channel, chip, die, plane);                         /*当一个完整的gc操作完成时（已经擦除一个块，回收了一定数量的flash空间），返回1，将channel上相应的gc操作请求节点删除*/
+			flag_gc = uninterrupt_gc(ssd, channel, chip, die, planeA, planeB);                         /*当一个完整的gc操作完成时（已经擦除一个块，回收了一定数量的flash空间），返回1，将channel上相应的gc操作请求节点删除*/
 			if (flag_gc == 1)
 			{
 				delete_gc_node(ssd, channel, gc_node);
@@ -761,122 +765,183 @@ Status gc_for_channel(struct ssd_info *ssd, unsigned int channel)
 
 
 /*******************************************************************************************************************
-*GC操作由某个plane的free块少于阈值进行触发，当某个plane被触发时，GC操作占据这个plane所在的die，因为die是一个独立单元。
-*对一个die的GC操作，尽量做到四个plane同时erase，利用interleave erase操作。GC操作应该做到可以随时停止（移动数据和擦除
-*时不行，但是间隙时间可以停止GC操作），以服务新到达的请求，当请求服务完后，利用请求间隙时间，继续GC操作。可以设置两个
-*GC阈值，一个软阈值，一个硬阈值。软阈值表示到达该阈值后，可以开始主动的GC操作，利用间歇时间，GC可以被新到的请求中断；
-*当到达硬阈值后，强制性执行GC操作，且此GC操作不能被中断，直到回到硬阈值以上。
-*在这个函数里面，找出这个die所有的plane中，有没有可以直接删除的block，要是有的话，利用interleave two plane命令，删除
-*这些block，否则有多少plane有这种直接删除的block就同时删除，不行的话，最差就是单独这个plane进行删除，连这也不满足的话，
-*直接跳出，到gc_parallelism函数进行进一步GC操作。该函数寻找全部为invalid的块，直接删除，找到可直接删除的返回1，没有找
-*到返回-1。
+*GC操作在多个plane中选取两个偏移地址相同的block进行擦除，同时在无效块链表上此处此无效块节点，擦除成功，计算
+*mutli plane erase操作的执行时间，channel chip的状态转变时间
 *********************************************************************************************************************/
-int gc_direct_erase(struct ssd_info *ssd, unsigned int channel, unsigned int chip, unsigned int die, unsigned int plane)
+int gc_direct_erase(struct ssd_info *ssd, unsigned int channel, unsigned int chip, unsigned int die, unsigned int planeA, unsigned int planeB)
 {
-	unsigned int lv_die = 0, lv_plane = 0;
-	unsigned int interleaver_flag = FALSE, muilt_plane_flag = FALSE;
-	unsigned int normal_erase_flag = TRUE;
-
+	unsigned int erase_block = 0;			//记录要擦除的block
 	struct direct_erase * direct_erase_node1 = NULL;
 	struct direct_erase * direct_erase_node2 = NULL;
+	struct direct_erase * pre_erase_node2 = NULL;
 
-	direct_erase_node1 = ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[plane].erase_node;
-	if (direct_erase_node1 == NULL)
+	direct_erase_node1 = ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[planeA].erase_node;
+	direct_erase_node2 = ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[planeB].erase_node;
+
+	//找到可以执行mutli plane erase的block
+	if ((ssd->parameter->advanced_commands&AD_TWOPLANE) == AD_TWOPLANE)
+	{
+		while (direct_erase_node1 == NULL || direct_erase_node2 == NULL)
+		{
+			if (direct_erase_node1->block == direct_erase_node2->block)
+			{
+				erase_block = direct_erase_node1->block;
+				break;
+			}
+			pre_erase_node2 = direct_erase_node2;
+			direct_erase_node2 = direct_erase_node2->next_node;
+		}
+	}
+
+	if (direct_erase_node1 == NULL || direct_erase_node2 == NULL)
 	{
 		return FAILURE;
 	}
 
-	/********************************************************************************************************
-	*当能处理TWOPLANE高级命令时，就在相应的channel，chip，die中两个不同的plane找到可以执行TWOPLANE操作的block
-	*并置muilt_plane_flag为TRUE
-	*********************************************************************************************************/
-	if ((normal_erase_flag == TRUE))                              /*不是每个plane都有可以直接删除的block，只对当前plane进行普通的erase操作，或者只能执行普通命令*/
-	{
-		if (erase_planes(ssd, channel, chip, die, plane, NORMAL) == SUCCESS)
-		{
-			return SUCCESS;
-		}
-		else
-		{
-			return FAILURE;                                     /*目标的plane没有可以直接删除的block，需要寻找目标擦除块后在实施擦除操作*/
-		}
-	}
+
+	/*下面进行mutli plane erase擦除操作*/
+	/************************************************************************************************************
+	*处理擦除操作时，首先要传送擦除命令，这是channel，chip处于传送命令的状态，即CHANNEL_TRANSFER，CHIP_ERASE_BUSY
+	*下一状态是CHANNEL_IDLE，CHIP_IDLE。
+	*************************************************************************************************************/
+
+	ssd->channel_head[channel].current_state = CHANNEL_TRANSFER;
+	ssd->channel_head[channel].current_time = ssd->current_time;
+	ssd->channel_head[channel].next_state = CHANNEL_IDLE;
+
+	ssd->channel_head[channel].chip_head[chip].current_state = CHIP_ERASE_BUSY;
+	ssd->channel_head[channel].chip_head[chip].current_time = ssd->current_time;
+	ssd->channel_head[channel].chip_head[chip].next_state = CHIP_IDLE;
+
+	//进行mutli plane擦除操作，指定到block
+	ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[planeA].erase_node = direct_erase_node1->next_node;
+	erase_operation(ssd, channel, chip, die, planeA, erase_block);
+	free(direct_erase_node1);
+	ssd->direct_erase_count++;
+	direct_erase_node1 = NULL;
+
+	if (ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[planeB].erase_node == direct_erase_node2)
+		ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[planeB].erase_node = direct_erase_node2->next_node;
+	else
+		pre_erase_node2->next_node = direct_erase_node2->next_node;
+	erase_operation(ssd, channel, chip, die, planeB, erase_block);
+	free(direct_erase_node2);
+	ssd->direct_erase_count++;
+	direct_erase_node2 = NULL;
+
+	//擦写统计时间
+	ssd->mplane_erase_conut++;
+	ssd->channel_head[channel].next_state_predict_time = ssd->current_time + 14 * ssd->parameter->time_characteristics.tWC;
+	ssd->channel_head[channel].chip_head[chip].next_state_predict_time = ssd->channel_head[channel].next_state_predict_time + ssd->parameter->time_characteristics.tBERS;
+
 	return SUCCESS;
 }
-
 
 /*******************************************************************************************************************************************
 *目标的plane没有可以直接删除的block，需要寻找目标擦除块后在实施擦除操作，用在不能中断的gc操作中，成功删除一个块，返回1，没有删除一个块返回-1
 *在这个函数中，不用考虑目标channel,die是否是空闲的,擦除invalid_page_num最多的block
 ********************************************************************************************************************************************/
-int uninterrupt_gc(struct ssd_info *ssd, unsigned int channel, unsigned int chip, unsigned int die, unsigned int plane)
+int uninterrupt_gc(struct ssd_info *ssd, unsigned int channel, unsigned int chip, unsigned int die, unsigned int plane1, unsigned int plane2)
 {
-	unsigned int i = 0, invalid_page = 0;
-	unsigned int block, active_block, transfer_size, free_page, page_move_count = 0;                           /*记录失效页最多的块号*/
+	unsigned int i = 0, j = 0, invalid_page = 0;
+	unsigned int block1, block2, active_block1, active_block2, transfer_size, free_page, page_move_count = 0;                           /*记录失效页最多的块号*/
 	struct local *  location = NULL;
 	unsigned int total_invalid_page_num = 0;
+	unsigned int superblock_invaild_page_num = 0;
+	unsigned int plane;
+	unsigned int block;
 
-	if (find_active_block(ssd, channel, chip, die, plane) != SUCCESS)                                           /*获取活跃块*/
+	//获取两个plane内的活跃块
+	if ((find_active_block(ssd, channel, chip, die, plane1) != SUCCESS) || (find_active_block(ssd, channel, chip, die, plane2) != SUCCESS))
 	{
 		printf("\n\n Error in uninterrupt_gc().\n");
 		return ERROR;
 	}
 
-	active_block = ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[plane].active_block;
+	active_block1 = ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[plane1].active_block;
+	active_block2 = ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[plane2].active_block;
+
 
 	invalid_page = 0;
 	transfer_size = 0;
-	block = -1;
+	block1 = -1;
+	block2 = -1;
+
+	//寻找plane1中无效页最多的块
 	for (i = 0; i<ssd->parameter->block_plane; i++)                                                           /*查找最多invalid_page的块号，以及最大的invalid_page_num*/
 	{
-		total_invalid_page_num += ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[plane].blk_head[i].invalid_page_num;
-		if ((active_block != i) && (ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[plane].blk_head[i].invalid_page_num>invalid_page))
+		if ((active_block1 != i) && (ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[plane1].blk_head[i].invalid_page_num>invalid_page)) /*不能查找当前的活跃快*/
 		{
 			invalid_page = ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[plane].blk_head[i].invalid_page_num;
-			block = i;
+			block1 = i;
 		}
 	}
-	if (block == -1)
+
+	//寻找plane2中无效页最多的块
+	for (i = 0; i<ssd->parameter->block_plane; i++)                                                           /*查找最多invalid_page的块号，以及最大的invalid_page_num*/
+	{
+		if ((active_block2 != i) && (ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[plane2].blk_head[i].invalid_page_num>invalid_page)) /*不能查找当前的活跃快*/
+		{
+			invalid_page = ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[plane].blk_head[i].invalid_page_num;
+			block2 = i;
+		}
+	}
+
+
+	//找到了要擦除的block
+	if (block1 == -1 || block2 == -1)
 	{
 		return 1;
 	}
 
-	//if(invalid_page<5)
-	//{
-	//printf("\ntoo less invalid page. \t %d\t %d\t%d\t%d\t%d\t%d\t\n",invalid_page,channel,chip,die,plane,block);
-	//}
-
+	//进行有效数据页的迁移
 	free_page = 0;
-	for (i = 0; i<ssd->parameter->page_block; i++)		                                                     /*逐个检查每个page，如果有有效数据的page需要移动到其他地方存储*/
+	for (j = 0; j < 2; j++)
 	{
-		if ((ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[plane].blk_head[block].page_head[i].free_state&PG_SUB) == 0x0000000f)
+		if (j == 0)
 		{
-			free_page++;
+			plane = plane1;
+			block = block1;
 		}
-		if (free_page != 0)
+		if (j == 1) 
 		{
-			printf("\ntoo much free page. \t %d\t .%d\t%d\t%d\t%d\t\n", free_page, channel, chip, die, plane);
+			plane = plane2;
+			block = block2;
 		}
-		if (ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[plane].blk_head[block].page_head[i].valid_state>0) /*该页是有效页，需要copyback操作*/
+		for (i = 0; i<ssd->parameter->page_block; i++)		                                                     /*逐个检查每个page，如果有有效数据的page需要移动到其他地方存储*/
 		{
-			location = (struct local *)malloc(sizeof(struct local));
-			alloc_assert(location, "location");
-			memset(location, 0, sizeof(struct local));
+			if ((ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[plane].blk_head[block].page_head[i].free_state&PG_SUB) == 0x0000000f)
+			{
+				free_page++;
+			}
+			if (free_page != 0)
+			{
+				printf("\ntoo much free page. \t %d\t .%d\t%d\t%d\t%d\t\n", free_page, channel, chip, die, plane); /*有空闲页，证明为当前的活跃块，块都没写完，不能擦除*/
+				getchar();
+			}
 
-			location->channel = channel;
-			location->chip = chip;
-			location->die = die;
-			location->plane = plane;
-			location->block = block;
-			location->page = i;
-			move_page(ssd, location, &transfer_size);                                                   /*真实的move_page操作*/
-			page_move_count++;
 
-			free(location);
-			location = NULL;
+			if (ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[plane].blk_head[block].page_head[i].valid_state>0) /*该页是有效页，需要copyback操作*/
+			{
+				location = (struct local *)malloc(sizeof(struct local));
+				alloc_assert(location, "location");
+				memset(location, 0, sizeof(struct local));
+
+				location->channel = channel;
+				location->chip = chip;
+				location->die = die;
+				location->plane = plane;
+				location->block = block;
+				location->page = i;
+				move_page(ssd, location, &transfer_size);                                                   /*真实的move_page操作*/
+				page_move_count++;
+
+				free(location);
+				location = NULL;
+			}
 		}
+		erase_operation(ssd, channel, chip, die, plane, block);						/*执行完move_page操作后，就立即执行block的擦除操作*/
 	}
-	erase_operation(ssd, channel, chip, die, plane, block);	                                              /*执行完move_page操作后，就立即执行block的擦除操作*/
 
 	ssd->channel_head[channel].current_state = CHANNEL_GC;
 	ssd->channel_head[channel].current_time = ssd->current_time;
@@ -977,69 +1042,6 @@ int delete_gc_node(struct ssd_info *ssd, unsigned int channel, struct gc_operati
 
 
 /**************************************************************************************
-*这个函数的功能是处理INTERLEAVE_TWO_PLANE，INTERLEAVE，TWO_PLANE，NORMAL下的擦除的操作。
-***************************************************************************************/
-Status erase_planes(struct ssd_info * ssd, unsigned int channel, unsigned int chip, unsigned int die1, unsigned int plane1, unsigned int command)
-{
-	unsigned int die = 0;
-	unsigned int plane = 0;
-	unsigned int block = 0;
-	struct direct_erase *direct_erase_node = NULL;
-	unsigned int block0 = 0xffffffff;
-	unsigned int block1 = 0;
-
-	//不考虑高级命令
-	if ((ssd->channel_head[channel].chip_head[chip].die_head[die1].plane_head[plane1].erase_node == NULL) || (command != NORMAL))
-		//if((ssd->channel_head[channel].chip_head[chip].die_head[die1].plane_head[plane1].erase_node==NULL)||((command!=INTERLEAVE_TWO_PLANE)&&(command!=INTERLEAVE)&&(command!=TWO_PLANE)&&(command!=NORMAL)))     /*如果没有擦除操作，或者command不对，返回错误*/           
-	{
-		return ERROR;
-	}
-
-	/************************************************************************************************************
-	*处理擦除操作时，首先要传送擦除命令，这是channel，chip处于传送命令的状态，即CHANNEL_TRANSFER，CHIP_ERASE_BUSY
-	*下一状态是CHANNEL_IDLE，CHIP_IDLE。
-	*************************************************************************************************************/
-	block1 = ssd->channel_head[channel].chip_head[chip].die_head[die1].plane_head[plane1].erase_node->block;
-
-	ssd->channel_head[channel].current_state = CHANNEL_TRANSFER;
-	ssd->channel_head[channel].current_time = ssd->current_time;
-	ssd->channel_head[channel].next_state = CHANNEL_IDLE;
-
-	ssd->channel_head[channel].chip_head[chip].current_state = CHIP_ERASE_BUSY;
-	ssd->channel_head[channel].chip_head[chip].current_time = ssd->current_time;
-	ssd->channel_head[channel].chip_head[chip].next_state = CHIP_IDLE;
-
-	if (command == NORMAL)																	/*普通命令NORMAL的处理*/
-	{
-		direct_erase_node = ssd->channel_head[channel].chip_head[chip].die_head[die1].plane_head[plane1].erase_node;
-		block = direct_erase_node->block;
-		ssd->channel_head[channel].chip_head[chip].die_head[die1].plane_head[plane1].erase_node = direct_erase_node->next_node;
-		free(direct_erase_node);
-		direct_erase_node = NULL;
-		erase_operation(ssd, channel, chip, die1, plane1, block);
-
-		ssd->direct_erase_count++;
-		ssd->channel_head[channel].next_state_predict_time = ssd->current_time + 5 * ssd->parameter->time_characteristics.tWC;
-		ssd->channel_head[channel].chip_head[chip].next_state_predict_time = ssd->channel_head[channel].next_state_predict_time + ssd->parameter->time_characteristics.tWB + ssd->parameter->time_characteristics.tBERS;
-	}
-	else
-	{
-		return ERROR;
-	}
-
-	direct_erase_node = ssd->channel_head[channel].chip_head[chip].die_head[die1].plane_head[plane1].erase_node;
-
-	if (((direct_erase_node) != NULL) && (direct_erase_node->block == block1))
-	{
-		return FAILURE;
-	}
-	else
-	{
-		return SUCCESS;
-	}
-}
-
-/**************************************************************************************
 *函数的功能是寻找活跃快，应为每个plane中都只有一个活跃块，只有这个活跃块中才能进行操作
 ***************************************************************************************/
 Status  find_active_block(struct ssd_info *ssd, unsigned int channel, unsigned int chip, unsigned int die, unsigned int plane)
@@ -1048,7 +1050,6 @@ Status  find_active_block(struct ssd_info *ssd, unsigned int channel, unsigned i
 	unsigned int free_page_num = 0;
 	unsigned int count = 0;
 	//	int i, j, k, p, t;
-	int lz = 0;
 
 	active_block = ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[plane].active_block;
 	free_page_num = ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[plane].blk_head[active_block].free_page_num;

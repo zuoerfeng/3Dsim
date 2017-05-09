@@ -41,10 +41,6 @@ int plane_cmplt = 0;
 int buffer_full_flag = 0;
 __int64 request_lz_count = 0;
 int trace_over_flag = 0;
-int lz_k=0;
-__int64 compare_time = 0;
-
-
 
 /********************************************************************************************************************************
 1，main函数中initiatio()函数用来初始化ssd,；2，make_aged()函数使SSD成为aged，aged的ssd相当于使用过一段时间的ssd，里面有失效页，
@@ -128,8 +124,6 @@ struct ssd_info *simulate(struct ssd_info *ssd)
 	double output_step=0;
 	unsigned int a=0,b=0;
 	errno_t err;
-
-	
 	unsigned int channel_num = 0, chip_num = 0, die_num = 0;
 	unsigned int i, j, k,m,p;
 
@@ -203,11 +197,6 @@ struct ssd_info *simulate(struct ssd_info *ssd)
 		process(ssd);    
 		trace_output(ssd);
 		
-		/*
-		if (trace_over_flag == 1)
-			flag = 0;
-		*/
-
 		if (flag == 0 && ssd->request_queue == NULL)
 			flag = 100;
 	}
@@ -282,6 +271,7 @@ struct ssd_info *process(struct ssd_info *ssd)
 
 	/*fcl+flash层*/
 	time = ssd->current_time;
+
 	services_2_r_cmd_trans_and_complete(ssd);                                            /*处理当前状态是SR_R_C_A_TRANSFER或者当前状态是SR_COMPLETE，或者下一状态是SR_COMPLETE并且下一状态预计时间小于当前状态时间*/
 	
 	/*****************************************
@@ -348,8 +338,6 @@ struct ssd_info *process(struct ssd_info *ssd)
 						else
 							ssd->channel_head[ssd->token].chip_head[chip].token = die;
 					}
-					//printf("aaa\n");
-					
 				}
 				else
 				{
@@ -491,28 +479,12 @@ void trace_output(struct ssd_info* ssd){
 			flag = 1;
 			while (sub != NULL)
 			{
-				if ( (sub->lpn == 13992 | sub->lpn == 13991)  &&  (req->lsn == 91389))
-					printf("lz\n");
-
-				if (req->lsn == 91389)
-					printf("lz\n");
-
 				if (start_time == 0)
 					start_time = sub->begin_time;
 				if (start_time > sub->begin_time)
 					start_time = sub->begin_time;
 				if (end_time < sub->complete_time)
 					end_time = sub->complete_time;
-
-				/*
-				if (trace_over_flag == 1)
-				{
-					compare_time = ssd->current_time * 10;
-
-				}
-				else
-					compare_time = ssd->current_time;
-				*/
 
 				if ((sub->current_state == SR_COMPLETE) || ((sub->next_state == SR_COMPLETE) && (sub->next_state_predict_time <= ssd->current_time)))	// if any sub-request is not completed, the request is not completed
 				{
@@ -740,7 +712,7 @@ void statistic_output(struct ssd_info *ssd)
 	fprintf(ssd->outputfile,"read request average size: %13f\n",ssd->ave_read_size);
 	fprintf(ssd->outputfile,"write request average size: %13f\n",ssd->ave_write_size);
 	fprintf(ssd->outputfile, "\n");
-//	fprintf(ssd->outputfile,"read request average response time: %16I64u\n",ssd->read_avg/ssd->read_request_count);
+	fprintf(ssd->outputfile,"read request average response time: %16I64u\n",ssd->read_avg/ssd->read_request_count);
 	fprintf(ssd->outputfile,"write request average response time: %16I64u\n",ssd->write_avg/ssd->write_request_count);
 	fprintf(ssd->outputfile, "\n");
 	fprintf(ssd->outputfile,"buffer read hits: %13d\n",ssd->dram->buffer->read_hit);
@@ -791,7 +763,7 @@ void statistic_output(struct ssd_info *ssd)
 	fprintf(ssd->statisticfile,"read request average size: %13f\n",ssd->ave_read_size);
 	fprintf(ssd->statisticfile,"write request average size: %13f\n",ssd->ave_write_size);
 	fprintf(ssd->statisticfile, "\n");
-//	fprintf(ssd->statisticfile,"read request average response time: %16I64u\n",ssd->read_avg/ssd->read_request_count);
+	fprintf(ssd->statisticfile,"read request average response time: %16I64u\n",ssd->read_avg/ssd->read_request_count);
 	fprintf(ssd->statisticfile,"write request average response time: %16I64u\n",ssd->write_avg/ssd->write_request_count);
 	fprintf(ssd->statisticfile, "\n");
 	fprintf(ssd->statisticfile,"buffer read hits: %13d\n",ssd->dram->buffer->read_hit);

@@ -543,7 +543,7 @@ struct direct_erase{
 struct gc_operation{          
 	unsigned int chip;
 	unsigned int die;
-	unsigned int plane;
+	unsigned int plane[2];
 	unsigned int block;           //该参数只在可中断的gc函数中使用（gc_interrupt），用来记录已近找出来的目标块号
 	unsigned int page;            //该参数只在可中断的gc函数中使用（gc_interrupt），用来记录已经完成的数据迁移的页号
 	unsigned int state;           //记录当前gc请求的状态

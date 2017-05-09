@@ -293,10 +293,6 @@ Status services_2_r_data_trans(struct ssd_info * ssd, unsigned int channel, unsi
 			break;
 		}
 	}
-
-	if (*channel_busy_flag == 0)
-		//printf("\n");
-
 	return SUCCESS;
 }
 
@@ -354,12 +350,6 @@ int services_2_r_wait(struct ssd_info * ssd, unsigned int channel, unsigned int 
 				sub = sub->next_node;
 			}
 		}
-
-		if (*channel_busy_flag == 0)
-		{
-			//printf("chip busy,%d\n",channel);
-		}
-
 	}
 
 	/*******************************
@@ -998,39 +988,25 @@ Status find_level_page(struct ssd_info *ssd, unsigned int channel, unsigned int 
 
 	if (ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[planeA].free_page<(ssd->parameter->page_block*ssd->parameter->block_plane*ssd->parameter->gc_hard_threshold))
 	{
-		gc_node = (struct gc_operation *)malloc(sizeof(struct gc_operation));
-		alloc_assert(gc_node, "gc_node");
-		memset(gc_node, 0, sizeof(struct gc_operation));
+		if (ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[planeB].free_page<(ssd->parameter->page_block*ssd->parameter->block_plane*ssd->parameter->gc_hard_threshold))
+		{
+			gc_node = (struct gc_operation *)malloc(sizeof(struct gc_operation));
+			alloc_assert(gc_node, "gc_node");
+			memset(gc_node, 0, sizeof(struct gc_operation));
 
-		gc_node->next_node = NULL;
-		gc_node->chip = chip;
-		gc_node->die = die;
-		gc_node->plane = planeA;
-		gc_node->block = 0xffffffff;
-		gc_node->page = 0;
-		gc_node->state = GC_WAIT;
-		gc_node->priority = GC_UNINTERRUPT;
-		gc_node->next_node = ssd->channel_head[channel].gc_command;
-		ssd->channel_head[channel].gc_command = gc_node;
-		ssd->gc_request++;
-	}
-	if (ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[planeB].free_page<(ssd->parameter->page_block*ssd->parameter->block_plane*ssd->parameter->gc_hard_threshold))
-	{
-		gc_node = (struct gc_operation *)malloc(sizeof(struct gc_operation));
-		alloc_assert(gc_node, "gc_node");
-		memset(gc_node, 0, sizeof(struct gc_operation));
-
-		gc_node->next_node = NULL;
-		gc_node->chip = chip;
-		gc_node->die = die;
-		gc_node->plane = planeB;
-		gc_node->block = 0xffffffff;
-		gc_node->page = 0;
-		gc_node->state = GC_WAIT;
-		gc_node->priority = GC_UNINTERRUPT;
-		gc_node->next_node = ssd->channel_head[channel].gc_command;
-		ssd->channel_head[channel].gc_command = gc_node;
-		ssd->gc_request++;
+			gc_node->next_node = NULL;
+			gc_node->chip = chip;
+			gc_node->die = die;
+			gc_node->plane[0] = planeA;
+			gc_node->plane[1] = planeB;
+			gc_node->block = 0xffffffff;
+			gc_node->page = 0;
+			gc_node->state = GC_WAIT;
+			gc_node->priority = GC_UNINTERRUPT;
+			gc_node->next_node = ssd->channel_head[channel].gc_command;
+			ssd->channel_head[channel].gc_command = gc_node;					//插入到gc链的头部
+			ssd->gc_request++;
+		}
 	}
 
 	return SUCCESS;

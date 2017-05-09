@@ -19,3 +19,14 @@ ssdsim的一些运行问题及修改：
 	}
 
 > 5.根据设计需求，在动态分配中，将分配的优先级改为plane>channel>die
+
+> 6.根据目前3D SSD的高级命令特性，更改所有的写命令，均按照mutli plane write执行
+
+> 7.调整buffer策略，实现阻塞式buffer，保证每次从buffer从替换的写子请求均为两个，为高级命令mutli plane write服务，已修改完成，多个trace测试通过
+
+> 8.更改gc策略，gc擦除无效块的粒度提升，提出superblock的特点，一次性擦除多个块
+
+.......
+
+
+PS:上传github上对trace文件有所修改，源码能测试通过,需剔除github上trace，手动添加其他方式下载或生成trace即可

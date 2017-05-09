@@ -34,7 +34,6 @@ Zuo Lu	        2017/04/06	      1.0		    Creat 3D_SSDsim       617376665@qq.com
 
 extern int buffer_full_flag ;
 extern int trace_over_flag ;
-extern int compare_time;
 
 
 /********    get_request    ******************************************************
@@ -52,11 +51,11 @@ int get_requests(struct ssd_info *ssd)
 {
 	char buffer[200];
 	unsigned int lsn = 0;
-	int device, size=0, ope, large_lsn, i = 0, j = 0;
+	int device, size, ope, large_lsn, i = 0, j = 0;
 	struct request *request1;
 	int flag = 1;
 	long filepoint;
-	__int64 time_t = 0;
+	__int64 time_t;
 	__int64 nearest_event_time;
 
 	extern __int64 request_lz_count;
@@ -65,7 +64,7 @@ int get_requests(struct ssd_info *ssd)
 	printf("enter get_requests,  current time:%I64u\n", ssd->current_time);
 #endif
 	
-	if (feof(ssd->tracefile))
+	if (trace_over_flag == 1)
 		return 0;
 
 	/*
@@ -82,9 +81,10 @@ int get_requests(struct ssd_info *ssd)
 
 		if (size < (ssd->parameter->dram_capacity / 512))
 			break;
+
+		if (feof(ssd->tracefile))      //判断是否读完整个trace,读完则跳出整个循环
+			break;
 	}
-
-
 
 	if ((device<0) && (lsn<0) && (size<0) && (ope<0))
 	{
@@ -94,10 +94,6 @@ int get_requests(struct ssd_info *ssd)
 		ssd->min_lsn = lsn;
 	if (lsn>ssd->max_lsn)
 		ssd->max_lsn = lsn;
-
-//	if (time_t == 3866624023)
-//		getchar();
-
 
 	/******************************************************************************************************
 	*上层文件系统发送给SSD的任何读写命令包括两个部分（LSN，size） LSN是逻辑扇区号，对于文件系统而言，它所看到的存
@@ -123,12 +119,6 @@ int get_requests(struct ssd_info *ssd)
 			fseek(ssd->tracefile, filepoint, 0);
 			return 0;
 		}
-
-
-		//if (ssd->request_queue_length>ssd->parameter->queue_length)    //如果请求队列的长度超过了配置文件中所设置的长度                     
-		//{
-		//printf("error in get request , the queue length is too long\n");
-		//}
 	}
 	else
 	{
@@ -163,6 +153,7 @@ int get_requests(struct ssd_info *ssd)
 		}
 	}
 
+	
 
 	if (time_t < 0)
 	{
@@ -196,7 +187,6 @@ int get_requests(struct ssd_info *ssd)
 	request1->complete_lsn_count = 0;         //record the count of lsn served by buffer
 	filepoint = ftell(ssd->tracefile);		// set the file point
 
-//	request_lz_count++;
 	if (ssd->request_queue == NULL)          //The queue is empty
 	{
 		ssd->request_queue = request1;
@@ -214,20 +204,13 @@ int get_requests(struct ssd_info *ssd)
 	}
 
 	request_lz_count++;
-
 	printf("request:%I64u\n", request_lz_count);
+	//printf("%d\n", ssd->request_queue_length);
 
-	if (request_lz_count == 3698862)
-		printf("lz\n");
-
+	/*
 	if (request_lz_count == 3698863)
 		printf("lz\n");
-
-	if (request_lz_count == 3698864)
-		printf("lz\n");
-
-
-	//printf("%d\n", ssd->request_queue_length);
+	*/
 
 	if (request1->operation == 1)             //计算平均请求大小 1为读 0为写
 	{

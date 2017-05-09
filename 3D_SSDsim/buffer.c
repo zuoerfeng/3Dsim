@@ -34,10 +34,8 @@ Zuo Lu	        2017/04/06	      1.0		    Creat 3D_SSDsim       617376665@qq.com
 #include "ftl.h"
 #include "fcl.h"
 
-extern __int64 request_lz_count;
-extern int hit_flag;
 extern int buffer_full_flag;
-extern int lz_k;
+
 /**********************************************************************************************************************************************
 *首先buffer是个写buffer，就是为写请求服务的，因为读flash的时间tR为20us，写flash的时间tprog为200us，所以为写服务更能节省时间
 *  读操作：如果命中了buffer，从buffer读，不占用channel的I/O总线，没有命中buffer，从flash读，占用channel的I/O总线，但是不进buffer了
@@ -59,6 +57,8 @@ struct ssd_info *buffer_management(struct ssd_info *ssd)
 	unsigned int page_type;
 	unsigned int buff_free_count;
 	unsigned int request_flag = 0;
+
+	unsigned int lz_k;
 
 #ifdef DEBUG
 	printf("enter buffer_management,  current time:%I64u\n", ssd->current_time);
@@ -185,7 +185,7 @@ struct ssd_info *buffer_management(struct ssd_info *ssd)
 			if (buffer_full_flag == 0)
 			{
 				//buff此时未满，向buff中写入数据
-				lz_k++;
+				//lz_k++;
 				lpn = new_request->lsn / ssd->parameter->subpage_page;
 				while (lpn <= last_lpn)
 				{
@@ -252,7 +252,6 @@ struct ssd_info *buffer_management(struct ssd_info *ssd)
 	**************************************************************/
 	if ((complete_flag == 1) && (new_request->subs == NULL))
 	{
-		//request_lz_count++;
 		new_request->cmplt_flag = 1;
 		new_request->begin_time = ssd->current_time;
 		new_request->response_time = ssd->current_time + 1000;
@@ -713,12 +712,6 @@ struct sub_request * creat_sub_request(struct ssd_info * ssd, unsigned int lpn, 
 	struct sub_request * update = NULL;
 	struct local *location = NULL;
 
-
-	if (req->lsn == 91389)
-		printf("lz\n");
-
-
-	//_CrtSetBreakAlloc(33672);
 	sub = (struct sub_request*)malloc(sizeof(struct sub_request));                        /*申请一个子请求的结构*/
 	alloc_assert(sub, "sub_request");
 	memset(sub, 0, sizeof(struct sub_request));
@@ -883,10 +876,6 @@ struct sub_request * creat_sub_request(struct ssd_info * ssd, unsigned int lpn, 
 		printf("\nERROR ! Unexpected command.\n");
 		return NULL;
 	}
-
-//	if (req->lsn == 91389)
-//		printf("lz\n");
-
 	return sub;
 }
 

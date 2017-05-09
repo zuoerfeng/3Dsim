@@ -32,6 +32,5 @@ int uninterrupt_gc(struct ssd_info *ssd, unsigned int channel, unsigned int chip
 int gc_for_channel(struct ssd_info *ssd, unsigned int channel);
 unsigned int get_ppn_for_gc(struct ssd_info *ssd, unsigned int channel, unsigned int chip, unsigned int die, unsigned int plane);
 int delete_gc_node(struct ssd_info *ssd, unsigned int channel, struct gc_operation *gc_node);
-int erase_planes(struct ssd_info * ssd, unsigned int channel, unsigned int chip, unsigned int die1, unsigned int plane1, unsigned int command);
 int  find_active_block(struct ssd_info *ssd, unsigned int channel, unsigned int chip, unsigned int die, unsigned int plane);
 
