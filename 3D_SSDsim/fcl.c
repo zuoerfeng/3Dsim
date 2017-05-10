@@ -29,7 +29,6 @@ Zuo Lu	        2017/04/06	      1.0		    Creat 3D_SSDsim       617376665@qq.com
 #include "ftl.h"
 #include "fcl.h"
 
-extern int plane_cmplt;
 extern int buffer_full_flag;
 /******************************************************
 *函数的功能是在给出的channel，chip，die上面寻找读子请求
@@ -468,19 +467,24 @@ Status services_2_write(struct ssd_info * ssd, unsigned int channel, unsigned in
 						if (dynamic_advanced_process(ssd, channel, chip_token) == NULL)
 						{
 							*channel_busy_flag = 0;
+							//未成功执行一个写请求，此时该channel，chip的die不增加
 						}
-						else
+						else    //执行了一个写请求
 						{
-							*channel_busy_flag = 1;                                 /*执行了一个请求，传输了数据，占用了总线，需要跳出到下一个channel*/
-							//ssd->channel_head[channel].chip_head[chip_token].token = (ssd->channel_head[channel].chip_head[chip_token].token + 1) % ssd->parameter->die_chip;
-							ssd->channel_head[channel].token = (ssd->channel_head[channel].token + 1) % ssd->parameter->chip_channel[channel];
+							*channel_busy_flag = 1;                                
+							ssd->channel_head[channel].token = (ssd->channel_head[channel].token + 1) % ssd->parameter->chip_channel[channel];	//chip令牌增加，跳转至下一个chip，执行写请求
 							break;
 						}
 					}
+					ssd->channel_head[channel].token = (ssd->channel_head[channel].token + 1) % ssd->parameter->chip_channel[channel];  //当前chip忙碌，跳转至下一个chip执行
 				}
-				ssd->channel_head[channel].token = (ssd->channel_head[channel].token + 1) % ssd->parameter->chip_channel[channel];  //更新chip
 			}
 		}
+	}
+	else
+	{
+		//printf("there is no write sub_request\n");
+		//return FAILURE;
 	}
 	return SUCCESS;
 }
@@ -524,17 +528,11 @@ struct ssd_info *dynamic_advanced_process(struct ssd_info *ssd, unsigned int cha
 	if ((ssd->parameter->allocation_scheme == 0))                                           /*全动态分配，需要从ssd->subs_w_head上选取等待服务的子请求*/
 	{
 		if (ssd->parameter->dynamic_allocation == 0)
-		{
 			sub = ssd->subs_w_head;
-		}
 		else
-		{
 			sub = ssd->channel_head[channel].subs_w_head;
-		}
 
 		subs_count = 0;
-
-		//while ((sub != NULL) && (subs_count<max_sub_num) && (subs_count<gate))
 		while ((sub != NULL) && (subs_count<max_sub_num))
 		{
 			if (sub->current_state == SR_WAIT)
@@ -545,12 +543,45 @@ struct ssd_info *dynamic_advanced_process(struct ssd_info *ssd, unsigned int cha
 					subs_count++;					//目前处理等待状态的子请求的个数
 				}
 			}
-
 			p = sub;
 			sub = sub->next_node;
 		}
 
-		if (subs_count == 0)                                                               /*没有请求可以服务，返回NULL*/
+		//写子请求不止两个，即可以进行高级命令
+		if (subs_count >= 2)
+		{	
+			//一次最多执行plane_die的mutli plane请求
+			if ((ssd->parameter->advanced_commands&AD_TWOPLANE) == AD_TWOPLANE)
+			{
+				if (subs_count>ssd->parameter->plane_die)
+				{
+					for (i = ssd->parameter->plane_die; i<subs_count; i++)
+					{
+						subs[i] = NULL;
+					}
+					subs_count = ssd->parameter->plane_die;
+				}
+				get_ppn_for_advanced_commands(ssd, channel, chip, subs, subs_count, TWO_PLANE);
+			}
+			else
+			{
+				for (i = 1; i<subs_count; i++)
+				{
+					subs[i] = NULL;
+				}
+				subs_count = 1;
+				get_ppn_for_normal_command(ssd, channel, chip, subs[0]);
+				printf("lz:normal_wr_1\n");
+				getchar();
+			}
+		}//if(subs_count>=2)
+		else if (subs_count == 1)     //only one request
+		{
+			get_ppn_for_normal_command(ssd, channel, chip, subs[0]);
+			printf("lz:normal_wr_1\n");
+			getchar();
+		}
+		else						 /*没有请求可以服务，返回NULL*/
 		{
 			for (i = 0; i<max_sub_num; i++)
 			{
@@ -562,94 +593,6 @@ struct ssd_info *dynamic_advanced_process(struct ssd_info *ssd, unsigned int cha
 			free(plane_bits);
 			return NULL;
 		}
-
-		//写子请求不止两个，即可以进行高级命令
-		if (subs_count >= 2)
-		{	
-			/*********************************************
-			*two plane,interleave都可以使用
-			*在这个channel上，选用interleave_two_plane执行
-			**********************************************/
-			if (ssd->parameter->dynamic_allocation_priority == 1)						//动态分配方式的选择
-			{
-				/*
-				while (subs_count != 0)
-				{
-					if ((ssd->parameter->advanced_commands&AD_TWOPLANE) == AD_TWOPLANE && plane_cmplt == 0)
-					{
-						if (get_ppn_for_advanced_commands(ssd, channel, chip, subs, plane_count, TWO_PLANE) == SUCCESS)
-						{
-							for (i = 0; i < subs_count - plane_count; i++)
-								subs[i] = subs[i + plane_count];
-							for (i = subs_count - plane_count; i < subs_count; i++)
-								subs[i] = NULL;
-							subs_count = subs_count - plane_count;
-						}
-						else
-						{
-							for (i = 0; i < subs_count - 1; i++)
-								subs[i] = subs[i + 1];
-							for (i = subs_count - 1; i < subs_count; i++)
-								subs[i] = NULL;
-							subs_count = subs_count - 1;
-						}
-					}
-					else
-					{
-						break;
-					}
-				}
-				*/
-
-				if ((ssd->parameter->advanced_commands&AD_TWOPLANE) == AD_TWOPLANE && plane_cmplt == 0)
-				{
-					if (subs_count>ssd->parameter->plane_die)
-					{
-						for (i = ssd->parameter->plane_die; i<subs_count; i++)
-						{
-							subs[i] = NULL;
-						}
-						subs_count = ssd->parameter->plane_die;
-					}
-					get_ppn_for_advanced_commands(ssd, channel, chip, subs, subs_count, TWO_PLANE);
-				}
-				else
-				{
-
-				}
-			}
-			else
-			{
-				if ( (ssd->parameter->advanced_commands&AD_TWOPLANE) == AD_TWOPLANE )
-				{
-					if (subs_count>ssd->parameter->plane_die)
-					{
-						for (i = ssd->parameter->plane_die; i<subs_count; i++)
-						{
-							subs[i] = NULL;
-						}
-						subs_count = ssd->parameter->plane_die;
-					}
-					get_ppn_for_advanced_commands(ssd, channel, chip, subs, subs_count, TWO_PLANE);
-				}
-				else
-				{
-					for (i = 1; i<subs_count; i++)
-					{
-						subs[i] = NULL;
-					}
-					subs_count = 1;
-					get_ppn_for_normal_command(ssd, channel, chip, subs[0]);
-				}
-			}
-
-		}//if(subs_count>=2)
-		else if (subs_count == 1)     //only one request
-		{
-			get_ppn_for_normal_command(ssd, channel, chip, subs[0]);
-			printf("lz:normal_wr_1\n");
-		}
-
 	}//if ((ssd->parameter->allocation_scheme==0)) 
 
 	for (i = 0; i<max_sub_num; i++)
@@ -752,6 +695,7 @@ Status find_level_page(struct ssd_info *ssd, unsigned int channel, unsigned int 
 	unsigned int i, planeA, planeB, active_blockA, active_blockB, pageA, pageB, aim_page, old_plane;
 	struct gc_operation *gc_node;
 
+	//通过plane的令牌找到当前的plane
 	old_plane = ssd->channel_head[channel].chip_head[chip].die_head[die].token;
 
 	/************************************************************
@@ -774,6 +718,7 @@ Status find_level_page(struct ssd_info *ssd, unsigned int channel, unsigned int 
 			ssd->channel_head[channel].chip_head[chip].die_head[die].token = (ssd->channel_head[channel].chip_head[chip].die_head[die].token + 3) % ssd->parameter->plane_die;
 		}
 	}
+	//分别找到planeA与planeB
 	find_active_block(ssd, channel, chip, die, planeA);                                          //*寻找active_block
 	find_active_block(ssd, channel, chip, die, planeB);
 	active_blockA = ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[planeA].active_block;
@@ -894,7 +839,7 @@ Status find_level_page(struct ssd_info *ssd, unsigned int channel, unsigned int 
 				return FAILURE;
 			}
 		}//if (pageA<pageB)
-		else
+		else if (pageA > pageB)
 		{
 			if (ssd->parameter->greed_MPW_ad == 1)
 			{
@@ -906,13 +851,13 @@ Status find_level_page(struct ssd_info *ssd, unsigned int channel, unsigned int 
 				}
 				else
 				{
-					for (i = 0; i<ssd->parameter->block_plane; i++)
+					for (i = 0; i < ssd->parameter->block_plane; i++)
 					{
 						pageA = ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[planeA].blk_head[i].last_write_page + 1;
 						pageB = ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[planeB].blk_head[i].last_write_page + 1;
-						if ((pageA<ssd->parameter->page_block) && (pageB<ssd->parameter->page_block))
+						if ((pageA < ssd->parameter->page_block) && (pageB < ssd->parameter->page_block))
 						{
-							if (pageA<pageB)
+							if (pageA < pageB)
 							{
 								if (ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[planeA].blk_head[i].page_head[pageB].free_state == PG_SUB)
 								{
@@ -932,7 +877,7 @@ Status find_level_page(struct ssd_info *ssd, unsigned int channel, unsigned int 
 							}
 						}
 					}//for (i=0;i<ssd->parameter->block_plane;i++)
-					if (i<ssd->parameter->block_plane)
+					if (i < ssd->parameter->block_plane)
 					{
 						flash_page_state_modify(ssd, subA, channel, chip, die, planeA, i, aim_page);
 						flash_page_state_modify(ssd, subB, channel, chip, die, planeB, i, aim_page);
@@ -948,40 +893,56 @@ Status find_level_page(struct ssd_info *ssd, unsigned int channel, unsigned int 
 			} //if (ssd->parameter->greed_MPW_ad==1) 
 			else
 			{
-				if ((pageA == pageB) && (pageA == 0))
+				/*
+				if ((pageA == pageB) && (pageA == 0))	//planeA == planeB这种情况，同样认为，此时可以执行mutli plane
 				{
-					/*******************************************************************************************
-					*下面是两种情况
-					*1，planeA，planeB中的active_blockA，pageA位置都可用，那么不同plane 的相同位置，以blockA为准
-					*2，planeA，planeB中的active_blockB，pageA位置都可用，那么不同plane 的相同位置，以blockB为准
-					********************************************************************************************/
-					if ((ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[planeA].blk_head[active_blockA].page_head[pageA].free_state == PG_SUB)
-						&& (ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[planeB].blk_head[active_blockA].page_head[pageA].free_state == PG_SUB))
-					{
-						flash_page_state_modify(ssd, subA, channel, chip, die, planeA, active_blockA, pageA);
-						flash_page_state_modify(ssd, subB, channel, chip, die, planeB, active_blockA, pageA);
-					}
-					else if ((ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[planeA].blk_head[active_blockB].page_head[pageA].free_state == PG_SUB)
-						&& (ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[planeB].blk_head[active_blockB].page_head[pageA].free_state == PG_SUB))
-					{
-						flash_page_state_modify(ssd, subA, channel, chip, die, planeA, active_blockB, pageA);
-						flash_page_state_modify(ssd, subB, channel, chip, die, planeB, active_blockB, pageA);
-					}
-					else
-					{
-						subA = NULL;
-						subB = NULL;
-						ssd->channel_head[channel].chip_head[chip].die_head[die].token = old_plane;
-						return FAILURE;
-					}
+				/*******************************************************************************************
+				/*下面是两种情况
+				/*1，planeA，planeB中的active_blockA，pageA位置都可用，那么不同plane 的相同位置，以blockA为准
+				/*2，planeA，planeB中的active_blockB，pageA位置都可用，那么不同plane 的相同位置，以blockB为准
+				********************************************************************************************
+				if ((ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[planeA].blk_head[active_blockA].page_head[pageA].free_state == PG_SUB)
+				&& (ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[planeB].blk_head[active_blockA].page_head[pageA].free_state == PG_SUB))
+				{
+				flash_page_state_modify(ssd, subA, channel, chip, die, planeA, active_blockA, pageA);
+				flash_page_state_modify(ssd, subB, channel, chip, die, planeB, active_blockA, pageA);
+				}
+				else if ((ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[planeA].blk_head[active_blockB].page_head[pageA].free_state == PG_SUB)
+				&& (ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[planeB].blk_head[active_blockB].page_head[pageA].free_state == PG_SUB))
+				{
+				flash_page_state_modify(ssd, subA, channel, chip, die, planeA, active_blockB, pageA);
+				flash_page_state_modify(ssd, subB, channel, chip, die, planeB, active_blockB, pageA);
 				}
 				else
 				{
-					subA = NULL;
-					subB = NULL;
-					ssd->channel_head[channel].chip_head[chip].die_head[die].token = old_plane;
-					return ERROR;
+				subA = NULL;
+				subB = NULL;
+				ssd->channel_head[channel].chip_head[chip].die_head[die].token = old_plane;
+				return FAILURE;
 				}
+
+				}
+				*/
+				subA = NULL;
+				subB = NULL;
+				ssd->channel_head[channel].chip_head[chip].die_head[die].token = old_plane;
+				return ERROR;
+
+			}
+		}
+		else //pagaA == pageB
+		{
+			if (pageA == pageB)
+			{
+				flash_page_state_modify(ssd, subA, channel, chip, die, planeA, active_blockA, pageA);
+				flash_page_state_modify(ssd, subB, channel, chip, die, planeB, active_blockB, pageB);
+			}
+			else
+			{
+				subA = NULL;
+				subB = NULL;
+				ssd->channel_head[channel].chip_head[chip].die_head[die].token = old_plane;
+				return FAILURE;
 			}
 		}
 	}
@@ -1008,7 +969,6 @@ Status find_level_page(struct ssd_info *ssd, unsigned int channel, unsigned int 
 			ssd->gc_request++;
 		}
 	}
-
 	return SUCCESS;
 }
 

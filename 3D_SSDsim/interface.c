@@ -208,7 +208,7 @@ int get_requests(struct ssd_info *ssd)
 	//printf("%d\n", ssd->request_queue_length);
 
 	/*
-	if (request_lz_count == 3698863)
+	if (request_lz_count == 281)
 		printf("lz\n");
 	*/
 

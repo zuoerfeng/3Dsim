@@ -29,7 +29,6 @@ Zuo Lu	        2017/04/06	      1.0		    Creat 3D_SSDsim       617376665@qq.com
 #include "ftl.h"
 #include "fcl.h"
 
-extern int plane_cmplt;
 
 /******************************************************************************************下面是ftl层map操作******************************************************************************************/
 
@@ -47,8 +46,6 @@ struct ssd_info *pre_process_page(struct ssd_info *ssd)
 	int flag = 0;
 	char buffer_request[200];
 	struct local *location;
-	long double time0;
-	//unsigned long time1;
 	__int64 time;
 	errno_t err;
 
@@ -68,12 +65,6 @@ struct ssd_info *pre_process_page(struct ssd_info *ssd)
 
 	while (fgets(buffer_request, 200, ssd->tracefile))
 	{
-		//sscanf_s(buffer_request,"%Lf %d %d %d %d",&time0,&device,&lsn,&size,&ope);
-		//time_count++;
-		//printf("count=%d\n", time_count);
-		//time1 = (unsigned long)(time0 * 100000.0);
-		//time = (__int64)(time0 * 1000000.0);
-
 		sscanf_s(buffer_request, "%I64u %d %d %d %d", &time, &device, &lsn, &size, &ope);
 		fl++;
 		trace_assert(time, device, lsn, size, ope);                         /*断言，当读到的time，device，lsn，size，ope不合法时就会处理*/
@@ -208,44 +199,35 @@ unsigned int get_ppn_for_pre_process(struct ssd_info *ssd, unsigned int lsn)
 
 	if (ssd->parameter->allocation_scheme == 0)                           /*动态方式下获取ppn*/
 	{
-		//这里的优先级：channel>die>plane
-		/*
-		if (ssd->parameter->dynamic_allocation == 0)                      //*表示全动态方式下，也就是channel，chip，die，plane，block等都是动态分配
-		{
-			channel = ssd->token;
-			ssd->token = (ssd->token + 1) % ssd->parameter->channel_number;
-			chip = ssd->channel_head[channel].token;
-			ssd->channel_head[channel].token = (chip + 1) % ssd->parameter->chip_channel[0];
-			die = ssd->channel_head[channel].chip_head[chip].token;
-			ssd->channel_head[channel].chip_head[chip].token = (die + 1) % ssd->parameter->die_chip;
-			plane = ssd->channel_head[channel].chip_head[chip].die_head[die].token;
-			ssd->channel_head[channel].chip_head[chip].die_head[die].token = (plane + 1) % ssd->parameter->plane_die;
-		}
-		*/
-		
-		//重新修改优先级：plane>channel>die
 		if (ssd->parameter->dynamic_allocation == 0)                      /*表示全动态方式下，也就是channel，chip，die，plane，block等都是动态分配*/
 		{
-			channel = ssd->token;
-			chip = ssd->channel_head[channel].token;
-			die = ssd->channel_head[channel].chip_head[chip].token;
-			plane = ssd->channel_head[channel].chip_head[chip].die_head[die].token;
-			ssd->channel_head[channel].chip_head[chip].die_head[die].token = (plane + 1) % ssd->parameter->plane_die;     //先处理所有的plane，这么做为了保证mutli plane的实用性
-
-			if (plane == (ssd->parameter->plane_die - 1))
+			if (ssd->parameter->dynamic_allocation_priority == 0)			//这里的优先级：channel>die>plane
 			{
-				ssd->token = (ssd->token + 1) % ssd->parameter->channel_number;											   //plane处理完成后，处理channel
-				
-				if (ssd->token == 0)																					   //1-0，所有channel处理完成，下个分配需要改die																				
+				channel = ssd->token;
+				ssd->token = (ssd->token + 1) % ssd->parameter->channel_number;
+				chip = ssd->channel_head[channel].token;
+				ssd->channel_head[channel].token = (chip + 1) % ssd->parameter->chip_channel[0];
+				die = ssd->channel_head[channel].chip_head[chip].token;
+				ssd->channel_head[channel].chip_head[chip].token = (die + 1) % ssd->parameter->die_chip;
+				plane = ssd->channel_head[channel].chip_head[chip].die_head[die].token;
+				ssd->channel_head[channel].chip_head[chip].die_head[die].token = (plane + 1) % ssd->parameter->plane_die;
+			}
+			else																//优先级：plane>channel>die
+			{
+				channel = ssd->token;
+				chip = ssd->channel_head[channel].token;
+				die = ssd->channel_head[channel].chip_head[chip].token;
+				plane = ssd->channel_head[channel].chip_head[chip].die_head[die].token;
+				ssd->channel_head[channel].chip_head[chip].die_head[die].token = (plane + 1) % ssd->parameter->plane_die;     //先处理所有的plane，保证plane的优先级
+
+				if (plane == (ssd->parameter->plane_die - 1))
 				{
-					//channel = ssd->token;
-					//chip = ssd->channel_head[channel].token;
-					ssd->channel_head[ssd->token].chip_head[ssd->channel_head[channel].token].token = (die + 1) % ssd->parameter->die_chip;  //更改die
+					ssd->token = (ssd->token + 1) % ssd->parameter->channel_number;											   //plane处理完成后，处理channel，保证channel的优先级
+					if (ssd->token == 0)																					   																			
+						ssd->channel_head[ssd->token].chip_head[ssd->channel_head[channel].token].token = (die + 1) % ssd->parameter->die_chip;  //1-0，所有channel处理完成，下个分配需要改die	
+					else																									 
+						ssd->channel_head[ssd->token].chip_head[ssd->channel_head[channel].token].token = die;					//0--1，channel未处理完成，继续处理改channel，此时不改变die
 				}
-				else																									 //0--1，channel未处理完成，继续处理改channel，此时不改变die
-				{
-					ssd->channel_head[ssd->token].chip_head[ssd->channel_head[channel].token].token = die;      //不更改die
-				}	
 			}
 		}
 	}
@@ -254,8 +236,6 @@ unsigned int get_ppn_for_pre_process(struct ssd_info *ssd, unsigned int lsn)
 	*根据上述分配方法找到channel，chip，die，plane后，再在这个里面找到active_block
 	*接着获得ppn
 	******************************************************************************/
-
-	
 	if (find_active_block(ssd, channel, chip, die, plane) == FAILURE)
 	{
 		//发现问题，可能预处理在同一个plane中不同的写块
@@ -526,18 +506,9 @@ Status get_ppn_for_normal_command(struct ssd_info * ssd, unsigned int channel, u
 
 		if (ssd->parameter->dynamic_allocation_priority == 1)				//动态分配的优先级
 		{
-			//更新完die plane的令牌值
+			ssd->channel_head[channel].chip_head[chip].die_head[die].token = (plane + 1) % ssd->parameter->plane_die;			//执行了一个plane，此时plane的令牌+1
 			if (plane == (ssd->parameter->plane_die - 1))
-			{
-				plane_cmplt = 1;
-				//ssd->channel_head[channel].chip_head[chip].token = (die + 1) % ssd->parameter->die_chip;
-			}
-			else
-			{
-				plane_cmplt = 0;
-				//ssd->channel_head[channel].chip_head[chip].token = die;
-			}
-			ssd->channel_head[channel].chip_head[chip].die_head[die].token = (plane + 1) % ssd->parameter->plane_die;
+				ssd->channel_head[channel].chip_head[chip].token = (die + 1) % ssd->parameter->die_chip;
 		}
 		else
 		{
@@ -594,12 +565,13 @@ Status get_ppn_for_advanced_commands(struct ssd_info *ssd, unsigned int channel,
 					{
 						get_ppn_for_normal_command(ssd, channel, chip, subs[0]);           /*没找到，那么就当普通命令来处理*/
 						printf("lz:normal_wr_2\n");
+						getchar();
 						return FAILURE;
 					}
 					else
 					{
-						plane_cmplt = 1;
 						valid_subs_count = 2;
+						ssd->channel_head[channel].chip_head[chip].token = (die + 1) % ssd->parameter->die_chip;    //mutli plane执行成功，表示当前die执行完成，更新令牌至下一次
 					}
 				}
 				else if (j>1)		//超过三个的请求
@@ -621,10 +593,6 @@ Status get_ppn_for_advanced_commands(struct ssd_info *ssd, unsigned int channel,
 				}
 			}//for(j=0;j<subs_count;j++)
 			ssd->m_plane_prog_count++;
-			if (ssd->parameter->dynamic_allocation == 0)
-			{
-				ssd->channel_head[channel].chip_head[chip].token = (die + 1) % ssd->parameter->die_chip;
-			}
 			compute_serve_time(ssd, channel, chip, die, subs, valid_subs_count, TWO_PLANE);
 			printf("lz:mutli_plane_wr_3\n");
 			return SUCCESS;
@@ -778,10 +746,11 @@ int gc_direct_erase(struct ssd_info *ssd, unsigned int channel, unsigned int chi
 	direct_erase_node1 = ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[planeA].erase_node;
 	direct_erase_node2 = ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[planeB].erase_node;
 
-	//找到可以执行mutli plane erase的block
+	//找到可以执行mutli plane erase的block，直接擦除，不用保证block对应相等
+	/*
 	if ((ssd->parameter->advanced_commands&AD_TWOPLANE) == AD_TWOPLANE)
 	{
-		while (direct_erase_node1 == NULL || direct_erase_node2 == NULL)
+		while (direct_erase_node1 != NULL && direct_erase_node2 != NULL)
 		{
 			if (direct_erase_node1->block == direct_erase_node2->block)
 			{
@@ -792,7 +761,7 @@ int gc_direct_erase(struct ssd_info *ssd, unsigned int channel, unsigned int chi
 			direct_erase_node2 = direct_erase_node2->next_node;
 		}
 	}
-
+	*/
 	if (direct_erase_node1 == NULL || direct_erase_node2 == NULL)
 	{
 		return FAILURE;
@@ -815,16 +784,19 @@ int gc_direct_erase(struct ssd_info *ssd, unsigned int channel, unsigned int chi
 
 	//进行mutli plane擦除操作，指定到block
 	ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[planeA].erase_node = direct_erase_node1->next_node;
-	erase_operation(ssd, channel, chip, die, planeA, erase_block);
+	erase_operation(ssd, channel, chip, die, planeA, direct_erase_node1->block);
 	free(direct_erase_node1);
 	ssd->direct_erase_count++;
 	direct_erase_node1 = NULL;
 
+	/*
 	if (ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[planeB].erase_node == direct_erase_node2)
 		ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[planeB].erase_node = direct_erase_node2->next_node;
 	else
 		pre_erase_node2->next_node = direct_erase_node2->next_node;
-	erase_operation(ssd, channel, chip, die, planeB, erase_block);
+	*/
+	ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[planeB].erase_node = direct_erase_node2->next_node;
+	erase_operation(ssd, channel, chip, die, planeB, direct_erase_node2->block);
 	free(direct_erase_node2);
 	ssd->direct_erase_count++;
 	direct_erase_node2 = NULL;
@@ -844,12 +816,12 @@ int gc_direct_erase(struct ssd_info *ssd, unsigned int channel, unsigned int chi
 int uninterrupt_gc(struct ssd_info *ssd, unsigned int channel, unsigned int chip, unsigned int die, unsigned int plane1, unsigned int plane2)
 {
 	unsigned int i = 0, j = 0, invalid_page = 0;
-	unsigned int block1, block2, active_block1, active_block2, transfer_size, free_page, page_move_count = 0;                           /*记录失效页最多的块号*/
+	unsigned int active_block1, active_block2, transfer_size, free_page, page_move_count = 0;                           /*记录失效页最多的块号*/
 	struct local *  location = NULL;
-	unsigned int total_invalid_page_num = 0;
-	unsigned int superblock_invaild_page_num = 0;
 	unsigned int plane;
-	unsigned int block;
+	int block ,block1, block2;
+	struct direct_erase * direct_erase_node_tmp = NULL;
+	struct direct_erase * pre_erase_node_tmp = NULL;
 
 	//获取两个plane内的活跃块
 	if ((find_active_block(ssd, channel, chip, die, plane1) != SUCCESS) || (find_active_block(ssd, channel, chip, die, plane2) != SUCCESS))
@@ -860,31 +832,80 @@ int uninterrupt_gc(struct ssd_info *ssd, unsigned int channel, unsigned int chip
 
 	active_block1 = ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[plane1].active_block;
 	active_block2 = ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[plane2].active_block;
-
-
-	invalid_page = 0;
 	transfer_size = 0;
-	block1 = -1;
-	block2 = -1;
 
+	/*********************************************************************************************planeA操作*******************************************************************************************/
 	//寻找plane1中无效页最多的块
-	for (i = 0; i<ssd->parameter->block_plane; i++)                                                           /*查找最多invalid_page的块号，以及最大的invalid_page_num*/
+	invalid_page = 0;
+	block1 = -1;
+	direct_erase_node_tmp = ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[plane1].erase_node;
+	for (i = 0; i<ssd->parameter->block_plane; i++)																					 /*查找最多invalid_page的块号，以及最大的invalid_page_num*/
 	{
 		if ((active_block1 != i) && (ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[plane1].blk_head[i].invalid_page_num>invalid_page)) /*不能查找当前的活跃快*/
 		{
-			invalid_page = ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[plane].blk_head[i].invalid_page_num;
+			invalid_page = ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[plane1].blk_head[i].invalid_page_num;
 			block1 = i;
 		}
 	}
+	//检查是否全是无效页，若全部是，则当前块是无效块，需要从erase链中删除此节点
+	if (invalid_page == ssd->parameter->page_block)
+	{
+		while (direct_erase_node_tmp != NULL)
+		{
+			if (block1 == direct_erase_node_tmp->block)
+			{
+				if (pre_erase_node_tmp == NULL)
+					ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[plane1].erase_node = direct_erase_node_tmp->next_node;
+				else
+					pre_erase_node_tmp->next_node = direct_erase_node_tmp->next_node;
 
+				free(pre_erase_node_tmp);
+				break;
+			}
+			else
+			{
+				pre_erase_node_tmp = direct_erase_node_tmp;
+				direct_erase_node_tmp = direct_erase_node_tmp->next_node;
+			}
+		}
+		pre_erase_node_tmp = NULL;
+	}
+
+	/*********************************************************************************************planeB操作*******************************************************************************************/
 	//寻找plane2中无效页最多的块
+	invalid_page = 0;
+	block2 = -1;
+	direct_erase_node_tmp = ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[plane2].erase_node;
 	for (i = 0; i<ssd->parameter->block_plane; i++)                                                           /*查找最多invalid_page的块号，以及最大的invalid_page_num*/
 	{
 		if ((active_block2 != i) && (ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[plane2].blk_head[i].invalid_page_num>invalid_page)) /*不能查找当前的活跃快*/
 		{
-			invalid_page = ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[plane].blk_head[i].invalid_page_num;
+			invalid_page = ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[plane2].blk_head[i].invalid_page_num;
 			block2 = i;
 		}
+	}
+	//检查是否全是无效页，若全部是，则当前块是无效块，需要从erase链中删除此节点
+	if (invalid_page == ssd->parameter->page_block)
+	{
+		while (direct_erase_node_tmp != NULL)
+		{
+			if (block1 == direct_erase_node_tmp->block)
+			{
+				if (pre_erase_node_tmp == NULL)
+					ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[plane2].erase_node = direct_erase_node_tmp->next_node;
+				else
+					pre_erase_node_tmp->next_node = direct_erase_node_tmp->next_node;
+
+				free(pre_erase_node_tmp);
+				break;
+			}
+			else
+			{
+				pre_erase_node_tmp = direct_erase_node_tmp;
+				direct_erase_node_tmp = direct_erase_node_tmp->next_node;
+			}
+		}
+		pre_erase_node_tmp = NULL;
 	}
 
 
