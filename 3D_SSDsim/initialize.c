@@ -6,14 +6,14 @@ This is a project on 3D_SSDsim, based on ssdsim under the framework of the compl
 4.4-layer structure
 
 FileName： ssd.c
-Author: Zuo Lu 		Version: 1.0	Date:2017/04/06
+Author: Zuo Lu 		Version: 1.1	Date:2017/05/12
 Description: 
 Initialization layer: complete ssd organizational data structure, request queue creation and memory space initialization
 
 History:
-<contributor>     <time>        <version>       <desc>                   <e-mail>
-Zuo Lu	        2017/04/06	      1.0		    Creat 3D_SSDsim       617376665@qq.com
-
+<contributor>     <time>        <version>       <desc>									<e-mail>
+Zuo Lu	        2017/04/06	      1.0		    Creat 3D_SSDsim							617376665@qq.com
+Zuo Lu			2017/05/12		  1.1			Support advanced commands:mutli plane   617376665@qq.com
 *****************************************************************************************************************************/
 
 #define _CRTDBG_MAP_ALLOC
@@ -87,8 +87,8 @@ struct ssd_info *initiation(struct ssd_info *ssd)
 //	printf("\ninput trace file name:");
 //	gets(ssd->tracefilename);
 //	strcpy_s(ssd->tracefilename, 50, "16M_2KB_sequence_RandW.ascii");
-//	strcpy_s(ssd->tracefilename, 25, "financial2.ascii");
-	strcpy_s(ssd->tracefilename, 25, "example.ascii");
+	strcpy_s(ssd->tracefilename, 25, "financial2.ascii");
+//	strcpy_s(ssd->tracefilename, 25, "example.ascii");
 //	strcpy_s(ssd->tracefilename,50,"update_16_count.ascii");
 //	strcpy_s(ssd->tracefilename,25,"DevDivRelease.ascii");
 
@@ -111,6 +111,12 @@ struct ssd_info *initiation(struct ssd_info *ssd)
 	ssd->parameter=parameters;
 	ssd->min_lsn=0x7fffffff;
 	ssd->page=ssd->parameter->chip_num*ssd->parameter->die_chip*ssd->parameter->plane_die*ssd->parameter->block_plane*ssd->parameter->page_block;
+
+	//初始化ssd的全局变量
+	ssd->make_age_free_page = 0;
+	ssd->buffer_full_flag = 0;
+	ssd->request_lz_count = 0;
+	ssd->trace_over_flag = 0;
 
 	//初始化统计参数
 	initialize_statistic(ssd);

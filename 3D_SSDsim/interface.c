@@ -6,14 +6,14 @@ This is a project on 3D_SSDsim, based on ssdsim under the framework of the compl
 4.4-layer structure
 
 FileName： ssd.c
-Author: Zuo Lu 		Version: 1.0	Date:2017/04/06
+Author: Zuo Lu 		Version: 1.1	Date:2017/05/12
 Description: 
 Interface layer: to complete the IO request to obtain, and converted into the corresponding page-level SSD request
 
 History:
-<contributor>     <time>        <version>       <desc>                   <e-mail>
-Zuo Lu	        2017/04/06	      1.0		    Creat 3D_SSDsim       617376665@qq.com
-
+<contributor>     <time>        <version>       <desc>									<e-mail>
+Zuo Lu	        2017/04/06	      1.0		    Creat 3D_SSDsim							617376665@qq.com
+Zuo Lu			2017/05/12		  1.1			Support advanced commands:mutli plane   617376665@qq.com
 *****************************************************************************************************************************/
 
 #define _CRTDBG_MAP_ALLOC
@@ -31,9 +31,6 @@ Zuo Lu	        2017/04/06	      1.0		    Creat 3D_SSDsim       617376665@qq.com
 #include "interface.h"
 #include "ftl.h"
 #include "fcl.h"
-
-extern int buffer_full_flag ;
-extern int trace_over_flag ;
 
 
 /********    get_request    ******************************************************
@@ -58,21 +55,18 @@ int get_requests(struct ssd_info *ssd)
 	__int64 time_t;
 	__int64 nearest_event_time;
 
-	extern __int64 request_lz_count;
 
 #ifdef DEBUG
 	printf("enter get_requests,  current time:%I64u\n", ssd->current_time);
 #endif
 	
-	if (trace_over_flag == 1)
+	if (ssd->trace_over_flag == 1)
+	{
+		nearest_event_time = find_nearest_event(ssd);
+		ssd->current_time = nearest_event_time;
 		return 0;
-
-	/*
-	filepoint = ftell(ssd->tracefile);
-	fgets(buffer, 200, ssd->tracefile);
-	sscanf(buffer, "%I64u %d %d %d %d", &time_t, &device, &lsn, &size, &ope);
-	*/
-
+	}
+		
 	while (TRUE)
 	{
 		filepoint = ftell(ssd->tracefile);
@@ -109,7 +103,7 @@ int get_requests(struct ssd_info *ssd)
 	if (nearest_event_time == 0x7fffffffffffffff)
 	{
 		ssd->current_time = time_t;
-		if (buffer_full_flag == 1)
+		if (ssd->buffer_full_flag == 1)
 		{
 			fseek(ssd->tracefile, filepoint, 0);
 			return -1;
@@ -122,7 +116,7 @@ int get_requests(struct ssd_info *ssd)
 	}
 	else
 	{
-		if ( (nearest_event_time<time_t) || (buffer_full_flag == 1))
+		if ( (nearest_event_time<time_t) || (ssd->buffer_full_flag == 1))
 		{
 			/*******************************************************************************
 			*回滚，即如果没有把time_t赋给ssd->current_time，则trace文件已读的一条记录回滚
@@ -140,7 +134,7 @@ int get_requests(struct ssd_info *ssd)
 		else
 		{
 			//两个条件，请求超过队列或者buff被阻塞
-			if ( (ssd->request_queue_length >= ssd->parameter->queue_length)  ||  (buffer_full_flag == 1) )
+			if ( (ssd->request_queue_length >= ssd->parameter->queue_length)  ||  (ssd->buffer_full_flag == 1) )
 			{
 				fseek(ssd->tracefile, filepoint, 0);
 				ssd->current_time = nearest_event_time;
@@ -165,7 +159,7 @@ int get_requests(struct ssd_info *ssd)
 	if (feof(ssd->tracefile))      //判断是否读完整个trace
 	{
 		request1 = NULL;
-		trace_over_flag = 1;
+		ssd->trace_over_flag = 1;
 		return 0;
 	}
 
@@ -203,12 +197,12 @@ int get_requests(struct ssd_info *ssd)
 		ssd->request_queue_length++;
 	}
 
-	request_lz_count++;
-	printf("request:%I64u\n", request_lz_count);
+	ssd->request_lz_count++;
+	printf("request:%I64u\n", ssd->request_lz_count);
 	//printf("%d\n", ssd->request_queue_length);
 
 	/*
-	if (request_lz_count == 281)
+	if (ssd->request_lz_count == 281)
 		printf("lz\n");
 	*/
 

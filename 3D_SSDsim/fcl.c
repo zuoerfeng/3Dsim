@@ -6,14 +6,14 @@ This is a project on 3D_SSDsim, based on ssdsim under the framework of the compl
 4.4-layer structure
 
 FileName： ssd.c
-Author: Zuo Lu 		Version: 1.0	Date:2017/04/06
+Author: Zuo Lu 		Version: 1.1	Date:2017/05/12
 Description:
 fcl layer: remove other high-level commands, leaving only mutli plane;
 
 History:
-<contributor>     <time>        <version>       <desc>                   <e-mail>
-Zuo Lu	        2017/04/06	      1.0		    Creat 3D_SSDsim       617376665@qq.com
-
+<contributor>     <time>        <version>       <desc>									<e-mail>
+Zuo Lu	        2017/04/06	      1.0		    Creat 3D_SSDsim							617376665@qq.com
+Zuo Lu			2017/05/12		  1.1			Support advanced commands:mutli plane   617376665@qq.com
 *****************************************************************************************************************************/
 
 #define _CRTDBG_MAP_ALLOC
@@ -29,7 +29,6 @@ Zuo Lu	        2017/04/06	      1.0		    Creat 3D_SSDsim       617376665@qq.com
 #include "ftl.h"
 #include "fcl.h"
 
-extern int buffer_full_flag;
 /******************************************************
 *函数的功能是在给出的channel，chip，die上面寻找读子请求
 *这个子请求的ppn要与相应的plane的寄存器里面的ppn相符
@@ -243,12 +242,6 @@ Status services_2_r_data_trans(struct ssd_info * ssd, unsigned int channel, unsi
 			{
 				continue;
 			} 
-
-			/**************************************************************************************
-			*如果ssd支持高级命令，那没我们可以一起处理支持AD_TWOPLANE_READ，AD_INTERLEAVE的读子请求
-			*1，有可能产生了two plane操作，在这种情况下，将同一个die上的两个plane的数据依次传出
-			*2，有可能产生了interleave操作，在这种情况下，将不同die上的两个plane的数据依次传出
-			***************************************************************************************/
 			if ((ssd->parameter->advanced_commands&AD_TWOPLANE_READ) == AD_TWOPLANE_READ)				/*有可能产生了two plane操作，在这种情况下，将同一个die上的两个plane的数据依次传出*/
 			{
 				sub_twoplane_one = sub;
@@ -306,7 +299,6 @@ int services_2_r_wait(struct ssd_info * ssd, unsigned int channel, unsigned int 
 	struct sub_request * sub_twoplane_one = NULL, *sub_twoplane_two = NULL;
 	struct sub_request * sub_interleave_one = NULL, *sub_interleave_two = NULL;
 
-
 	sub = ssd->channel_head[channel].subs_r_head;
 
 	if ((ssd->parameter->advanced_commands&AD_TWOPLANE_READ) == AD_TWOPLANE_READ)         /*to find whether there are two sub request can be served by two plane operation*/
@@ -315,12 +307,8 @@ int services_2_r_wait(struct ssd_info * ssd, unsigned int channel, unsigned int 
 		sub_twoplane_two = NULL;
 		/*寻找能执行two_plane的两个读子请求*/
 		find_interleave_twoplane_sub_request(ssd, channel, &sub_twoplane_one, &sub_twoplane_two, TWO_PLANE);
-
-		//find_interleave_twoplane_sub_request(ssd, channel, sub_twoplane_one, sub_twoplane_two, TWO_PLANE);
-
 		if (sub_twoplane_two != NULL)                                                     /*可以执行two plane read 操作*/
 		{
-
 			go_one_step(ssd, sub_twoplane_one, sub_twoplane_two, SR_R_C_A_TRANSFER, TWO_PLANE);
 			*change_current_time_flag = 0;
 			*channel_busy_flag = 1;                                                       /*已经占用了这个周期的总线，不用执行die中数据的回传*/
@@ -336,7 +324,6 @@ int services_2_r_wait(struct ssd_info * ssd, unsigned int channel, unsigned int 
 						(ssd->channel_head[sub->location->channel].chip_head[sub->location->chip].next_state_predict_time <= ssd->current_time)))
 					{
 						go_one_step(ssd, sub, NULL, SR_R_C_A_TRANSFER, NORMAL);
-
 						*change_current_time_flag = 0;
 						*channel_busy_flag = 1;                                           /*已经占用了这个周期的总线，不用执行die中数据的回传*/
 						break;
@@ -365,9 +352,7 @@ int services_2_r_wait(struct ssd_info * ssd, unsigned int channel, unsigned int 
 				if ((ssd->channel_head[sub->location->channel].chip_head[sub->location->chip].current_state == CHIP_IDLE) || ((ssd->channel_head[sub->location->channel].chip_head[sub->location->chip].next_state == CHIP_IDLE) &&
 					(ssd->channel_head[sub->location->channel].chip_head[sub->location->chip].next_state_predict_time <= ssd->current_time)))
 				{
-
 					go_one_step(ssd, sub, NULL, SR_R_C_A_TRANSFER, NORMAL);
-
 					*change_current_time_flag = 0;
 					*channel_busy_flag = 1;                                              /*已经占用了这个周期的总线，不用执行die中数据的回传*/
 					break;
@@ -380,52 +365,8 @@ int services_2_r_wait(struct ssd_info * ssd, unsigned int channel, unsigned int 
 			sub = sub->next_node;
 		}
 	}
-
 	return SUCCESS;
 }
-
-/*********************************************************************
-*当一个写子请求处理完后，要从请求队列上删除，这个函数就是执行这个功能。
-**********************************************************************/
-int delete_w_sub_request(struct ssd_info * ssd, unsigned int channel, struct sub_request * sub)
-{
-	struct sub_request * p = NULL;
-	if (sub == ssd->channel_head[channel].subs_w_head)                                   /*将这个子请求从channel队列中删除*/
-	{
-		if (ssd->channel_head[channel].subs_w_head != ssd->channel_head[channel].subs_w_tail)
-		{
-			ssd->channel_head[channel].subs_w_head = sub->next_node;
-		}
-		else
-		{
-			ssd->channel_head[channel].subs_w_head = NULL;
-			ssd->channel_head[channel].subs_w_tail = NULL;
-		}
-	}
-	else
-	{
-		p = ssd->channel_head[channel].subs_w_head;
-		while (p->next_node != sub)
-		{
-			p = p->next_node;
-		}
-
-		if (sub->next_node != NULL)
-		{
-			p->next_node = sub->next_node;
-		}
-		else
-		{
-			p->next_node = NULL;
-			ssd->channel_head[channel].subs_w_tail = p;
-		}
-	}
-
-	return SUCCESS;
-}
-
-
-
 
 /********************
 写子请求的处理函数
@@ -723,227 +664,39 @@ Status find_level_page(struct ssd_info *ssd, unsigned int channel, unsigned int 
 	find_active_block(ssd, channel, chip, die, planeB);
 	active_blockA = ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[planeA].active_block;
 	active_blockB = ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[planeB].active_block;
+	pageA = ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[planeA].blk_head[active_blockA].last_write_page + 1;
+	pageB = ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[planeB].blk_head[active_blockB].last_write_page + 1;
 
-	/*****************************************************
-	*如果active_block相同，那么就在这两个块中找相同的page
-	*或者使用贪婪的方法找到两个相同的page
-	******************************************************/
-	if (active_blockA == active_blockB)
+
+	//不用保证active block相等，故只用判断是否两个plane内的page偏移地址一致
+	if (pageA == pageB)                                                                    /*两个可用的页正好在同一个水平位置上*/
 	{
-		pageA = ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[planeA].blk_head[active_blockA].last_write_page + 1;
-		pageB = ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[planeB].blk_head[active_blockB].last_write_page + 1;
-		if (pageA == pageB)                                                                    /*两个可用的页正好在同一个水平位置上*/
-		{
-			flash_page_state_modify(ssd, subA, channel, chip, die, planeA, active_blockA, pageA);
-			flash_page_state_modify(ssd, subB, channel, chip, die, planeB, active_blockB, pageB);
-		}
-		else
-		{
-			if (ssd->parameter->greed_MPW_ad == 1)                                             /*贪婪地使用高级命令*/
-			{
-				if (pageA<pageB)
-				{
-					aim_page = pageB;
-					make_same_level(ssd, channel, chip, die, planeA, active_blockA, aim_page);     /*小的page地址往大的page地址靠*/
-				}
-				else
-				{
-					aim_page = pageA;
-					make_same_level(ssd, channel, chip, die, planeB, active_blockB, aim_page);
-				}
-				flash_page_state_modify(ssd, subA, channel, chip, die, planeA, active_blockA, aim_page);
-				flash_page_state_modify(ssd, subB, channel, chip, die, planeB, active_blockB, aim_page);
-			}
-			else                                                                             /*不能贪婪的使用高级命令*/
-			{
-				subA = NULL;
-				subB = NULL;
-				ssd->channel_head[channel].chip_head[chip].die_head[die].token = old_plane;
-				return FAILURE;
-			}
-		}
+		flash_page_state_modify(ssd, subA, channel, chip, die, planeA, active_blockA, pageA); 
+		flash_page_state_modify(ssd, subB, channel, chip, die, planeB, active_blockB, pageB);
 	}
-	/*********************************
-	*如果找到的两个active_block不相同
-	**********************************/
 	else
 	{
-		pageA = ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[planeA].blk_head[active_blockA].last_write_page + 1;
-		pageB = ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[planeB].blk_head[active_blockB].last_write_page + 1;
-		if (pageA<pageB)
+		if (ssd->parameter->greed_MPW_ad == 1)                                             /*贪婪地使用高级命令*/
 		{
-			if (ssd->parameter->greed_MPW_ad == 1)                                             /*贪婪地使用高级命令*/
+			if (pageA<pageB)
 			{
-				/*******************************************************************************
-				*在planeA中，与active_blockB相同位置的的block中，与pageB相同位置的page是可用的。
-				*也就是palneA中的相应水平位置是可用的，将其最为与planeB中对应的页。
-				*那么可也让planeA，active_blockB中的page往pageB靠拢
-				********************************************************************************/
-				if (ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[planeA].blk_head[active_blockB].page_head[pageB].free_state == PG_SUB)
-				{
-					make_same_level(ssd, channel, chip, die, planeA, active_blockB, pageB);
-					flash_page_state_modify(ssd, subA, channel, chip, die, planeA, active_blockB, pageB);
-					flash_page_state_modify(ssd, subB, channel, chip, die, planeB, active_blockB, pageB);
-				}
-				/********************************************************************************
-				*在planeA中，与active_blockB相同位置的的block中，与pageB相同位置的page是可用的。
-				*那么就要重新寻找block，需要重新找水平位置相同的一对页
-				*********************************************************************************/
-				else
-				{
-					for (i = 0; i<ssd->parameter->block_plane; i++)
-					{
-						pageA = ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[planeA].blk_head[i].last_write_page + 1;
-						pageB = ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[planeB].blk_head[i].last_write_page + 1;
-						if ((pageA<ssd->parameter->page_block) && (pageB<ssd->parameter->page_block))
-						{
-							if (pageA<pageB)
-							{
-								if (ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[planeA].blk_head[i].page_head[pageB].free_state == PG_SUB)
-								{
-									aim_page = pageB;
-									make_same_level(ssd, channel, chip, die, planeA, i, aim_page);
-									break;
-								}
-							}
-							else
-							{
-								if (ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[planeB].blk_head[i].page_head[pageA].free_state == PG_SUB)
-								{
-									aim_page = pageA;
-									make_same_level(ssd, channel, chip, die, planeB, i, aim_page);
-									break;
-								}
-							}
-						}
-					}//for (i=0;i<ssd->parameter->block_plane;i++)
-					if (i<ssd->parameter->block_plane)
-					{
-						flash_page_state_modify(ssd, subA, channel, chip, die, planeA, i, aim_page);
-						flash_page_state_modify(ssd, subB, channel, chip, die, planeB, i, aim_page);
-					}
-					else
-					{
-						subA = NULL;
-						subB = NULL;
-						ssd->channel_head[channel].chip_head[chip].die_head[die].token = old_plane;
-						return FAILURE;
-					}
-				}
-			}//if (ssd->parameter->greed_MPW_ad==1)  
+				aim_page = pageB;
+				make_same_level(ssd, channel, chip, die, planeA, active_blockA, aim_page);     /*小的page地址往大的page地址靠*/
+			}
 			else
 			{
-				subA = NULL;
-				subB = NULL;
-				ssd->channel_head[channel].chip_head[chip].die_head[die].token = old_plane;
-				return FAILURE;
+				aim_page = pageA;
+				make_same_level(ssd, channel, chip, die, planeB, active_blockB, aim_page);
 			}
-		}//if (pageA<pageB)
-		else if (pageA > pageB)
-		{
-			if (ssd->parameter->greed_MPW_ad == 1)
-			{
-				if (ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[planeB].blk_head[active_blockA].page_head[pageA].free_state == PG_SUB)
-				{
-					make_same_level(ssd, channel, chip, die, planeB, active_blockA, pageA);
-					flash_page_state_modify(ssd, subA, channel, chip, die, planeA, active_blockA, pageA);
-					flash_page_state_modify(ssd, subB, channel, chip, die, planeB, active_blockA, pageA);
-				}
-				else
-				{
-					for (i = 0; i < ssd->parameter->block_plane; i++)
-					{
-						pageA = ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[planeA].blk_head[i].last_write_page + 1;
-						pageB = ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[planeB].blk_head[i].last_write_page + 1;
-						if ((pageA < ssd->parameter->page_block) && (pageB < ssd->parameter->page_block))
-						{
-							if (pageA < pageB)
-							{
-								if (ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[planeA].blk_head[i].page_head[pageB].free_state == PG_SUB)
-								{
-									aim_page = pageB;
-									make_same_level(ssd, channel, chip, die, planeA, i, aim_page);
-									break;
-								}
-							}
-							else
-							{
-								if (ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[planeB].blk_head[i].page_head[pageA].free_state == PG_SUB)
-								{
-									aim_page = pageA;
-									make_same_level(ssd, channel, chip, die, planeB, i, aim_page);
-									break;
-								}
-							}
-						}
-					}//for (i=0;i<ssd->parameter->block_plane;i++)
-					if (i < ssd->parameter->block_plane)
-					{
-						flash_page_state_modify(ssd, subA, channel, chip, die, planeA, i, aim_page);
-						flash_page_state_modify(ssd, subB, channel, chip, die, planeB, i, aim_page);
-					}
-					else
-					{
-						subA = NULL;
-						subB = NULL;
-						ssd->channel_head[channel].chip_head[chip].die_head[die].token = old_plane;
-						return FAILURE;
-					}
-				}
-			} //if (ssd->parameter->greed_MPW_ad==1) 
-			else
-			{
-				/*
-				if ((pageA == pageB) && (pageA == 0))	//planeA == planeB这种情况，同样认为，此时可以执行mutli plane
-				{
-				/*******************************************************************************************
-				/*下面是两种情况
-				/*1，planeA，planeB中的active_blockA，pageA位置都可用，那么不同plane 的相同位置，以blockA为准
-				/*2，planeA，planeB中的active_blockB，pageA位置都可用，那么不同plane 的相同位置，以blockB为准
-				********************************************************************************************
-				if ((ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[planeA].blk_head[active_blockA].page_head[pageA].free_state == PG_SUB)
-				&& (ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[planeB].blk_head[active_blockA].page_head[pageA].free_state == PG_SUB))
-				{
-				flash_page_state_modify(ssd, subA, channel, chip, die, planeA, active_blockA, pageA);
-				flash_page_state_modify(ssd, subB, channel, chip, die, planeB, active_blockA, pageA);
-				}
-				else if ((ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[planeA].blk_head[active_blockB].page_head[pageA].free_state == PG_SUB)
-				&& (ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[planeB].blk_head[active_blockB].page_head[pageA].free_state == PG_SUB))
-				{
-				flash_page_state_modify(ssd, subA, channel, chip, die, planeA, active_blockB, pageA);
-				flash_page_state_modify(ssd, subB, channel, chip, die, planeB, active_blockB, pageA);
-				}
-				else
-				{
-				subA = NULL;
-				subB = NULL;
-				ssd->channel_head[channel].chip_head[chip].die_head[die].token = old_plane;
-				return FAILURE;
-				}
-
-				}
-				*/
-				subA = NULL;
-				subB = NULL;
-				ssd->channel_head[channel].chip_head[chip].die_head[die].token = old_plane;
-				return ERROR;
-
-			}
+			flash_page_state_modify(ssd, subA, channel, chip, die, planeA, active_blockA, aim_page);
+			flash_page_state_modify(ssd, subB, channel, chip, die, planeB, active_blockB, aim_page);
 		}
-		else //pagaA == pageB
+		else                                                                             /*不能贪婪的使用高级命令*/
 		{
-			if (pageA == pageB)
-			{
-				flash_page_state_modify(ssd, subA, channel, chip, die, planeA, active_blockA, pageA);
-				flash_page_state_modify(ssd, subB, channel, chip, die, planeB, active_blockB, pageB);
-			}
-			else
-			{
-				subA = NULL;
-				subB = NULL;
-				ssd->channel_head[channel].chip_head[chip].die_head[die].token = old_plane;
-				return FAILURE;
-			}
+			subA = NULL;
+			subB = NULL;
+			ssd->channel_head[channel].chip_head[chip].die_head[die].token = old_plane;
+			return FAILURE;
 		}
 	}
 
@@ -1242,7 +995,6 @@ int find_interleave_twoplane_sub_request(struct ssd_info * ssd, unsigned int cha
 {
 	*sub_request_one = ssd->channel_head[channel].subs_r_head;
 
-
 	while ((*sub_request_one) != NULL)
 	{
 		(*sub_request_two) = find_interleave_twoplane_page(ssd, *sub_request_one, command);                //*找出两个可以做two_plane或者interleave的read子请求，包括位置条件和时间条件
@@ -1256,7 +1008,6 @@ int find_interleave_twoplane_sub_request(struct ssd_info * ssd, unsigned int cha
 			break;
 		}
 	}
-
 
 	if (*sub_request_two != NULL)
 	{
@@ -1373,7 +1124,7 @@ Status go_one_step(struct ssd_info * ssd, struct sub_request * sub1, struct sub_
 				update_buffer_node->stored = sub->state | update_buffer_node->stored;
 				update_buffer_node->dirty_clean = sub->state | update_buffer_node->stored;
 				update_buffer_node->page_type = 0;
-				buffer_full_flag = 0;   //解除buff的阻塞
+				ssd->buffer_full_flag = 0;   //解除buff的阻塞
 
 			}
 
@@ -1502,7 +1253,7 @@ Status go_one_step(struct ssd_info * ssd, struct sub_request * sub1, struct sub_
 				update_buffer_node->stored = sub_twoplane_one->state | update_buffer_node->stored;
 				update_buffer_node->dirty_clean = sub_twoplane_one->state | update_buffer_node->stored;
 				update_buffer_node->page_type = 0;
-				buffer_full_flag = 0;
+				ssd->buffer_full_flag = 0;
 			}
 			else if (sub_twoplane_two->update_read_flag == 1)
 			{
@@ -1513,7 +1264,7 @@ Status go_one_step(struct ssd_info * ssd, struct sub_request * sub1, struct sub_
 				update_buffer_node->stored = sub_twoplane_two->state | update_buffer_node->stored;
 				update_buffer_node->dirty_clean = sub_twoplane_two->state | update_buffer_node->stored;
 				update_buffer_node->page_type = 0;
-				buffer_full_flag = 0;
+				ssd->buffer_full_flag = 0;
 			}
 
 			ssd->channel_head[location->channel].current_state = CHANNEL_DATA_TRANSFER;

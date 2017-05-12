@@ -24,7 +24,6 @@ Zuo Lu	        2017/04/06	      1.0		    Creat 3D_SSDsim       617376665@qq.com
 #include "avlTree.h"
 
 #define SECTOR 512
-#define BUFSIZE 200
 
 #define DYNAMIC_ALLOCATION 0
 #define STATIC_ALLOCATION 1
@@ -36,10 +35,10 @@ Zuo Lu	        2017/04/06	      1.0		    Creat 3D_SSDsim       617376665@qq.com
 #define INTERLEAVE_TWO_PLANE 3
 #define COPY_BACK	4
 
-#define AD_RANDOM 1     //并未使用
-#define AD_COPYBACK 2
+#define AD_RANDOM 1     //random
+#define AD_COPYBACK 2	//copyback
 #define AD_TWOPLANE 4   //mutli plane write
-#define AD_INTERLEAVE 8
+#define AD_INTERLEAVE 8  //interleave
 #define AD_TWOPLANE_READ 16  //mutli plane read
 
 #define READ 1
@@ -47,9 +46,10 @@ Zuo Lu	        2017/04/06	      1.0		    Creat 3D_SSDsim       617376665@qq.com
 #define UPDATE_READ 2
 
 /*********************************all states of each objects************************************************
-*一下定义了channel的空闲，命令地址传输，数据传输，传输，其他等状态
-*还有chip的空闲，写忙，读忙，命令地址传输，数据传输，擦除忙，copyback忙，其他等状态
-*还有读写子请求（sub）的等待，读命令地址传输，读，读数据传输，写命令地址传输，写数据传输，写传输，完成等状态
+*Defines the channel idle, command address transmission, data transmission, transmission, and other states
+*And chip free, write busy, read busy, command address transfer, data transfer, erase busy, copyback busy, 
+*other status , And read and write requests (sub) wait, read command address transfer, read, read data transfer, 
+*write command address transfer, write data transfer, write transfer, completion and other status
 ************************************************************************************************************/
 
 #define CHANNEL_IDLE 000
@@ -78,8 +78,8 @@ Zuo Lu	        2017/04/06	      1.0		    Creat 3D_SSDsim       617376665@qq.com
 #define SR_W_TRANSFER 206
 #define SR_COMPLETE 299
 
-#define REQUEST_IN 300         //下一条请求到达的时间
-#define OUTPUT 301             //下一次数据输出的时间
+#define REQUEST_IN 300         //Next request arrival time
+#define OUTPUT 301             //The next time the data is output
 
 #define GC_WAIT 400
 #define GC_ERASE_C_A 401
@@ -98,10 +98,10 @@ Zuo Lu	        2017/04/06	      1.0		    Creat 3D_SSDsim       617376665@qq.com
 
 #define PG_SUB 0xffffffff			
 
-/*****************************************
-*函数结果状态代码
-*Status 是函数类型，其值是函数结果状态代码
-******************************************/
+/*************************************************************************
+*Function result status code
+*Status is the function type ,the value is the function result status code
+**************************************************************************/
 #define TRUE		1
 #define FALSE		0
 #define SUCCESS		1
@@ -150,36 +150,42 @@ struct ac_time_characteristics{
 
 
 struct ssd_info{ 
-	double ssd_energy;                   //SSD的能耗，是时间和芯片数的函数,能耗因子
-	__int64 current_time;                //记录系统时间
+	//Global variable
+	int make_age_free_page;				 //The number of free pages after make_aged
+	int buffer_full_flag;				 //buffer blocking flag:0--unblocking , 1-- blocking
+	int trace_over_flag;				 //the end of trace flag:0-- not ending ,1--ending
+	__int64 request_lz_count;			 //trace request count
+
+	__int64 current_time;                //Record system time
 	__int64 next_request_time;
-	unsigned int real_time_subreq;       //记录实时的写请求个数，用在全动态分配时，channel优先的情况
+	unsigned int real_time_subreq;       //Record the number of real-time write requests, used in the full dynamic allocation, channel priority situation
+
 	int flag;
-	int active_flag;                     //记录主动写是否阻塞，如果发现柱塞，需要将时间向前推进,0表示没有阻塞，1表示被阻塞，需要向前推进时间
+	int active_flag;                     //Record the active write is blocked, if found plunger, need to move forward time, 0 that there is no block, 1 that is blocked, need to move forward time
 	unsigned int page;
 
-	unsigned int token;                  //在动态分配中，为防止每次分配在第一个channel需要维持一个令牌，每次从令牌所指的位置开始分配
-	unsigned int gc_request;             //记录在SSD中，当前时刻有多少gc操作的请求
+	unsigned int token;                  //In the dynamic allocation, in order to prevent each assignment in the first channel need to maintain a token, each time from the token refers to the location of the distribution
+	unsigned int gc_request;             //Recorded in the SSD, the current moment how many gc operation request
 
-	__int64 write_avg;                   //记录用于计算写请求平均响应时间的时间
-	__int64 read_avg;                    //记录用于计算读请求平均响应时间的时间
+	__int64 write_avg;                   //Record the time to calculate the average response time for the write request
+	__int64 read_avg;                    //Record the time to calculate the average response time for the read request
 
 	unsigned int min_lsn;
 	unsigned int max_lsn;
 
 	unsigned long read_count;
-	unsigned long update_read_count;      //记录因为更新操作导致的额外读出操作
-	unsigned long gc_read_count;			 //记录gc导致的读操作
+	unsigned long update_read_count;      //Record the number of updates read
+	unsigned long gc_read_count;		  //Record gc caused by the read operation
 
 	unsigned long program_count;
-	unsigned long pre_all_write;		 //记录预处理写操作
-	unsigned long update_write_count;	 //记录更新的写操作
-	unsigned long gc_write_count;		 //记录gc导致的写操作
+	unsigned long pre_all_write;		 //Record preprocessing write operation
+	unsigned long update_write_count;	 //Record the number of updates write
+	unsigned long gc_write_count;		 //Record gc caused by the write operation
 
 	unsigned long erase_count;
-	unsigned long direct_erase_count;    //记录被直接擦除的无效块
+	unsigned long direct_erase_count;    //Record invalid blocks that are directly erased
 
-	//记录高级命令执行读写操作
+	//Advanced command read and write erase statistics
 	unsigned long m_plane_read_count;
 	unsigned long m_plane_prog_count;
 	unsigned long interleave_count;
@@ -192,11 +198,11 @@ struct ssd_info{
 	unsigned long gc_copy_back;
 	unsigned long copy_back_count;
 
-	unsigned long write_flash_count;     //实际产生的对flash的写操作
-	unsigned long waste_page_count;      //记录因为高级命令的限制导致的页浪费
+	unsigned long write_flash_count;     //The actual write to the flash
+	unsigned long waste_page_count;      //Record the page waste due to restrictions on advanced commands
 
-	unsigned long write_request_count;    //记录写操作的次数
-	unsigned long read_request_count;     //记录读操作的次数
+	unsigned long write_request_count;    //Record the number of write operations
+	unsigned long read_request_count;     //Record the number of read operations
 	
 	float ave_read_size;
 	float ave_write_size;
@@ -213,38 +219,38 @@ struct ssd_info{
 	FILE * statisticfile;
 	FILE * statisticfile2;
 
-    struct parameter_value *parameter;   //SSD参数因子
+    struct parameter_value *parameter;   //SSD parameter
 	struct dram_info *dram;
 	struct request *request_queue;       //dynamic request queue
 	struct request *request_head;		 // the head of the request queue
 	struct request *request_tail;	     // the tail of the request queue
 	struct request *request_work;		 // the work point of the request queue
 
-	struct sub_request *subs_w_head;     //当采用全动态分配时，分配是不知道应该挂载哪个channel上，所以先挂在ssd上，等进入process函数时才挂到相应的channel的读请求队列上
+	struct sub_request *subs_w_head;     //When using the full dynamic allocation, the first hanging on the ssd, etc. into the process function is linked to the corresponding channel read request queue
 	struct sub_request *subs_w_tail;
 
-	struct event_node *event;            //事件队列，每产生一个新的事件，按照时间顺序加到这个队列，在simulate函数最后，根据这个队列队首的时间，确定时间
-	struct channel_info *channel_head;   //指向channel结构体数组的首地址
+	struct event_node *event;            //Event queue,add to the queue in chronological order, and at the end of the simulate function, the time is determined based on the time of the queue queue
+	struct channel_info *channel_head;   //Points to the first address of the channel structure array
 };
 
 
 struct channel_info{
-	int chip;                            //表示在该总线上有多少颗粒
-	unsigned int token;                  //在动态分配中，为防止每次分配在第一个chip需要维持一个令牌，每次从令牌所指的位置开始分配
+	int chip;                            //Indicates how many particles are on the bus
+	unsigned int token;                  //In the dynamic allocation, in order to prevent each assignment in the first chip need to maintain a token, each time from the token referred to the location of the distribution
 
 	int current_state;                   //channel has serveral states, including idle, command/address transfer,data transfer,unknown
 	int next_state;
-	__int64 current_time;                //记录该通道的当前时间
+	__int64 current_time;                //Record the current time of the channel
 	__int64 next_state_predict_time;     //the predict time of next state, used to decide the sate at the moment
 
 	struct event_node *event;
-	struct sub_request *subs_r_head;     //channel上的读请求队列头，先服务处于队列头的子请求
-	struct sub_request *subs_r_tail;     //channel上的读请求队列尾，新加进来的子请求加到队尾
-	struct sub_request *subs_w_head;     //channel上的写请求队列头，先服务处于队列头的子请求
-	struct sub_request *subs_w_tail;     //channel上的写请求队列，新加进来的子请求加到队尾
-	struct gc_operation *gc_command;     //记录需要产生gc的位置
+	struct sub_request *subs_r_head;     //The read request on the channel queue header, the first service in the queue header request
+	struct sub_request *subs_r_tail;     //Channel on the read request queue tail, the new sub-request added to the tail
+	struct sub_request *subs_w_head;     //The write request on the channel queue header, the first service in the queue header request
+	struct sub_request *subs_w_tail;     //The write request queue on the channel, the new incoming request is added to the end of the queue
+	struct gc_operation *gc_command;     //Record the need to generate gc position
 
-	unsigned long channel_read_count;	 //记录channel内的读写擦次数
+	unsigned long channel_read_count;	 //Record the number of read and write wipes within the channel
 	unsigned long channel_program_count;
 	unsigned long channel_erase_count;
 
@@ -253,20 +259,20 @@ struct channel_info{
 
 
 struct chip_info{
-	unsigned int die_num;               //表示一个颗粒中有多少个die
+	unsigned int die_num;               //Indicates how many die is in a chip
 	unsigned int plane_num_die;         //indicate how many planes in a die
 	unsigned int block_num_plane;       //indicate how many blocks in a plane
 	unsigned int page_num_block;        //indicate how many pages in a block
 	unsigned int subpage_num_page;      //indicate how many subpage in a page
-	unsigned int ers_limit;             //该chip中每块能够被擦除的次数
-	unsigned int token;                 //在动态分配中，为防止每次分配在第一个die需要维持一个令牌，每次从令牌所指的位置开始分配
+	unsigned int ers_limit;             //The number of times each block in the chip can be erased
+	unsigned int token;                 //In the dynamic allocation, in order to prevent each assignment in the first die need to maintain a token, each time from the token referred to the location of the distribution
 	
-	int current_state;                  //channel has serveral states, including idle, command/address transfer,data transfer,unknown
+	int current_state;                  //chip has serveral states, including idle, command/address transfer,data transfer,unknown
 	int next_state;
-	__int64 current_time;               //记录该通道的当前时间
+	__int64 current_time;               //Record the current time of the chip
 	__int64 next_state_predict_time;    //the predict time of next state, used to decide the sate at the moment
  
-	unsigned long chip_read_count;      //记录chip内的读写擦次数
+	unsigned long chip_read_count;      //Record the number of read/program/erase in the chip
 	unsigned long chip_program_count;
 	unsigned long chip_erase_count;
 
@@ -277,9 +283,9 @@ struct chip_info{
 
 struct die_info{
 
-	unsigned int token;                 //在动态分配中，为防止每次分配在第一个plane需要维持一个令牌，每次从令牌所指的位置开始分配
+	unsigned int token;                 //In the dynamic allocation, in order to prevent each assignment in the first die need to maintain a token, each time from the token referred to the location of the distribution
 
-	unsigned long die_read_count;		//记录blk内的读写擦次数
+	unsigned long die_read_count;		//Record the number of read/program/erase in the die
 	unsigned long die_program_count;
 	unsigned long die_erase_count;
 
@@ -289,40 +295,40 @@ struct die_info{
 
 
 struct plane_info{
-	int add_reg_ppn;                    //read，write时把地址传送到该变量，该变量代表地址寄存器。die由busy变为idle时，清除地址 //有可能因为一对多的映射，在一个读请求时，有多个相同的lpn，所以需要用ppn来区分  
-	unsigned int free_page;             //该plane中有多少free page
-	unsigned int ers_invalid;           //记录该plane中擦除失效的块数
-	unsigned int active_block;          //if a die has a active block, 该项表示其物理块号
-	int can_erase_block;                //记录在一个plane中准备在gc操作中被擦除操作的块,-1表示还没有找到合适的块
+	int add_reg_ppn;                    //Read, write address to the variable, the variable represents the address register. When the die is changed from busy to idle, clear the address
+	unsigned int free_page;             //the number of free page in plane
+	unsigned int ers_invalid;           //Record the number of blocks in the plane that are erased
+	unsigned int active_block;          //The physical block number of the active block
+	int can_erase_block;                //Record in a plane prepared in the gc operation was erased block, -1 that has not found a suitable block
 
-	unsigned long plane_read_count;		//记录plane内的读写擦次数
+	unsigned long plane_read_count;		//Record the number of read/program/erase in the plane
 	unsigned long plane_program_count;
 	unsigned long plane_erase_count;
 	unsigned long pre_plane_write_count;
 
-	struct direct_erase *erase_node;    //用来记录可以直接删除的块号,在获取新的ppn时，每当出现invalid_page_num==64时，将其添加到这个指针上，供GC操作时直接删除
+	struct direct_erase *erase_node;    //Used to record can be directly deleted block number, access to the new ppn, whenever the invalid_page_num == 64, it will be added to the pointer, for the GC operation directly delete
 	struct blk_info *blk_head;
 };
 
 
 struct blk_info{
-	unsigned int erase_count;          //块的擦除次数，该项记录在ram中，用于GC
-	unsigned int page_read_count;	   //记录块的read page次数	
-	unsigned int page_write_count;	   //记录块的write page次数
-	unsigned int pre_write_count;	   //记录预处理时候write page的次数
+	unsigned int erase_count;          //The number of erasures for the block, which is recorded in ram for the GC
+	unsigned int page_read_count;	   //Record the number of read pages of the block
+	unsigned int page_write_count;	   //Record the number of write pages
+	unsigned int pre_write_count;	   //Record the number of times the prepress was written
 
-	unsigned int free_page_num;        //记录该块中的free页个数，同上
-	unsigned int invalid_page_num;     //记录该块中失效页的个数，同上
-	int last_write_page;               //记录最近一次写操作执行的页数,-1表示该块没有一页被写过
-	struct page_info *page_head;       //记录每一子页的状态
+	unsigned int free_page_num;        //Record the number of pages in the block
+	unsigned int invalid_page_num;     //Record the number of invaild pages in the block
+	int last_write_page;               //Records the number of pages executed by the last write operation, and -1 indicates that no page has been written
+	struct page_info *page_head;       
 };
 
 
-struct page_info{                      //lpn记录该物理页存储的逻辑页，当该逻辑页有效时，valid_state大于0，free_state大于0；
+struct page_info{                      //lpn records the physical page stored in the logical page, when the logical page is valid, valid_state>0, free_state>0
 	int valid_state;                   //indicate the page is valid or invalid
 	int free_state;                    //each bit indicates the subpage is free or occupted. 1 indicates that the bit is free and 0 indicates that the bit is used
 	unsigned int lpn;                 
-	unsigned int written_count;        //记录该页被写的次数	  
+	unsigned int written_count;        //Record the number of times the page was written
 };
 
 
@@ -337,17 +343,17 @@ struct dram_info{
 };
 
 
-/*********************************************************************************************
-*buffer中的已写回的页的管理方法:在buffer_info中维持一个队列:written。这个队列有队首，队尾。
-*每次buffer management中，请求命中时，这个group要移到LRU的队首，同时看这个group中是否有已
-*写回的lsn，有的话，需要将这个group同时移动到written队列的队尾。这个队列的增长和减少的方法
-*如下:当需要通过删除已写回的lsn为新的写请求腾出空间时，在written队首中找出可以删除的lsn。
-*当需要增加新的写回lsn时，找到可以写回的页，将这个group加到指针written_insert所指队列written
-*节点前。我们需要再维持一个指针，在buffer的LRU队列中指向最老的一个写回了的页，下次要再写回时，
-*只需由这个指针回退到前一个group写回即可。
-**********************************************************************************************/
+/*****************************************************************************************************************************************
+*Buff strategy:Blocking buff strategy
+*1--first check the buffer is full, if dissatisfied, check whether the current request to put down the data, if so, put the current request, 
+*if not, then block the buffer;
+*
+*2--If buffer is blocked, select the replacement of the two ends of the page. If the two full page, then issued together to lift the buffer 
+*block; if a partial page 1 full page or 2 partial page, then issued a pre-read request, waiting for the completion of full page and then issued 
+*And then release the buffer block.
+********************************************************************************************************************************************/
 typedef struct buffer_group{
-	TREE_NODE node;                     //树节点的结构一定要放在用户自定义结构的最前面，注意!
+	TREE_NODE node;                     //The structure of the tree node must be placed at the top of the user-defined structure
 	struct buffer_group *LRU_link_next;	// next node in LRU list
 	struct buffer_group *LRU_link_pre;	// previous node in LRU list
 
@@ -368,24 +374,24 @@ struct dram_parameter{
 
 
 struct map_info{
-	struct entry *map_entry;            //该项是映射表结构体指针,each entry indicate a mapping information
+	struct entry *map_entry;            // each entry indicate a mapping information
 	struct buffer_info *attach_info;	// info about attach map
 };
 
 
 struct controller_info{
-	unsigned int frequency;             //表示该控制器的工作频率
-	__int64 clock_time;                 //表示一个时钟周期的时间
-	float power;                        //表示控制器单位时间的能耗
+	unsigned int frequency;             //Indicates the operating frequency of the controller
+	__int64 clock_time;                 //Indicates the time of a clock cycle
+	float power;                        //Indicates the energy consumption per unit time of the controller
 };
 
 
 struct request{
-	__int64 time;                      //请求到达的时间，单位为us,这里和通常的习惯不一样，通常的是ms为单位，这里需要有个单位变换过程
-	unsigned int lsn;                  //请求的起始地址，逻辑地址
-	unsigned int size;                 //请求的大小，既多少个扇区
-	unsigned int operation;            //请求的种类，1为读，0为写
-	unsigned int cmplt_flag;		   //请求是否被执行，0表示未执行，1表示已执行
+	__int64 time;                      //Request to reach the time(us)
+	unsigned int lsn;                  //The starting address of the request, the logical address
+	unsigned int size;                 //The size of the request, the number of sectors
+	unsigned int operation;            //The type of request, 1 for the read, 0 for the write
+	unsigned int cmplt_flag;		   //Whether the request is executed, 0 means no execution, 1 means it has been executed
 
 	unsigned int* need_distr_flag;
 	unsigned int complete_lsn_count;   //record the count of lsn served by buffer
@@ -394,56 +400,56 @@ struct request{
 
 	__int64 begin_time;
 	__int64 response_time;
-	double energy_consumption;         //记录该请求的能量消耗，单位为uJ
+	double energy_consumption;         //Record the energy consumption of the request
 
-	struct sub_request *subs;          //链接到属于该请求的所有子请求
-	struct request *next_node;         //指向下一个请求结构体
+	struct sub_request *subs;          //Record all sub-requests belonging to the request
+	struct request *next_node;        
 };
 
 
 struct sub_request{
-	unsigned int lpn;                  //这里表示该子请求的逻辑页号
-	unsigned int ppn;                  //分配那个物理子页给这个子请求。在multi_chip_page_mapping中，产生子页请求时可能就知道psn的值，其他时候psn的值由page_map_read,page_map_write等FTL最底层函数产生。 
-	unsigned int operation;            //表示该子请求的类型，除了读1 写0，还有擦除，two plane等操作 
+	unsigned int lpn;                  //The logical page number of the sub request
+	unsigned int ppn;                  //The physical page number of the request
+	unsigned int operation;            //Indicates the type of the sub request, except that read 1 write 0, there are erase, two plane and other operations
 	int size;
 
-	unsigned int current_state;        //表示该子请求所处的状态，见宏定义sub request
+	unsigned int current_state;        //Indicates the status of the subquery
 	__int64 current_time;
 	unsigned int next_state;
 	__int64 next_state_predict_time;
-	 unsigned int state;              //使用state的最高位表示该子请求是否是一对多映射关系中的一个，是的话，需要读到buffer中。1表示是一对多，0表示不用写到buffer
-	                                  //读请求不需要这个成员，lsn加size就可以分辨出该页的状态;但是写请求需要这个成员，大部分写子请求来自于buffer写回操作，可能有类似子页不连续的情况，所以需要单独维持该成员
+	 unsigned int state;              //The requested sector status bit
 
-	__int64 begin_time;               //子请求开始时间
-	__int64 complete_time;            //记录该子请求的处理时间,既真正写入或者读出数据的时间
+	__int64 begin_time;               //Sub request start time
+	__int64 complete_time;            //Record the processing time of the sub-request, the time that the data is actually written or read out
 
-	struct local *location;           //在静态分配和混合分配方式中，已知lpn就知道该lpn该分配到那个channel，chip，die，plane，这个结构体用来保存计算得到的地址
-	struct sub_request *next_subs;    //指向属于同一个request的子请求
-	struct sub_request *next_node;    //指向同一个channel中下一个子请求结构体
-	struct sub_request *update;       //因为在写操作中存在更新操作，因为在动态分配方式中无法使用copyback操作，需要将原来的页读出后才能进行写操作，所以，将因更新产生的读操作挂在这个指针上
+	struct local *location;           //In the static allocation and mixed allocation mode, it is known that lpn knows that the lpn is assigned to that channel, chip, die, plane, which is used to store the calculated address
+	struct sub_request *next_subs;    //Points to the child request that belongs to the same request
+	struct sub_request *next_node;    //Points to the next sub-request structure in the same channel
+	struct sub_request *update;       //Update the write request, mount this pointer on
 
-	unsigned int update_read_flag;   //更新读完成的标志位
+	unsigned int update_read_flag;   //Update the read flag
 
 };
 
 
 /***********************************************************************
-*事件节点控制时间的增长，每次时间的增加是根据时间最近的一个事件来确定的
+*The event node controls the growth of time, and the increase in each time 
+*is determined by the time of the most recent event
 ************************************************************************/
 struct event_node{
-	int type;                        //记录该事件的类型，1表示命令类型，2表示数据传输类型
-	__int64 predict_time;            //记录这个时间开始的预计时间，防止提前执行这个时间
+	int type;                        //Record the type of the event, 1 for the command type, and 2 for the data transfer type
+	__int64 predict_time;            //Record the expected time of this time to prevent the implementation of this time ahead of time
 	struct event_node *next_node;
 	struct event_node *pre_node;
 };
 
 struct parameter_value{
-	unsigned int chip_num;          //记录一个SSD中有多少个颗粒
-	unsigned int dram_capacity;     //记录SSD中DRAM capacity
-	unsigned int cpu_sdram;         //记录片内有多少
+	unsigned int chip_num;          //the number of chip in ssd
+	unsigned int dram_capacity;     //Record the DRAM capacity in SSD
+	unsigned int cpu_sdram;         //sdram capacity in cpu
 
-	unsigned int channel_number;    //记录SSD中有多少个通道，每个通道是单独的bus
-	unsigned int chip_channel[100]; //设置SSD中channel数和每channel上颗粒的数量
+	unsigned int channel_number;    //Record the number of channels in the SSD, each channel is a separate bus
+	unsigned int chip_channel[100]; //Set the number of channels in the SSD and the number of particles on each channel
 
 	unsigned int die_chip;    
 	unsigned int plane_die;

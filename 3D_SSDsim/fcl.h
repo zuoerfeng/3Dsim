@@ -29,7 +29,6 @@ int find_interleave_twoplane_sub_request(struct ssd_info * ssd, unsigned int cha
 
 struct ssd_info *delete_from_channel(struct ssd_info *ssd, unsigned int channel, struct sub_request * sub_req);
 struct ssd_info *compute_serve_time(struct ssd_info *ssd, unsigned int channel, unsigned int chip, unsigned int die, struct sub_request **subs, unsigned int subs_count, unsigned int command);
-int delete_w_sub_request(struct ssd_info * ssd, unsigned int channel, struct sub_request * sub);
 
 int go_one_step(struct ssd_info * ssd, struct sub_request * sub1, struct sub_request *sub2, unsigned int aim_state, unsigned int command);
 int services_2_r_cmd_trans_and_complete(struct ssd_info * ssd);

@@ -6,14 +6,14 @@ This is a project on 3D_SSDsim, based on ssdsim under the framework of the compl
 4.4-layer structure
 
 FileName： ssd.c
-Author: Zuo Lu 		Version: 1.0	Date:2017/04/06
+Author: Zuo Lu 		Version: 1.1	Date:2017/05/12
 Description: System main function c file, Contains the basic flow of simulation.
 Mainly includes: initialization, make_aged, pre_process_page three parts
 
 History:
-<contributor>     <time>        <version>       <desc>                   <e-mail>
-Zuo Lu	        2017/04/06	      1.0		    Creat 3D_SSDsim       617376665@qq.com
-
+<contributor>     <time>        <version>       <desc>									<e-mail>
+Zuo Lu	        2017/04/06	      1.0		    Creat 3D_SSDsim							617376665@qq.com
+Zuo Lu			2017/05/12		  1.1			Support advanced commands:mutli plane   617376665@qq.com
 *****************************************************************************************************************************/
 
 #define _CRTDBG_MAP_ALLOC
@@ -34,12 +34,6 @@ Zuo Lu	        2017/04/06	      1.0		    Creat 3D_SSDsim       617376665@qq.com
 #include "ftl.h"
 #include "fcl.h"
 
-
-//Global variable
-int make_age_free_page = 0;
-int buffer_full_flag = 0;
-__int64 request_lz_count = 0;
-int trace_over_flag = 0;
 
 /********************************************************************************************************************************
 1，main函数中initiatio()函数用来初始化ssd,；2，make_aged()函数使SSD成为aged，aged的ssd相当于使用过一段时间的ssd，里面有失效页，
@@ -166,7 +160,7 @@ struct ssd_info *simulate(struct ssd_info *ssd)
 			//printf("once\n");
 			if (ssd->parameter->dram_capacity!=0)
 			{
-				if (buffer_full_flag == 0)				//buff未阻塞状态方可执行buff操作
+				if (ssd->buffer_full_flag == 0)				//buff未阻塞状态方可执行buff操作
 				{
 					buffer_management(ssd);
 					distribute(ssd);
@@ -296,7 +290,7 @@ struct ssd_info *process(struct ssd_info *ssd)
 		}
 
 		/*此时用来查看plane内的偏移地址是否相同，从而验证我们代码的有效性*/
-		
+		/*
 		for (j = 0; j < ssd->parameter->die_chip; j++)
 		{
 			for (i = 0; i<ssd->parameter->channel_number; i++)
@@ -317,6 +311,7 @@ struct ssd_info *process(struct ssd_info *ssd)
 				}
 			}
 		}
+		*/
 	}
 	return ssd;
 }
@@ -718,7 +713,7 @@ void statistic_output(struct ssd_info *ssd)
 	fprintf(ssd->statisticfile,"buffer write hits: %13d\n",ssd->dram->buffer->write_hit);
 	fprintf(ssd->statisticfile,"buffer write miss: %13d\n",ssd->dram->buffer->write_miss_hit);
 
-//	fprintf(ssd->statisticfile, "buffer write hit request count : %13d\n", request_lz_count);
+//	fprintf(ssd->statisticfile, "buffer write hit request count : %13d\n", ssd->request_lz_count);
 
 	fprintf(ssd->statisticfile, "\n");
 	fflush(ssd->statisticfile);
@@ -830,7 +825,7 @@ struct ssd_info *make_aged(struct ssd_info *ssd)
 								ppn=find_ppn(ssd,i,j,k,l,m,n);
 							
 							}
-							make_age_free_page = ssd->channel_head[i].chip_head[j].die_head[k].plane_head[l].blk_head[m].free_page_num;
+							ssd->make_age_free_page = ssd->channel_head[i].chip_head[j].die_head[k].plane_head[l].blk_head[m].free_page_num;
 						} 
 					}	 
 	}  
@@ -867,7 +862,7 @@ struct ssd_info *pre_process_write(struct ssd_info *ssd)
 					{
 						if ((ssd->channel_head[i].chip_head[m].die_head[j].plane_head[k].blk_head[p].free_page_num > 0) && (ssd->channel_head[i].chip_head[m].die_head[j].plane_head[k].blk_head[p].free_page_num < ssd->parameter->page_block))
 						{
-							if (ssd->channel_head[i].chip_head[m].die_head[j].plane_head[k].blk_head[p].free_page_num == make_age_free_page)			//旧化剩余的空闲页，即当前块都是无效页，全部置无效当前块
+							if (ssd->channel_head[i].chip_head[m].die_head[j].plane_head[k].blk_head[p].free_page_num == ssd->make_age_free_page)			//旧化剩余的空闲页，即当前块都是无效页，全部置无效当前块
 							{
 								ssd->channel_head[i].chip_head[m].die_head[j].plane_head[k].free_page = ssd->channel_head[i].chip_head[m].die_head[j].plane_head[k].free_page - ssd->channel_head[i].chip_head[m].die_head[j].plane_head[k].blk_head[p].free_page_num;
 								ssd->channel_head[i].chip_head[m].die_head[j].plane_head[k].blk_head[p].free_page_num = 0;
@@ -902,7 +897,7 @@ struct ssd_info *pre_process_write(struct ssd_info *ssd)
 							{
 								ssd->channel_head[i].chip_head[m].die_head[j].plane_head[k].free_page = ssd->channel_head[i].chip_head[m].die_head[j].plane_head[k].free_page - ssd->channel_head[i].chip_head[m].die_head[j].plane_head[k].blk_head[p].free_page_num;
 								ssd->channel_head[i].chip_head[m].die_head[j].plane_head[k].blk_head[p].free_page_num = 0;
-								ssd->channel_head[i].chip_head[m].die_head[j].plane_head[k].blk_head[p].invalid_page_num = ssd->parameter->page_block - (ssd->channel_head[i].chip_head[m].die_head[j].plane_head[k].blk_head[p].last_write_page + 1) + make_age_free_page;
+								ssd->channel_head[i].chip_head[m].die_head[j].plane_head[k].blk_head[p].invalid_page_num += ssd->parameter->page_block - (ssd->channel_head[i].chip_head[m].die_head[j].plane_head[k].blk_head[p].last_write_page + 1);
 								ssd->channel_head[i].chip_head[m].die_head[j].plane_head[k].blk_head[p].last_write_page = ssd->parameter->page_block - 1;
 
 								for (n = (ssd->channel_head[i].chip_head[m].die_head[j].plane_head[k].blk_head[p].last_write_page + 1); n < ssd->parameter->page_block; n++)

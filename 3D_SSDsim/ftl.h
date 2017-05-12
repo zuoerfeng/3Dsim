@@ -27,8 +27,8 @@ int get_ppn_for_normal_command(struct ssd_info * ssd, unsigned int channel, unsi
 
 
 unsigned int gc(struct ssd_info *ssd, unsigned int channel, unsigned int flag);
-int gc_direct_erase(struct ssd_info *ssd, unsigned int channel, unsigned int chip, unsigned int die, unsigned int plane);
-int uninterrupt_gc(struct ssd_info *ssd, unsigned int channel, unsigned int chip, unsigned int die, unsigned int plane);
+int gc_direct_erase(struct ssd_info *ssd, unsigned int channel, unsigned int chip, unsigned int die, unsigned int planeA, unsigned int planeB);
+int uninterrupt_gc(struct ssd_info *ssd, unsigned int channel, unsigned int chip, unsigned int die, unsigned int plane1, unsigned int plane2);
 int gc_for_channel(struct ssd_info *ssd, unsigned int channel);
 unsigned int get_ppn_for_gc(struct ssd_info *ssd, unsigned int channel, unsigned int chip, unsigned int die, unsigned int plane);
 int delete_gc_node(struct ssd_info *ssd, unsigned int channel, struct gc_operation *gc_node);

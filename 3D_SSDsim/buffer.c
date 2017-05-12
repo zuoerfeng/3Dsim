@@ -6,14 +6,14 @@ This is a project on 3D_SSDsim, based on ssdsim under the framework of the compl
 4.4-layer structure
 
 FileName： ssd.c
-Author: Zuo Lu 		Version: 1.0	Date:2017/04/06
+Author: Zuo Lu 		Version: 1.1	Date:2017/05/12
 Description: 
 buff layer: only contains data cache (minimum processing size for the sector, that is, unit = 512B), mapping table (page-level);
 
 History:
-<contributor>     <time>        <version>       <desc>                   <e-mail>
-Zuo Lu	        2017/04/06	      1.0		    Creat 3D_SSDsim       617376665@qq.com
-
+<contributor>     <time>        <version>       <desc>									<e-mail>
+Zuo Lu	        2017/04/06	      1.0		    Creat 3D_SSDsim							617376665@qq.com
+Zuo Lu			2017/05/12		  1.1			Support advanced commands:mutli plane   617376665@qq.com
 *****************************************************************************************************************************/
 
 
@@ -34,7 +34,6 @@ Zuo Lu	        2017/04/06	      1.0		    Creat 3D_SSDsim       617376665@qq.com
 #include "ftl.h"
 #include "fcl.h"
 
-extern int buffer_full_flag;
 
 /**********************************************************************************************************************************************
 *首先buffer是个写buffer，就是为写请求服务的，因为读flash的时间tR为20us，写flash的时间tprog为200us，所以为写服务更能节省时间
@@ -175,14 +174,14 @@ struct ssd_info *buffer_management(struct ssd_info *ssd)
 					}
 					else  //buff已满，阻塞buff,跳出循环
 					{
-						buffer_full_flag = 1;
+						ssd->buffer_full_flag = 1;
 						break;
 					}
 				}
 				lpn++;
 			}
 
-			if (buffer_full_flag == 0)
+			if (ssd->buffer_full_flag == 0)
 			{
 				//buff此时未满，向buff中写入数据
 				//lz_k++;
@@ -224,7 +223,7 @@ struct ssd_info *buffer_management(struct ssd_info *ssd)
 			{
 				//buff满了，从buff的末尾替换两个请求下去
 				getout2buffer(ssd, NULL, new_request);
-				if (buffer_full_flag == 1)
+				if (ssd->buffer_full_flag == 1)
 					break;
 
 				new_request->cmplt_flag = 0;			//该请求未被执行
@@ -316,7 +315,7 @@ struct ssd_info * getout2buffer(struct ssd_info *ssd, struct sub_request *sub, s
 		}
 
 		//取消阻塞buff
-		buffer_full_flag = 0;
+		ssd->buffer_full_flag = 0;
 
 
 	}
