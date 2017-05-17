@@ -5,7 +5,7 @@ This is a project on 3D_SSDsim, based on ssdsim under the framework of the compl
 3.Clear hierarchical interface
 4.4-layer structure
 
-FileName： ssd.c
+FileName： flash.c
 Author: Zuo Lu 		Version: 1.1	Date:2017/05/12
 Description:
 flash layer: the original ssdsim this layer is not a specific description, it was their own package to achieve, not completed.
@@ -30,12 +30,9 @@ Zuo Lu			2017/05/12		  1.1			Support advanced commands:mutli plane   617376665@q
 #include "fcl.h"
 
 
-/*********************************************************************************************************************
-* 朱志明 于2011年7月28日修改
-*函数的功能就是erase_operation擦除操作，把channel，chip，die，plane下的block擦除掉
-*也就是初始化这个block的相关参数，eg：free_page_num=page_block，invalid_page_num=0，last_write_page=-1，erase_count++
-*还有这个block下面的每个page的相关参数也要修改。
-*********************************************************************************************************************/
+/******************************************************************************************
+*function is to erase the operation, the channel, chip, die, plane under the block erase
+*******************************************************************************************/
 
 Status erase_operation(struct ssd_info * ssd, unsigned int channel, unsigned int chip, unsigned int die, unsigned int plane, unsigned int block)
 {
@@ -52,18 +49,16 @@ Status erase_operation(struct ssd_info * ssd, unsigned int channel, unsigned int
 		ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[plane].blk_head[block].page_head[i].lpn = -1;
 	}
 	ssd->erase_count++;
-//	ssd->channel_head[channel].erase_count++;
-//	ssd->channel_head[channel].chip_head[chip].erase_count++;
 	ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[plane].free_page += ssd->parameter->page_block;
 
 	return SUCCESS;
 
 }
 
-
-
-
-Status move_page(struct ssd_info * ssd, struct local *location, unsigned int * transfer_size)
+/******************************************************************************************
+*function is to read out the old active page, set invalid, migrate to the new valid page
+*******************************************************************************************/
+Status move_page(struct ssd_info * ssd, struct local *location, unsigned int move_plane,unsigned int * transfer_size)
 {
 	struct local *new_location = NULL;
 	unsigned int free_state = 0, valid_state = 0;
@@ -72,22 +67,22 @@ Status move_page(struct ssd_info * ssd, struct local *location, unsigned int * t
 	lpn = ssd->channel_head[location->channel].chip_head[location->chip].die_head[location->die].plane_head[location->plane].blk_head[location->block].page_head[location->page].lpn;
 	valid_state = ssd->channel_head[location->channel].chip_head[location->chip].die_head[location->die].plane_head[location->plane].blk_head[location->block].page_head[location->page].valid_state;
 	free_state = ssd->channel_head[location->channel].chip_head[location->chip].die_head[location->die].plane_head[location->plane].blk_head[location->block].page_head[location->page].free_state;
-	old_ppn = find_ppn(ssd, location->channel, location->chip, location->die, location->plane, location->block, location->page);      /*记录这个有效移动页的ppn，对比map或者额外映射关系中的ppn，进行删除和添加操作*/
+	old_ppn = find_ppn(ssd, location->channel, location->chip, location->die, location->plane, location->block, location->page);      /*record ppn of this active mobile page, compare ppn in map, delete or add operations*/
 
 
-	ppn = get_ppn_for_gc(ssd, location->channel, location->chip, location->die, location->plane);                /*找出来的ppn一定是在发生gc操作的plane中,才能使用copyback操作，为gc操作获取ppn*/
+	ppn = get_ppn_for_gc(ssd, location->channel, location->chip, location->die, move_plane);                /*Find out the ppn must be in gc operation of the plane, in order to use the copyback operation, for the gc operation to obtain ppn*/
 
-	new_location = find_location(ssd, ppn);                                                                   /*根据新获得的ppn获取new_location*/
+	new_location = find_location(ssd, ppn);                                                                   /*Get new_location based on newly acquired ppn*/
 
 	(*transfer_size) += size(valid_state);
 
-	//迁移到新的有效页
+	//Migrate to a new active page
 	ssd->channel_head[new_location->channel].chip_head[new_location->chip].die_head[new_location->die].plane_head[new_location->plane].blk_head[new_location->block].page_head[new_location->page].free_state = free_state;
 	ssd->channel_head[new_location->channel].chip_head[new_location->chip].die_head[new_location->die].plane_head[new_location->plane].blk_head[new_location->block].page_head[new_location->page].lpn = lpn;
 	ssd->channel_head[new_location->channel].chip_head[new_location->chip].die_head[new_location->die].plane_head[new_location->plane].blk_head[new_location->block].page_head[new_location->page].valid_state = valid_state;
 	ssd->gc_write_count++;
 
-	//读出旧的有效页操作
+	//Read out the old valid page operation, set invalid
 	ssd->channel_head[location->channel].chip_head[location->chip].die_head[location->die].plane_head[location->plane].blk_head[location->block].page_head[location->page].free_state = 0;
 	ssd->channel_head[location->channel].chip_head[location->chip].die_head[location->die].plane_head[location->plane].blk_head[location->block].page_head[location->page].lpn = 0;
 	ssd->channel_head[location->channel].chip_head[location->chip].die_head[location->die].plane_head[location->plane].blk_head[location->block].page_head[location->page].valid_state = 0;
@@ -95,7 +90,7 @@ Status move_page(struct ssd_info * ssd, struct local *location, unsigned int * t
 	ssd->gc_read_count++;
 	ssd->channel_head[location->channel].chip_head[location->chip].die_head[location->die].plane_head[location->plane].blk_head[location->block].page_read_count++;
 
-	if (old_ppn == ssd->dram->map->map_entry[lpn].pn)                                                     /*修改映射表*/
+	if (old_ppn == ssd->dram->map->map_entry[lpn].pn)                                                     /*Modify the mapping table*/
 	{
 		ssd->dram->map->map_entry[lpn].pn = ppn;
 	}
@@ -107,13 +102,9 @@ Status move_page(struct ssd_info * ssd, struct local *location, unsigned int * t
 }
 
 
-
-
-/*************************************************
-*这个函数的功能就是一个模拟一个实实在在的写操作
-*就是更改这个page的相关参数，以及整个ssd的统计参数
-*预处理时候调用，模拟的实际写
-**************************************************/
+/*********************************************************************************************
+*this function is a simulation of a real write operation, to the pre-processing time to use
+*********************************************************************************************/
 Status write_page(struct ssd_info *ssd, unsigned int channel, unsigned int chip, unsigned int die, unsigned int plane, unsigned int active_block, unsigned int *ppn)
 {
 	int last_write_page = 0;
@@ -134,9 +125,9 @@ Status write_page(struct ssd_info *ssd, unsigned int channel, unsigned int chip,
 	return SUCCESS;
 }
 
-/*
-*函数的功能是修改找到的page页的状态以及相应的dram中映射表的值
-*/
+/***********************************************************************************************************
+*function is to modify the page page to find the state and the corresponding dram in the mapping table value
+***********************************************************************************************************/
 struct ssd_info *flash_page_state_modify(struct ssd_info *ssd, struct sub_request *sub, unsigned int channel, unsigned int chip, unsigned int die, unsigned int plane, unsigned int block, unsigned int page)
 {
 	unsigned int ppn, full_page;
@@ -158,15 +149,15 @@ struct ssd_info *flash_page_state_modify(struct ssd_info *ssd, struct sub_reques
 		ssd->dram->map->map_entry[sub->lpn].pn = find_ppn(ssd, channel, chip, die, plane, block, page);
 		ssd->dram->map->map_entry[sub->lpn].state = sub->state;
 	}
-	else                                                                                      /*这个逻辑页进行了更新，需要将原来的页置为失效*/
+	else                                                                                      /*This logical page has been updated, and the original page needs to be invalidated*/
 	{
 		ppn = ssd->dram->map->map_entry[sub->lpn].pn;
 		location = find_location(ssd, ppn);
-		ssd->channel_head[location->channel].chip_head[location->chip].die_head[location->die].plane_head[location->plane].blk_head[location->block].page_head[location->page].valid_state = 0;        //表示某一页失效，同时标记valid和free状态都为0
-		ssd->channel_head[location->channel].chip_head[location->chip].die_head[location->die].plane_head[location->plane].blk_head[location->block].page_head[location->page].free_state = 0;         //表示某一页失效，同时标记valid和free状态都为0
+		ssd->channel_head[location->channel].chip_head[location->chip].die_head[location->die].plane_head[location->plane].blk_head[location->block].page_head[location->page].valid_state = 0;        
+		ssd->channel_head[location->channel].chip_head[location->chip].die_head[location->die].plane_head[location->plane].blk_head[location->block].page_head[location->page].free_state = 0;        
 		ssd->channel_head[location->channel].chip_head[location->chip].die_head[location->die].plane_head[location->plane].blk_head[location->block].page_head[location->page].lpn = 0;
 		ssd->channel_head[location->channel].chip_head[location->chip].die_head[location->die].plane_head[location->plane].blk_head[location->block].invalid_page_num++;
-		if (ssd->channel_head[location->channel].chip_head[location->chip].die_head[location->die].plane_head[location->plane].blk_head[location->block].invalid_page_num == ssd->parameter->page_block)    //该block中全是invalid的页，可以直接删除
+		if (ssd->channel_head[location->channel].chip_head[location->chip].die_head[location->die].plane_head[location->plane].blk_head[location->block].invalid_page_num == ssd->parameter->page_block)    //The block is invalid in the page, it can directly delete
 		{
 			new_direct_erase = (struct direct_erase *)malloc(sizeof(struct direct_erase));
 			alloc_assert(new_direct_erase, "new_direct_erase");
@@ -201,8 +192,6 @@ struct ssd_info *flash_page_state_modify(struct ssd_info *ssd, struct sub_reques
 
 	ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[plane].blk_head[block].page_write_count++;
 	ssd->program_count++;
-	//ssd->channel_head[channel].program_count++;
-	//ssd->channel_head[channel].chip_head[chip].program_count++;
 	ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[plane].free_page--;
 	ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[plane].blk_head[block].page_head[page].lpn = sub->lpn;
 	ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[plane].blk_head[block].page_head[page].valid_state = sub->state;

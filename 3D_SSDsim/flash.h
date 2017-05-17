@@ -5,19 +5,19 @@ This is a project on 3D_SSDsim, based on ssdsim under the framework of the compl
 3.Clear hierarchical interface
 4.4-layer structure
 
-FileName£º ssd.c
-Author: Zuo Lu 		Version: 1.0	Date:2017/04/06
+FileName£º flash.h
+Author: Zuo Lu 		Version: 1.1	Date:2017/05/12
 Description:
 flash layer: the original ssdsim this layer is not a specific description, it was their own package to achieve, not completed.
 
 History:
-<contributor>     <time>        <version>       <desc>                   <e-mail>
-Zuo Lu	        2017/04/06	      1.0		    Creat 3D_SSDsim       617376665@qq.com
-
+<contributor>     <time>        <version>       <desc>									<e-mail>
+Zuo Lu	        2017/04/06	      1.0		    Creat 3D_SSDsim							617376665@qq.com
+Zuo Lu			2017/05/12		  1.1			Support advanced commands:mutli plane   617376665@qq.com
 *****************************************************************************************************************************/
 
-
 int erase_operation(struct ssd_info * ssd, unsigned int channel, unsigned int chip, unsigned int die, unsigned int plane, unsigned int block);
-int move_page(struct ssd_info * ssd, struct local *location, unsigned int * transfer_size);
+int move_page(struct ssd_info * ssd, struct local *location, unsigned int move_plane, unsigned int * transfer_size);
 int write_page(struct ssd_info *ssd, unsigned int channel, unsigned int chip, unsigned int die, unsigned int plane, unsigned int active_block, unsigned int *ppn);
+
 struct ssd_info *flash_page_state_modify(struct ssd_info *, struct sub_request *, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int);

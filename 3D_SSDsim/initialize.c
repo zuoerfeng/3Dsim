@@ -5,7 +5,7 @@ This is a project on 3D_SSDsim, based on ssdsim under the framework of the compl
 3.Clear hierarchical interface
 4.4-layer structure
 
-FileName： ssd.c
+FileName： initialize.c
 Author: Zuo Lu 		Version: 1.1	Date:2017/05/12
 Description: 
 Initialization layer: complete ssd organizational data structure, request queue creation and memory space initialization
@@ -66,8 +66,6 @@ extern int freeFunc(TREE_NODE *pNode)
 
 
 /**********   initiation   ******************
-*modify by zhouwen
-*November 08,2011
 *initialize the ssd struct to simulate the ssd hardware
 *1.this function allocate memory for ssd structure 
 *2.set the infomation according to the parameter file
@@ -87,8 +85,8 @@ struct ssd_info *initiation(struct ssd_info *ssd)
 //	printf("\ninput trace file name:");
 //	gets(ssd->tracefilename);
 //	strcpy_s(ssd->tracefilename, 50, "16M_2KB_sequence_RandW.ascii");
-	strcpy_s(ssd->tracefilename, 25, "financial2.ascii");
-//	strcpy_s(ssd->tracefilename, 25, "example.ascii");
+//	strcpy_s(ssd->tracefilename, 25, "financial2.ascii");
+	strcpy_s(ssd->tracefilename, 25, "example.ascii");
 //	strcpy_s(ssd->tracefilename,50,"update_16_count.ascii");
 //	strcpy_s(ssd->tracefilename,25,"DevDivRelease.ascii");
 
@@ -106,28 +104,28 @@ struct ssd_info *initiation(struct ssd_info *ssd)
 
 	//strcpy_s(ssd->statisticfilename2 ,16,"statistic2.dat");
 
-	//导入ssd的配置文件
+	//Import the configuration file for ssd
 	parameters=load_parameters(ssd->parameterfilename);
 	ssd->parameter=parameters;
 	ssd->min_lsn=0x7fffffff;
 	ssd->page=ssd->parameter->chip_num*ssd->parameter->die_chip*ssd->parameter->plane_die*ssd->parameter->block_plane*ssd->parameter->page_block;
 
-	//初始化ssd的全局变量
+	//Initializes the global variable for ssd_info
 	ssd->make_age_free_page = 0;
 	ssd->buffer_full_flag = 0;
 	ssd->request_lz_count = 0;
 	ssd->trace_over_flag = 0;
 
-	//初始化统计参数
+	//Initialize the statistical parameters
 	initialize_statistic(ssd);
 
-	//初始化 dram
+	//Initialize dram_info
 	ssd->dram = (struct dram_info *)malloc(sizeof(struct dram_info));
 	alloc_assert(ssd->dram,"ssd->dram");
 	memset(ssd->dram,0,sizeof(struct dram_info));
 	initialize_dram(ssd);
 
-	//初始化通道
+	//Initialize channel_info
 	ssd->channel_head=(struct channel_info*)malloc(ssd->parameter->channel_number * sizeof(struct channel_info));
 	alloc_assert(ssd->channel_head,"ssd->channel_head");
 	memset(ssd->channel_head,0,ssd->parameter->channel_number * sizeof(struct channel_info));
@@ -198,7 +196,7 @@ struct ssd_info *initiation(struct ssd_info *ssd)
 
 void initialize_statistic(struct ssd_info * ssd)
 {
-	//初始化统计参数
+	//Initialize parameters
 	ssd->read_count = 0;
 	ssd->update_read_count = 0;
 	ssd->gc_read_count = 0;
@@ -233,7 +231,7 @@ struct dram_info * initialize_dram(struct ssd_info * ssd)
 
 	page_num = ssd->parameter->page_block*ssd->parameter->block_plane*ssd->parameter->plane_die*ssd->parameter->die_chip*ssd->parameter->chip_num;
 
-	dram->map->map_entry = (struct entry *)malloc(sizeof(struct entry) * page_num); //每个物理页和逻辑页都有对应关系
+	dram->map->map_entry = (struct entry *)malloc(sizeof(struct entry) * page_num); 
 	alloc_assert(dram->map->map_entry,"dram->map->map_entry");
 	memset(dram->map->map_entry,0,sizeof(struct entry) * page_num);
 	
@@ -280,7 +278,7 @@ struct plane_info * initialize_plane(struct plane_info * p_plane,struct paramete
 {
 	unsigned int i;
 	struct blk_info * p_block;
-	p_plane->add_reg_ppn = -1;  //plane 里面的额外寄存器additional register -1 表示无数据
+	p_plane->add_reg_ppn = -1;  //Plane address register additional register -1 means no data
 	p_plane->free_page=parameter->block_plane*parameter->page_block;
 	p_plane->plane_read_count = 0;
 	p_plane->plane_program_count = 0;
@@ -388,11 +386,6 @@ struct ssd_info * initialize_channels(struct ssd_info * ssd )
 }
 
 
-/*************************************************
-*将page.parameters里面的参数导入到ssd->parameter里
-*modify by zhouwen
-*November 8,2011
-**************************************************/
 struct parameter_value *load_parameters(char parameter_file[30])
 {
 	FILE * fp;
@@ -441,31 +434,31 @@ struct parameter_value *load_parameters(char parameter_file[30])
 		while(buf[pre_eql-1] == ' ') pre_eql--;
 		buf[pre_eql] = 0;
 		if((res_eql=strcmp(buf,"chip number")) ==0){			
-			sscanf(buf + next_eql,"%d",&p->chip_num);           //输入参数 chip的个数
+			sscanf(buf + next_eql,"%d",&p->chip_num);           //The number of chips
 		}else if((res_eql=strcmp(buf,"dram capacity")) ==0){
-			sscanf(buf + next_eql,"%d",&p->dram_capacity);      //缓存的大小，单位是byte
+			sscanf(buf + next_eql,"%d",&p->dram_capacity);      //The size of the cache, the unit is byte
 		}else if((res_eql=strcmp(buf,"channel number")) ==0){
-			sscanf(buf + next_eql,"%d",&p->channel_number);		//通道的个数
+			sscanf(buf + next_eql,"%d",&p->channel_number);		//The number of channels
 		}else if((res_eql=strcmp(buf,"die number")) ==0){
-			sscanf(buf + next_eql,"%d",&p->die_chip);			//die的个数
+			sscanf(buf + next_eql,"%d",&p->die_chip);			//The number of die
 		}else if((res_eql=strcmp(buf,"plane number")) ==0){
-			sscanf(buf + next_eql,"%d",&p->plane_die);			//plane的个数
+			sscanf(buf + next_eql,"%d",&p->plane_die);			//The number of planes
 		}else if((res_eql=strcmp(buf,"block number")) ==0){
-			sscanf(buf + next_eql,"%d",&p->block_plane);		//block的个数
+			sscanf(buf + next_eql,"%d",&p->block_plane);		//The number of blocks
 		}else if((res_eql=strcmp(buf,"page number")) ==0){
-			sscanf(buf + next_eql,"%d",&p->page_block);			//page的个数
+			sscanf(buf + next_eql,"%d",&p->page_block);			//The number of pages
 		}else if((res_eql=strcmp(buf,"subpage page")) ==0){
-			sscanf(buf + next_eql,"%d",&p->subpage_page);		//page包含子页(扇区的个数)
+			sscanf(buf + next_eql,"%d",&p->subpage_page);		//Page contains subpage (number of sectors)
 		}else if((res_eql=strcmp(buf,"page capacity")) ==0){   
-			sscanf(buf + next_eql,"%d",&p->page_capacity);		//一个page的大小
+			sscanf(buf + next_eql,"%d",&p->page_capacity);		//The size of a page
 		}else if((res_eql=strcmp(buf,"subpage capacity")) ==0){
-			sscanf(buf + next_eql,"%d",&p->subpage_capacity);   //一个子页(扇区)的大小
+			sscanf(buf + next_eql,"%d",&p->subpage_capacity);   //The size of a subpage (sector)
 		}else if((res_eql=strcmp(buf,"t_PROG")) ==0){
-			sscanf(buf + next_eql,"%d",&p->time_characteristics.tPROG); //一次写操作写介质的时间
+			sscanf(buf + next_eql,"%d",&p->time_characteristics.tPROG); //Write time to write flash
 		}else if((res_eql=strcmp(buf,"t_DBSY")) ==0){
 			sscanf(buf + next_eql,"%d",&p->time_characteristics.tDBSY); 
 		}else if((res_eql=strcmp(buf,"t_BERS")) ==0){
-			sscanf(buf + next_eql,"%d",&p->time_characteristics.tBERS); //一次擦操作擦除一个block的时间
+			sscanf(buf + next_eql,"%d",&p->time_characteristics.tBERS); // erases the time of a block
 		}else if((res_eql=strcmp(buf,"t_CLS")) ==0){
 			sscanf(buf + next_eql,"%d",&p->time_characteristics.tCLS); 
 		}else if((res_eql=strcmp(buf,"t_CLH")) ==0){
@@ -485,13 +478,13 @@ struct parameter_value *load_parameters(char parameter_file[30])
 		}else if((res_eql=strcmp(buf,"t_DH")) ==0){
 			sscanf(buf + next_eql,"%d",&p->time_characteristics.tDH); 
 		}else if((res_eql=strcmp(buf,"t_WC")) ==0){
-			sscanf(buf + next_eql,"%d",&p->time_characteristics.tWC); //传输地址一个字节消耗的时间
+			sscanf(buf + next_eql,"%d",&p->time_characteristics.tWC); //Transfer address One byte of time
 		}else if((res_eql=strcmp(buf,"t_WH")) ==0){
 			sscanf(buf + next_eql,"%d",&p->time_characteristics.tWH); 
 		}else if((res_eql=strcmp(buf,"t_ADL")) ==0){
 			sscanf(buf + next_eql,"%d",&p->time_characteristics.tADL); 
 		}else if((res_eql=strcmp(buf,"t_R")) ==0){
-			sscanf(buf + next_eql,"%d",&p->time_characteristics.tR); //一次读操作读介质的时间
+			sscanf(buf + next_eql,"%d",&p->time_characteristics.tR); //The time to read flash
 		}else if((res_eql=strcmp(buf,"t_AR")) ==0){
 			sscanf(buf + next_eql,"%d",&p->time_characteristics.tAR); 
 		}else if((res_eql=strcmp(buf,"t_CLR")) ==0){
@@ -503,7 +496,7 @@ struct parameter_value *load_parameters(char parameter_file[30])
 		}else if((res_eql=strcmp(buf,"t_WB")) ==0){
 			sscanf(buf + next_eql,"%d",&p->time_characteristics.tWB); 
 		}else if((res_eql=strcmp(buf,"t_RC")) ==0){
-			sscanf(buf + next_eql,"%d",&p->time_characteristics.tRC); //传输数据一个字节的消耗的时间
+			sscanf(buf + next_eql,"%d",&p->time_characteristics.tRC); //The time it takes to transfer data one byte
 		}else if((res_eql=strcmp(buf,"t_REA")) ==0){
 			sscanf(buf + next_eql,"%d",&p->time_characteristics.tREA); 
 		}else if((res_eql=strcmp(buf,"t_CEA")) ==0){
@@ -529,47 +522,47 @@ struct parameter_value *load_parameters(char parameter_file[30])
 		}else if((res_eql=strcmp(buf,"t_RST")) ==0){
 			sscanf(buf + next_eql,"%d",&p->time_characteristics.tRST); 
 		}else if((res_eql=strcmp(buf,"erase limit")) ==0){
-			sscanf(buf + next_eql,"%d",&p->ers_limit);					//每个块可以擦除的次数
+			sscanf(buf + next_eql,"%d",&p->ers_limit);					//The number of times each block can be erased
 		}else if((res_eql=strcmp(buf,"address mapping")) ==0){
-			sscanf(buf + next_eql,"%d",&p->address_mapping);			//地址映射的类型（1：page；2：block；3：fast）
+			sscanf(buf + next_eql,"%d",&p->address_mapping);			//Address type (1: page; 2: block; 3: fast)
 		}else if((res_eql=strcmp(buf,"wear leveling")) ==0){
-			sscanf(buf + next_eql,"%d",&p->wear_leveling);				//支持损耗均衡模式
+			sscanf(buf + next_eql,"%d",&p->wear_leveling);				//Supports WL mode
 		}else if((res_eql=strcmp(buf,"gc")) ==0){
-			sscanf(buf + next_eql,"%d",&p->gc);							//gc的策略，普通gc策略，使用的是gc_threshold作为阈值，主动写策略，即可以中断的gc，需使用gc_hard_threshold硬阈值
+			sscanf(buf + next_eql,"%d",&p->gc);							//Gc strategy, the general gc strategy, using the gc_threshold as a threshold, the active write strategy, that can be interrupted gc, need to use gc_hard_threshold hard threshold
 		}else if((res_eql=strcmp(buf,"overprovide")) ==0){ 
-			sscanf(buf + next_eql,"%f",&p->overprovide);                //op空间的比例大小
+			sscanf(buf + next_eql,"%f",&p->overprovide);                //The size of the op space
 		}else if((res_eql=strcmp(buf,"gc threshold")) ==0){
-			sscanf(buf + next_eql,"%f",&p->gc_threshold);               //gc的阈值设置
+			sscanf(buf + next_eql,"%f",&p->gc_threshold);               //Gc threshold setting
 		}else if((res_eql=strcmp(buf,"buffer management")) ==0){
-			sscanf(buf + next_eql,"%d",&p->buffer_management);          //是否支持数据缓存
+			sscanf(buf + next_eql,"%d",&p->buffer_management);          //Whether to support data cache
 		}else if((res_eql=strcmp(buf,"scheduling algorithm")) ==0){
-			sscanf(buf + next_eql,"%d",&p->scheduling_algorithm);       //满足哪种调度算法，FCFS???算法调度不太懂，这里实际没用用到
+			sscanf(buf + next_eql,"%d",&p->scheduling_algorithm);       //Scheduling algorithm :FCFS
 		}else if((res_eql=strcmp(buf,"gc hard threshold")) ==0){
-			sscanf(buf + next_eql,"%f",&p->gc_hard_threshold);         //gc硬阈值的设置，用于主动写gc策略中的阈值判断
+			sscanf(buf + next_eql,"%f",&p->gc_hard_threshold);          //Gc hard threshold setting for the active write gc strategy to determine the threshold
 		}else if((res_eql=strcmp(buf,"allocation")) ==0){
-			sscanf(buf + next_eql,"%d",&p->allocation_scheme);		   //确定分配方式，0表示动态分配，即动态分配置各个channel上，静态分配表示按照地址分配
+			sscanf(buf + next_eql,"%d",&p->allocation_scheme);		    //Determine the allocation method, 0 that dynamic allocation, that is, dynamic allocation of each channel, the static allocation that according to address allocation
 		}else if((res_eql=strcmp(buf, "dynamic_allocation")) == 0){
-			sscanf(buf + next_eql, "%d", &p->dynamic_allocation);        //记录在采用哪种动态分配方式，0表示全动态，1表示channel定package，die，plane动态，2表示channel，package，die定plane动态
+			sscanf(buf + next_eql, "%d", &p->dynamic_allocation);        //Recorded in the use of which dynamic allocation, 0 that full dynamic, 1 said channel set package, die, plane dynamic, 2 said channel, package, die fixed plane dynamic
 		}else if((res_eql=strcmp(buf, "dynamic_allocation_priority")) == 0){
-			sscanf(buf + next_eql, "%d", &p->dynamic_allocation_priority);	 //表示ssd分配方式的优先级，0表示channel>chip>die>plane,1表示plane>channel>chip>die
+			sscanf(buf + next_eql, "%d", &p->dynamic_allocation_priority);	 //Indicates the priority of the ssd allocation mode, 0 means channel> chip> die> plane, and 1 represents plane> channel> chip> die
 		}else if((res_eql=strcmp(buf,"advanced command")) ==0){
-			sscanf(buf + next_eql,"%d",&p->advanced_commands);         //是否使用高级命令，0表示不使用。利用二进制01分别表示random(00001)，copyback(00010)，two-plane-program(00100)，interleave(01000),two-plane-read(10000)是否使用，全部使用是11111，既31            
+			sscanf(buf + next_eql,"%d",&p->advanced_commands);         //Whether to use the advanced command, 0 means not to use. (00001), copyback (00010), two-plane-program (00100), interleave (01000), and two-plane-read (10000) are used respectively, and all use is 11111, both 31       
 		}else if((res_eql=strcmp(buf,"advanced command priority2")) ==0){
-			sscanf(buf + next_eql,"%d",&p->ad_priority2);				//高级命令的优先级，0表示interleave优先级高于two plane，1表示two plane优先级高于interleave
+			sscanf(buf + next_eql,"%d",&p->ad_priority2);				//The priority of the advanced command, 0 that interleave priority higher than the two plane, 1 said two plane priority higher than interleave
 		}else if((res_eql=strcmp(buf,"greed CB command")) ==0){
-			sscanf(buf + next_eql,"%d",&p->greed_CB_ad);				//表示是否贪婪地使用copyback高级命令，0表示否，1表示是贪婪地使用
+			sscanf(buf + next_eql,"%d",&p->greed_CB_ad);				//Indicates whether greedy use of the copyback advanced command, 0 for no, 1 for greedy use
 		}else if((res_eql=strcmp(buf,"greed MPW command")) ==0){
-			sscanf(buf + next_eql,"%d",&p->greed_MPW_ad);               //表示是否贪婪地使用multi-plane write高级命令，0表示否，1表示是贪婪地使用
+			sscanf(buf + next_eql,"%d",&p->greed_MPW_ad);               //Indicates whether greedy use of multi-plane write advanced command, 0 for no, 1 for greedy use
 		}else if((res_eql=strcmp(buf,"aged")) ==0){
-			sscanf(buf + next_eql,"%d",&p->aged);                       //1表示需要将这个SSD变成aged，0表示需要将这个SSD保持non-aged
+			sscanf(buf + next_eql,"%d",&p->aged);                       //1 indicates that the SSD needs to be aged, 0 means that the SSD needs to be kept non-aged
 		}else if((res_eql=strcmp(buf,"aged ratio")) ==0){
-			sscanf(buf + next_eql,"%f",&p->aged_ratio);                 //表示为了使SSD变成aged的SSD，需要将SSD中提前置为失效的比率
+			sscanf(buf + next_eql,"%f",&p->aged_ratio);                 //Indicates that the SSD needs to be set to invaild in advance for SSD to become aged
 		}else if((res_eql=strcmp(buf,"queue_length")) ==0){
-			sscanf(buf + next_eql,"%d",&p->queue_length);               //请求队列深度，在load_parameter函数开始写死
+			sscanf(buf + next_eql,"%d",&p->queue_length);               //Request the queue depth
 		}else if((res_eql=strncmp(buf,"chip number",11)) ==0)
 		{
 			sscanf(buf+12,"%d",&i);
-			sscanf(buf + next_eql,"%d",&p->chip_channel[i]);            //一个channel上几个chip的分布
+			sscanf(buf + next_eql,"%d",&p->chip_channel[i]);            //The number of chips on a channel
 		}else{
 			printf("don't match\t %s\n",buf);
 		}

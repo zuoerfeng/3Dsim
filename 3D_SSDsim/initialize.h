@@ -5,15 +5,15 @@ This is a project on 3D_SSDsim, based on ssdsim under the framework of the compl
 3.Clear hierarchical interface
 4.4-layer structure
 
-FileName： ssd.c
-Author: Zuo Lu 		Version: 1.0	Date:2017/04/06
+FileName： initialize.h
+Author: Zuo Lu 		Version: 1.1	Date:2017/05/12
 Description:
 Initialization layer: complete ssd organizational data structure, request queue creation and memory space initialization
 
 History:
-<contributor>     <time>        <version>       <desc>                   <e-mail>
-Zuo Lu	        2017/04/06	      1.0		    Creat 3D_SSDsim       617376665@qq.com
-
+<contributor>     <time>        <version>       <desc>									<e-mail>
+Zuo Lu	        2017/04/06	      1.0		    Creat 3D_SSDsim							617376665@qq.com
+Zuo Lu			2017/05/12		  1.1			Support advanced commands:mutli plane   617376665@qq.com
 *****************************************************************************************************************************/
 
 #include <stdio.h>
@@ -24,6 +24,7 @@ Zuo Lu	        2017/04/06	      1.0		    Creat 3D_SSDsim       617376665@qq.com
 #include "avlTree.h"
 
 #define SECTOR 512
+#define BUFSIZE 200
 
 #define DYNAMIC_ALLOCATION 0
 #define STATIC_ALLOCATION 1
@@ -461,16 +462,16 @@ struct parameter_value{
 	unsigned int subpage_capacity;
 
 
-	unsigned int ers_limit;         //记录每个块可擦除的次数
-	int address_mapping;            //记录映射的类型，1：page；2：block；3：fast
-	int wear_leveling;              // WL算法
-	int gc;                         //记录gc策略
-	int clean_in_background;        //清除操作是否在前台完成
+	unsigned int ers_limit;         //Record the number of erasable blocks per block
+	int address_mapping;            //Record the type of mapping,1：page；2：block；3：fast
+	int wear_leveling;              //WL algorithm 
+	int gc;                         //Record gc strategy
+	int clean_in_background;        //Whether the cleanup operation is done in the foreground
 	int alloc_pool;                 //allocation pool 大小(plane，die，chip，channel),也就是拥有active_block的单位
 	float overprovide;
-	float gc_threshold;             //当达到这个阈值时，开始GC操作，在主动写策略中，开始GC操作后可以临时中断GC操作，服务新到的请求；在普通策略中，GC不可中断
+	float gc_threshold;             //When this threshold is reached, the GC operation is started
 
-	double operating_current;       //NAND FLASH的工作电流单位是uA
+	double operating_current;       //NAND FLASH operating current(uA)
 	double supply_voltage;	
 	double dram_active_current;     //cpu sdram work current   uA
 	double dram_standby_current;    //cpu sdram work current   uA
@@ -478,42 +479,44 @@ struct parameter_value{
 	double dram_voltage;            //cpu sdram work voltage  V
 
 	int buffer_management;          //indicates that there are buffer management or not
-	int scheduling_algorithm;       //记录使用哪种调度算法，1:FCFS
+	int scheduling_algorithm;       //Record which scheduling algorithm to use，1:FCFS
 	float quick_radio;
 	int related_mapping;
 
 	unsigned int time_step;
 	unsigned int small_large_write; //the threshould of large write, large write do not occupt buffer, which is written back to flash directly
 
-	int striping;                   //表示是否使用了striping方式，0表示没有，1表示有
+	int striping;                   //Indicates whether or not striping is used, 0--unused, 1--used
 	int interleaving;
 	int pipelining;
 	int threshold_fixed_adjust;
 	int threshold_value;
-	int active_write;               //表示是否执行主动写操作1,yes;0,no
-	float gc_hard_threshold;        //普通策略中用不到该参数，只有在主动写策略中，当满足这个阈值时，GC操作不可中断
-	int allocation_scheme;          //记录分配方式的选择，0表示动态分配，1表示静态分配
-	int static_allocation;          //记录是那种静态分配方式，如ICS09那篇文章所述的所有静态分配方式
-	int dynamic_allocation;         //记录动态分配的方式
-	int dynamic_allocation_priority; //动态分配的 优先级
+	int active_write;               //Indicates whether an active write operation is performed,1,yes;0,no
+	float gc_hard_threshold;        //Hard trigger gc threshold size
+	int allocation_scheme;          //Record the choice of allocation mode, 0 for dynamic allocation, 1 for static allocation
+	int static_allocation;          //The record is the kind of static allocation
+	int dynamic_allocation;         //Record the way of dynamic allocation
+	int dynamic_allocation_priority; //The priority of the dynamic allocation 0--channel>chip>die>plane,1--plane>channel>chip>die
 	int advanced_commands;  
 	int ad_priority;                //record the priority between two plane operation and interleave operation
 	int ad_priority2;               //record the priority of channel-level, 0 indicates that the priority order of channel-level is highest; 1 indicates the contrary
 	int greed_CB_ad;                //0 don't use copyback advanced commands greedily; 1 use copyback advanced commands greedily
 	int greed_MPW_ad;               //0 don't use multi-plane write advanced commands greedily; 1 use multi-plane write advanced commands greedily
-	int aged;                       //1表示需要将这个SSD变成aged，0表示需要将这个SSD保持non-aged
+	int aged;                       //1 indicates that the SSD needs to be aged, 0 means that the SSD needs to be kept non-aged
 	float aged_ratio; 
-	int queue_length;               //请求队列的长度限制
+	int queue_length;               //Request the length of the queue
 
 	struct ac_time_characteristics time_characteristics;
 };
 
 /********************************************************
-*mapping information,state的最高位表示是否有附加映射关系
+*mapping information,The highest bit of state indicates 
+*whether there is an additional mapping relationship
 *********************************************************/
 struct entry{                       
-	unsigned int pn;                //物理号，既可以表示物理页号，也可以表示物理子页号，也可以表示物理块号
-	int state;                      //十六进制表示的话是0000-FFFF，每位表示相应的子页是否有效（页映射）。比如在这个页中，0，1号子页有效，2，3无效，这个应该是0x0003.
+	unsigned int pn;                //Physical number, either a physical page number, a physical subpage number, or a physical block number
+	int state;                      //The hexadecimal representation is 0000-FFFF, and each bit indicates whether the corresponding subpage is valid (page mapping). 
+									//For example, in this page, 0,1 sub-page effective, 2,3 invalid, this should be 0x0003.
 };
 
 
@@ -529,11 +532,11 @@ struct local{
 
 
 struct gc_info{
-	__int64 begin_time;            //记录一个plane什么时候开始gc操作的
+	__int64 begin_time;            //Record a plane when to start gc operation
 	int copy_back_count;    
 	int erase_count;
-	__int64 process_time;          //该plane花了多少时间在gc操作上
-	double energy_consumption;     //该plane花了多少能量在gc操作上
+	__int64 process_time;          //Record time the plane spent on gc operation
+	double energy_consumption;     //Record energy the plane takes on gc
 };
 
 
@@ -544,27 +547,19 @@ struct direct_erase{
 
 
 /**************************************************************************************
- *当产生一个GC操作时，将这个结构挂在相应的channel上，等待channel空闲时，发出GC操作命令
+ *When a GC operation is generated, the structure is hung on the corresponding channel 
+ *and the GC operation command is issued when the channel is idle
 ***************************************************************************************/
 struct gc_operation{          
 	unsigned int chip;
 	unsigned int die;
 	unsigned int plane[2];
-	unsigned int block;           //该参数只在可中断的gc函数中使用（gc_interrupt），用来记录已近找出来的目标块号
-	unsigned int page;            //该参数只在可中断的gc函数中使用（gc_interrupt），用来记录已经完成的数据迁移的页号
-	unsigned int state;           //记录当前gc请求的状态
-	unsigned int priority;        //记录该gc操作的优先级，1表示不可中断，0表示可中断（软阈值产生的gc请求）
+	unsigned int block;           //This parameter is used only in the interruptable gc function (gc_interrupt), used to record the near-identified target block number
+	unsigned int page;            //This parameter is used only in the interruptable gc function (gc_interrupt), used to record the page number of the data migration that has been completed
+	unsigned int state;           //Record the status of the current gc request
+	unsigned int priority;        //Record the priority of the gc operation, 1 that can not be interrupted, 0 that can be interrupted (soft threshold generated by the gc request)
 	struct gc_operation *next_node;
 };
-
-/*
-*add by ninja
-*used for map_pre function
-*/
-typedef struct Dram_write_map
-{
-	unsigned int state; 
-}Dram_write_map;
 
 
 struct ssd_info *initiation(struct ssd_info *);
