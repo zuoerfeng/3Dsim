@@ -301,6 +301,14 @@ int services_2_r_wait(struct ssd_info * ssd, unsigned int channel, unsigned int 
 	struct sub_request * sub_interleave_one = NULL, *sub_interleave_two = NULL;
 
 	sub = ssd->channel_head[channel].subs_r_head;
+	while (sub != NULL)
+	{
+		if (sub->update_read_flag == 1)
+			break;
+		sub = sub->next_node;
+	}
+	if (sub == NULL)
+		sub = ssd->channel_head[channel].subs_r_head;
 
 	if ((ssd->parameter->advanced_commands&AD_TWOPLANE_READ) == AD_TWOPLANE_READ)         /*to find whether there are two sub request can be served by two plane operation*/
 	{
@@ -662,7 +670,7 @@ Status find_level_page(struct ssd_info *ssd, unsigned int channel, unsigned int 
 	//do not guarantee that the active block is equal, so only to determine whether the two plane within the page offset address consistent
 	if (pageA == pageB)                                                              
 	{
-		printf("block1 = %d,pageA = %d\nblock2 = %d,pageB = %d\n", active_blockA, pageA, active_blockB, pageB);
+		//printf("block1 = %d,pageA = %d\nblock2 = %d,pageB = %d\n", active_blockA, pageA, active_blockB, pageB);
 		flash_page_state_modify(ssd, subA, channel, chip, die, planeA, active_blockA, pageA); 
 		flash_page_state_modify(ssd, subB, channel, chip, die, planeB, active_blockB, pageB);
 	}
@@ -742,11 +750,10 @@ struct ssd_info *make_same_level(struct ssd_info *ssd, unsigned int channel, uns
 		ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[plane].blk_head[block].page_head[page + i].lpn = 0;
 
 		ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[plane].blk_head[block].invalid_page_num++;
-
 		ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[plane].blk_head[block].free_page_num--;
-
 		ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[plane].free_page--;
 
+		ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[plane].blk_head[block].page_write_count++;
 		i++;
 	}
 
@@ -1112,7 +1119,7 @@ Status go_one_step(struct ssd_info * ssd, struct sub_request * sub1, struct sub_
 
 			if (sub->update_read_flag == 1)
 			{
-				sub->update_read_flag = 0;
+				//sub->update_read_flag = 0;
 				//Change the size of the sector that the buff is written
 				key.group = sub->lpn;
 				update_buffer_node = (struct buffer_group*)avlTreeFind(ssd->dram->buffer, (TREE_NODE *)&key);    /*Look for the buffer node in the balanced binary tree*/
@@ -1241,7 +1248,7 @@ Status go_one_step(struct ssd_info * ssd, struct sub_request * sub1, struct sub_
 
 			if (sub_twoplane_one->update_read_flag == 1)
 			{
-				sub_twoplane_one->update_read_flag = 0;
+				//sub_twoplane_one->update_read_flag = 0;
 				//Change the size of the sector that the buff is written
 				key.group = sub_twoplane_one->lpn;
 				update_buffer_node = (struct buffer_group*)avlTreeFind(ssd->dram->buffer, (TREE_NODE *)&key);   
@@ -1252,7 +1259,7 @@ Status go_one_step(struct ssd_info * ssd, struct sub_request * sub1, struct sub_
 			}
 			else if (sub_twoplane_two->update_read_flag == 1)
 			{
-				sub_twoplane_two->update_read_flag = 0;
+				//sub_twoplane_two->update_read_flag = 0;
 				//Change the size of the sector that the buff is written
 				key.group = sub_twoplane_two->lpn;
 				update_buffer_node = (struct buffer_group*)avlTreeFind(ssd->dram->buffer, (TREE_NODE *)&key);  

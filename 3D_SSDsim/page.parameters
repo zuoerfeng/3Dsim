@@ -78,5 +78,5 @@ advanced command=20;             #ÊÇ·ñÊ¹ÓÃ¸ß¼¶ÃüÁî£¬0±íÊ¾²»Ê¹ÓÃ¡£ÀûÓÃ¶ş½øÖÆ01·Ö±
 advanced command priority2=0;    #0±íÊ¾interleaveÓÅÏÈ¼¶¸ßÓÚtwo plane£¬1±íÊ¾two planeÓÅÏÈ¼¶¸ßÓÚinterleave
 greed CB command=0;            #±íÊ¾ÊÇ·ñÌ°À·µØÊ¹ÓÃcopyback¸ß¼¶ÃüÁî£¬0±íÊ¾·ñ£¬1±íÊ¾ÊÇÌ°À·µØÊ¹ÓÃ
 greed MPW command=1;            #±íÊ¾ÊÇ·ñÌ°À·µØÊ¹ÓÃmulti-plane write¸ß¼¶ÃüÁî£¬0±íÊ¾·ñ£¬1±íÊ¾ÊÇÌ°À·µØÊ¹ÓÃ
-aged=1;                         #1±íÊ¾ĞèÒª½«Õâ¸öSSD±ä³Éaged£¬0±íÊ¾ĞèÒª½«Õâ¸öSSD±£³Önon-aged
-aged ratio=0.2;                #±íÊ¾ÎªÁËÊ¹SSD±ä³ÉagedµÄSSD£¬ĞèÒª½«SSDÖĞÌáÇ°ÖÃÎªÊ§Ğ§µÄ±ÈÂÊ
+aged=0;                         #1±íÊ¾ĞèÒª½«Õâ¸öSSD±ä³Éaged£¬0±íÊ¾ĞèÒª½«Õâ¸öSSD±£³Önon-aged
+aged ratio=0.5;                #±íÊ¾ÎªÁËÊ¹SSD±ä³ÉagedµÄSSD£¬ĞèÒª½«SSDÖĞÌáÇ°ÖÃÎªÊ§Ğ§µÄ±ÈÂÊ

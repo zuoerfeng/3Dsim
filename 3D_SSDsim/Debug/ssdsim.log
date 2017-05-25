@@ -1,25 +1,7 @@
-﻿生成启动时间为 2017/5/17 19:37:40。
+﻿生成启动时间为 2017/5/25 15:10:55。
      1>项目“C:\Users\lz\Desktop\3D_SSDsim\3D_SSDsim_v1\3D_SSDsim\ssdsim.vcxproj”在节点 2 上(Build 个目标)。
      1>ClCompile:
-         D:\2_tmp\Microsoft Visual Studio 12.0\VC\bin\CL.exe /c /Zi /nologo /W3 /WX- /Od /Oy- /D WIN32 /D _DEBUG /D _CONSOLE /Gm /EHsc /RTC1 /MDd /GS /fp:precise /Zc:wchar_t /Zc:forScope /Fo"Debug\\" /Fd"Debug\vc120.pdb" /Gd /TC /analyze- /errorReport:prompt buffer.c fcl.c flash.c ftl.c initialize.c interface.c ssd.c
-         ssd.c
-     1>ssd.c(51): warning C4101: “p”: 未引用的局部变量
-     1>ssd.c(51): warning C4101: “n”: 未引用的局部变量
-     1>ssd.c(122): warning C4101: “p”: 未引用的局部变量
-     1>ssd.c(122): warning C4101: “m”: 未引用的局部变量
-     1>ssd.c(205): warning C4101: “p”: 未引用的局部变量
-     1>ssd.c(205): warning C4101: “k”: 未引用的局部变量
-     1>ssd.c(205): warning C4101: “m”: 未引用的局部变量
-     1>ssd.c(205): warning C4101: “j”: 未引用的局部变量
-     1>ssd.c(324): warning C4101: “i”: 未引用的局部变量
-         interface.c
-     1>interface.c(70): warning C4996: 'sscanf': This function or variable may be unsafe. Consider using sscanf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
-                 D:\2_tmp\Microsoft Visual Studio 12.0\VC\include\stdio.h(304) : 参见“sscanf”的声明
-     1>interface.c(72): warning C4018: “<”: 有符号/无符号不匹配
-     1>interface.c(106): warning C4018: “>=”: 有符号/无符号不匹配
-     1>interface.c(131): warning C4018: “>=”: 有符号/无符号不匹配
-     1>interface.c(215): warning C4996: 'sscanf': This function or variable may be unsafe. Consider using sscanf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
-                 D:\2_tmp\Microsoft Visual Studio 12.0\VC\include\stdio.h(304) : 参见“sscanf”的声明
+         D:\2_tmp\Microsoft Visual Studio 12.0\VC\bin\CL.exe /c /Zi /nologo /W3 /WX- /Od /Oy- /D WIN32 /D _DEBUG /D _CONSOLE /Gm /EHsc /RTC1 /MDd /GS /fp:precise /Zc:wchar_t /Zc:forScope /Fo"Debug\\" /Fd"Debug\vc120.pdb" /Gd /TC /analyze- /errorReport:prompt initialize.c
          initialize.c
      1>initialize.c(124): warning C4013: “alloc_assert”未定义；假设外部返回 int
      1>initialize.c(437): warning C4996: 'sscanf': This function or variable may be unsafe. Consider using sscanf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
@@ -152,31 +134,6 @@
                  D:\2_tmp\Microsoft Visual Studio 12.0\VC\include\stdio.h(304) : 参见“sscanf”的声明
      1>initialize.c(565): warning C4996: 'sscanf': This function or variable may be unsafe. Consider using sscanf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
                  D:\2_tmp\Microsoft Visual Studio 12.0\VC\include\stdio.h(304) : 参见“sscanf”的声明
-         ftl.c
-     1>ftl.c(653): warning C4101: “planeA”: 未引用的局部变量
-     1>ftl.c(649): warning C4101: “plane”: 未引用的局部变量
-     1>ftl.c(653): warning C4101: “planeB”: 未引用的局部变量
-     1>ftl.c(760): warning C4101: “active_block1”: 未引用的局部变量
-     1>ftl.c(760): warning C4101: “active_block2”: 未引用的局部变量
-     1>ftl.c(763): warning C4101: “block2”: 未引用的局部变量
-     1>ftl.c(763): warning C4101: “block1”: 未引用的局部变量
-         flash.c
-         fcl.c
-     1>fcl.c(447): warning C4101: “plane_place”: 未引用的局部变量
-     1>fcl.c(446): warning C4101: “flag”: 未引用的局部变量
-         buffer.c
-     1>buffer.c(58): warning C4101: “lz_k”: 未引用的局部变量
-     1>buffer.c(367): warning C4101: “add_flag”: 未引用的局部变量
-     1>buffer.c(367): warning C4101: “i”: 未引用的局部变量
-     1>buffer.c(367): warning C4101: “lsn”: 未引用的局部变量
-     1>buffer.c(367): warning C4101: “hit_flag”: 未引用的局部变量
-     1>buffer.c(366): warning C4101: “write_back_count”: 未引用的局部变量
-         正在生成代码...
-     1>c:\users\lz\desktop\3d_ssdsim\3d_ssdsim_v1\3d_ssdsim\fcl.c(620): warning C4715: “make_level_page”: 不是所有的控件路径都返回值
-     1>c:\users\lz\desktop\3d_ssdsim\3d_ssdsim_v1\3d_ssdsim\fcl.c(980): warning C4715: “find_interleave_twoplane_page”: 不是所有的控件路径都返回值
-     1>c:\users\lz\desktop\3d_ssdsim\3d_ssdsim_v1\3d_ssdsim\ftl.c(502): warning C4715: “get_ppn_for_normal_command”: 不是所有的控件路径都返回值
-     1>c:\users\lz\desktop\3d_ssdsim\3d_ssdsim_v1\3d_ssdsim\ftl.c(584): warning C4715: “get_ppn_for_advanced_commands”: 不是所有的控件路径都返回值
-     1>c:\users\lz\desktop\3d_ssdsim\3d_ssdsim_v1\3d_ssdsim\ftl.c(704): warning C4715: “gc_for_channel”: 不是所有的控件路径都返回值
        Link:
          D:\2_tmp\Microsoft Visual Studio 12.0\VC\bin\link.exe /ERRORREPORT:PROMPT /OUT:"C:\Users\lz\Desktop\3D_SSDsim\3D_SSDsim_v1\3D_SSDsim\Debug\ssdsim.exe" /INCREMENTAL /NOLOGO kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /MANIFEST /MANIFESTUAC:"level='asInvoker' uiAccess='false'" /manifest:embed /DEBUG /PDB:"C:\Users\lz\Desktop\3D_SSDsim\3D_SSDsim_v1\3D_SSDsim\Debug\ssdsim.pdb" /SUBSYSTEM:CONSOLE /TLBID:1 /DYNAMICBASE /NXCOMPAT /IMPLIB:"C:\Users\lz\Desktop\3D_SSDsim\3D_SSDsim_v1\3D_SSDsim\Debug\ssdsim.lib" /MACHINE:X86 Debug\avlTree.obj
          Debug\buffer.obj
@@ -191,4 +148,4 @@
 
 生成成功。
 
-已用时间 00:00:00.88
+已用时间 00:00:00.44

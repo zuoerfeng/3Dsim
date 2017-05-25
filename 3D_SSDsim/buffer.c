@@ -875,7 +875,6 @@ Status allocate_location(struct ssd_info * ssd, struct sub_request *sub_req)
 	{
 		if (ssd->parameter->dynamic_allocation == 0)
 		{
-
 			sub_req->location->channel = -1;
 			sub_req->location->chip = -1;
 			sub_req->location->die = -1;

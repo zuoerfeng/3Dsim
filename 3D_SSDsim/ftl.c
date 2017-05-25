@@ -601,6 +601,7 @@ unsigned int gc(struct ssd_info *ssd, unsigned int channel, unsigned int flag)
 	unsigned int flag_priority = 0;
 	struct gc_operation *gc_node = NULL, *gc_p = NULL;
 
+	printf("gc flag=%d\n",flag);
 	//Active gc
 	if (flag == 1)                                                                       /*The whole ssd is the case of IDEL*/
 	{
@@ -620,9 +621,12 @@ unsigned int gc(struct ssd_info *ssd, unsigned int channel, unsigned int flag)
 					gc_for_channel(ssd, channel);
 				}
 			}
+			else
+			{
+				return FAILURE;
+			}
 		}
 		return SUCCESS;
-
 	}
 	//Passive gc
 	else                                                                               /*Only for a specific channel, chip, die gc request operation (only the target die to determine whether to see is idle)*/
@@ -634,8 +638,10 @@ unsigned int gc(struct ssd_info *ssd, unsigned int channel, unsigned int flag)
 				return 0;
 			}
 		}
-		gc_for_channel(ssd, channel);
-		return SUCCESS;
+		if (gc_for_channel(ssd, channel) == SUCCESS)
+			return SUCCESS;
+		else
+			return FAILURE;
 	}
 }
 
@@ -804,7 +810,8 @@ int uninterrupt_gc(struct ssd_info *ssd, unsigned int channel, unsigned int chip
 					else
 						pre_erase_node_tmp->next_node = direct_erase_node_tmp->next_node;
 
-					free(pre_erase_node_tmp);
+					free(direct_erase_node_tmp);
+					direct_erase_node_tmp = NULL;
 					break;
 				}
 				else
@@ -814,6 +821,7 @@ int uninterrupt_gc(struct ssd_info *ssd, unsigned int channel, unsigned int chip
 				}
 			}
 			pre_erase_node_tmp = NULL;
+			direct_erase_node_tmp = NULL;
 		}
 
 		//Found the block to be erased

@@ -87,8 +87,8 @@ struct ssd_info *initiation(struct ssd_info *ssd)
 //	strcpy_s(ssd->tracefilename, 50, "16M_2KB_sequence_RandW.ascii");
 //	strcpy_s(ssd->tracefilename, 25, "financial2.ascii");
 	strcpy_s(ssd->tracefilename, 25, "example.ascii");
-//	strcpy_s(ssd->tracefilename,50,"update_16_count.ascii");
-//	strcpy_s(ssd->tracefilename,25,"DevDivRelease.ascii");
+//	strcpy_s(ssd->tracefilename, 50, "update_16_count.ascii");
+//	strcpy_s(ssd->tracefilename, 50, "512M_4KB_random_W.ascii");
 
 //	printf("\ninput output file name:");
 //	gets(ssd->outputfilename);
