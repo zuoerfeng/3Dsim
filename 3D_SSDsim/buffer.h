@@ -16,13 +16,16 @@ Zuo Lu	        2017/04/06	      1.0		    Creat 3D_SSDsim							617376665@qq.com
 Zuo Lu			2017/05/12		  1.1			Support advanced commands:mutli plane   617376665@qq.com
 *****************************************************************************************************************************/
 
-struct ssd_info *distribute(struct ssd_info *);
+struct ssd_info *req_r_distribute(struct ssd_info *);
 struct ssd_info *buffer_management(struct ssd_info *);
 struct ssd_info *no_buffer_distribute(struct ssd_info *);
 struct ssd_info * getout2buffer(struct ssd_info *ssd, struct sub_request *sub, struct request *req);
-struct ssd_info * insert2buffer(struct ssd_info *ssd, unsigned int lpn, int state, unsigned int page_type, struct sub_request *sub, struct request *req);
-struct sub_request * creat_sub_request(struct ssd_info * ssd, unsigned int lpn, int page_size, unsigned int state, unsigned int page_type, struct request *req, unsigned int operation);
+struct ssd_info * insert2buffer(struct ssd_info *ssd, unsigned int lpn, int state, struct sub_request *sub, struct request *req);
+struct sub_request * creat_sub_request(struct ssd_info * ssd, unsigned int lpn, int page_size, unsigned int state, struct request *req, unsigned int operation);
 
 unsigned int transfer_size(struct ssd_info *, int, unsigned int, struct request *);
 unsigned int size(unsigned int);
-int allocate_location(struct ssd_info * ssd, struct sub_request *sub_req);
+Status allocate_location(struct ssd_info * ssd, struct sub_request *sub_req);
+
+struct ssd_info *handle_write_buffer(struct ssd_info *ssd, struct request *req);
+struct ssd_info *handle_read_cache(struct ssd_info *ssd, struct request *req);

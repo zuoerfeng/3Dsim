@@ -85,10 +85,10 @@ struct ssd_info *initiation(struct ssd_info *ssd)
 //	printf("\ninput trace file name:");
 //	gets(ssd->tracefilename);
 //	strcpy_s(ssd->tracefilename, 50, "16M_2KB_sequence_RandW.ascii");
-//	strcpy_s(ssd->tracefilename, 25, "financial2.ascii");
+//	strcpy_s(ssd->tracefilename, 25, "f2_512MB.ascii");
 	strcpy_s(ssd->tracefilename, 25, "example.ascii");
 //	strcpy_s(ssd->tracefilename, 50, "update_16_count.ascii");
-//	strcpy_s(ssd->tracefilename, 50, "512M_4KB_random_W.ascii");
+//	strcpy_s(ssd->tracefilename, 50, "512M_4KB_random_RandW.ascii");
 
 //	printf("\ninput output file name:");
 //	gets(ssd->outputfilename);
@@ -101,7 +101,7 @@ struct ssd_info *initiation(struct ssd_info *ssd)
 	strcpy_s(ssd->statisticfilename,16,"statistic10.dat");
 //	strcpy_s(ssd->statisticfilename,16,"CFS.dat");
 //	strcpy_s(ssd->statisticfilename,25,"DevDivRelease.dat");
-
+	
 	//strcpy_s(ssd->statisticfilename2 ,16,"statistic2.dat");
 
 	//Import the configuration file for ssd
@@ -109,12 +109,15 @@ struct ssd_info *initiation(struct ssd_info *ssd)
 	ssd->parameter=parameters;
 	ssd->min_lsn=0x7fffffff;
 	ssd->page=ssd->parameter->chip_num*ssd->parameter->die_chip*ssd->parameter->plane_die*ssd->parameter->block_plane*ssd->parameter->page_block;
+	ssd->parameter->update_reqeust_max = (ssd->parameter->dram_capacity / ssd->parameter->page_capacity) / INDEX;
+
 
 	//Initializes the global variable for ssd_info
 	ssd->make_age_free_page = 0;
 	ssd->buffer_full_flag = 0;
 	ssd->request_lz_count = 0;
 	ssd->trace_over_flag = 0;
+	ssd->update_sub_request = 0;
 
 	//Initialize the statistical parameters
 	initialize_statistic(ssd);

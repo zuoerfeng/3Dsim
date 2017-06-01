@@ -160,19 +160,18 @@ struct ssd_info *simulate(struct ssd_info *ssd)
 		/*buffer layer*/
 		if (flag == 1 || (flag == 0 && ssd->request_work != NULL))
 		{   
-			//printf("once\n");
 			if (ssd->parameter->dram_capacity!=0)
 			{
 				if (ssd->buffer_full_flag == 0)				//buffer don't block,it can be handle.
 				{
 					buffer_management(ssd);
-					distribute(ssd);
 				}
 			} 
 			else
 			{
 				no_buffer_distribute(ssd);
 			}
+
 			if (ssd->request_work->cmplt_flag == 1)
 			{
 				if (ssd->request_work != ssd->request_tail)
@@ -180,12 +179,13 @@ struct ssd_info *simulate(struct ssd_info *ssd)
 				else
 					ssd->request_work = NULL;
 			}
+
 		}
 		
 		/*ftl+fcl+flash layer*/
-		process(ssd);    
+		process(ssd); 
 		trace_output(ssd);
-		
+	
 		if (flag == 0 && ssd->request_queue == NULL)
 			flag = 100;
 	}
@@ -317,33 +317,32 @@ struct ssd_info *process(struct ssd_info *ssd)
 *Print the output of the relevant results to the outputfile file
 **********************************************************************/
 void trace_output(struct ssd_info* ssd){
-	int flag = 1;	
+	int flag = 1;
 	__int64 start_time, end_time;
 	struct request *req, *pre_node;
 	struct sub_request *sub, *tmp;
-	unsigned int i;
 
 #ifdef DEBUG
-	printf("enter trace_output,  current time:%I64u\n",ssd->current_time);
+	printf("enter trace_output,  current time:%I64u\n", ssd->current_time);
 #endif
 
-	pre_node=NULL;
+	pre_node = NULL;
 	req = ssd->request_queue;
 	start_time = 0;
 	end_time = 0;
 
-	if(req == NULL)
+	if (req == NULL)
 		return;
 
-	while(req != NULL)	
+	while (req != NULL)
 	{
 		sub = req->subs;
 		flag = 1;
 		start_time = 0;
 		end_time = 0;
-		if (req->response_time != 0 && req->cmplt_flag == 1)
+		if (req->response_time != 0)
 		{
-			fprintf(ssd->outputfile, "%16lld %10d %6d %2d %16lld %16lld %10lld\n", req->time, req->lsn, req->size, req->operation, req->begin_time, req->response_time, req->response_time - req->begin_time);
+			fprintf(ssd->outputfile, "%16I64u %10u %6u %2u %16I64u %16I64u %10I64u\n", req->time, req->lsn, req->size, req->operation, req->begin_time, req->response_time, req->response_time - req->time);
 			fflush(ssd->outputfile);
 
 			if (req->response_time - req->begin_time == 0)
@@ -355,12 +354,12 @@ void trace_output(struct ssd_info* ssd){
 			if (req->operation == READ)
 			{
 				ssd->read_request_count++;
-				ssd->read_avg = ssd->read_avg + (req->response_time - req->begin_time);
+				ssd->read_avg = ssd->read_avg + (req->response_time - req->time);
 			}
 			else
 			{
 				ssd->write_request_count++;
-				ssd->write_avg = ssd->write_avg + (req->response_time - req->begin_time);
+				ssd->write_avg = ssd->write_avg + (req->response_time - req->time);
 			}
 
 			if (pre_node == NULL)
@@ -385,6 +384,12 @@ void trace_output(struct ssd_info* ssd){
 					free((void *)pre_node);
 					pre_node = NULL;
 					ssd->request_queue_length--;
+
+					if (ssd->request_queue == 817773)
+					{
+						printf("lz\n");
+					}
+
 				}
 			}
 			else
@@ -410,29 +415,20 @@ void trace_output(struct ssd_info* ssd){
 				}
 			}
 		}
-		else if (req->response_time == 0 && req->cmplt_flag == 1)
+		else
 		{
 			flag = 1;
 			while (sub != NULL)
 			{
-				if (sub->update_read_flag == 0)
-				{
-					if (start_time == 0)
-						start_time = sub->begin_time;
-					if (start_time > sub->begin_time)
-						start_time = sub->begin_time;
-					if (end_time < sub->complete_time)
-						end_time = sub->complete_time;
-				}
-
+				if (start_time == 0)
+					start_time = sub->begin_time;
+				if (start_time > sub->begin_time)
+					start_time = sub->begin_time;
+				if (end_time < sub->complete_time)
+					end_time = sub->complete_time;
 				if ((sub->current_state == SR_COMPLETE) || ((sub->next_state == SR_COMPLETE) && (sub->next_state_predict_time <= ssd->current_time)))	// if any sub-request is not completed, the request is not completed
 				{
 					sub = sub->next_subs;
-					if (end_time - start_time == 0)
-					{
-						printf("the response time is 0?? \n");
-						getchar();
-					}
 				}
 				else
 				{
@@ -444,8 +440,7 @@ void trace_output(struct ssd_info* ssd){
 
 			if (flag == 1)
 			{
-				//fprintf(ssd->outputfile,"%10I64u %10u %6u %2u %16I64u %16I64u %10I64u\n",req->time,req->lsn, req->size, req->operation, start_time, end_time, end_time-req->time);
-				fprintf(ssd->outputfile, "%16lld %10d %6d %2d %16lld %16lld %10lld\n", req->time, req->lsn, req->size, req->operation, start_time, end_time, end_time - start_time);
+				fprintf(ssd->outputfile, "%16I64u %10u %6u %2u %16I64u %16I64u %10I64u\n", req->time, req->lsn, req->size, req->operation, start_time, end_time, end_time - req->time);
 				fflush(ssd->outputfile);
 
 				if (end_time - start_time == 0)
@@ -457,17 +452,14 @@ void trace_output(struct ssd_info* ssd){
 				if (req->operation == READ)
 				{
 					ssd->read_request_count++;
-					//ssd->read_avg = ssd->read_avg + (end_time - req->time);
-					ssd->read_avg = ssd->read_avg + (end_time - start_time);
+					ssd->read_avg = ssd->read_avg + (end_time - req->time);
 				}
 				else
 				{
 					ssd->write_request_count++;
-					//ssd->write_avg = ssd->write_avg + (end_time - req->time);
-					ssd->write_avg = ssd->write_avg + (end_time - start_time);
+					ssd->write_avg = ssd->write_avg + (end_time - req->time);
 				}
 
-				//The request is executed , release all sub requests
 				while (req->subs != NULL)
 				{
 					tmp = req->subs;
@@ -483,6 +475,7 @@ void trace_output(struct ssd_info* ssd){
 					tmp->location = NULL;
 					free(tmp);
 					tmp = NULL;
+
 				}
 
 				if (pre_node == NULL)
@@ -507,6 +500,14 @@ void trace_output(struct ssd_info* ssd){
 						free(pre_node);
 						pre_node = NULL;
 						ssd->request_queue_length--;
+
+
+						if (ssd->request_queue->lsn == 817773)
+						{
+							printf("lz\n");
+						}
+
+
 					}
 				}
 				else
@@ -538,11 +539,6 @@ void trace_output(struct ssd_info* ssd){
 				pre_node = req;
 				req = req->next_node;
 			}
-		}
-		else
-		{
-			pre_node = req;
-			req = req->next_node;
 		}
 	}
 }
@@ -646,7 +642,7 @@ void statistic_output(struct ssd_info *ssd)
 	fprintf(ssd->outputfile,"read request average size: %13f\n",ssd->ave_read_size);
 	fprintf(ssd->outputfile,"write request average size: %13f\n",ssd->ave_write_size);
 	fprintf(ssd->outputfile, "\n");
-//	fprintf(ssd->outputfile,"read request average response time: %16I64u\n",ssd->read_avg/ssd->read_request_count);
+	fprintf(ssd->outputfile,"read request average response time: %16I64u\n",ssd->read_avg/ssd->read_request_count);
 	fprintf(ssd->outputfile,"write request average response time: %16I64u\n",ssd->write_avg/ssd->write_request_count);
 	fprintf(ssd->outputfile, "\n");
 	fprintf(ssd->outputfile,"buffer read hits: %13d\n",ssd->dram->buffer->read_hit);
@@ -697,7 +693,7 @@ void statistic_output(struct ssd_info *ssd)
 	fprintf(ssd->statisticfile,"read request average size: %13f\n",ssd->ave_read_size);
 	fprintf(ssd->statisticfile,"write request average size: %13f\n",ssd->ave_write_size);
 	fprintf(ssd->statisticfile, "\n");
-//	fprintf(ssd->statisticfile,"read request average response time: %16I64u\n",ssd->read_avg/ssd->read_request_count);
+	fprintf(ssd->statisticfile,"read request average response time: %16I64u\n",ssd->read_avg/ssd->read_request_count);
 	fprintf(ssd->statisticfile,"write request average response time: %16I64u\n",ssd->write_avg/ssd->write_request_count);
 	fprintf(ssd->statisticfile, "\n");
 	fprintf(ssd->statisticfile,"buffer read hits: %13d\n",ssd->dram->buffer->read_hit);
@@ -705,7 +701,7 @@ void statistic_output(struct ssd_info *ssd)
 	fprintf(ssd->statisticfile,"buffer write hits: %13d\n",ssd->dram->buffer->write_hit);
 	fprintf(ssd->statisticfile,"buffer write miss: %13d\n",ssd->dram->buffer->write_miss_hit);
 
-//	fprintf(ssd->statisticfile, "buffer write hit request count : %13d\n", ssd->request_lz_count);
+	fprintf(ssd->statisticfile, "buffer write hit request count : %13d\n", ssd->update_sub_request);
 
 	fprintf(ssd->statisticfile, "\n");
 	fflush(ssd->statisticfile);

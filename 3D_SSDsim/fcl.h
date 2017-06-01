@@ -26,7 +26,9 @@ struct ssd_info *compute_serve_time(struct ssd_info *ssd, unsigned int channel, 
 
 int services_2_r_cmd_trans_and_complete(struct ssd_info * ssd);
 int make_level_page(struct ssd_info * ssd, struct sub_request * sub0, struct sub_request * sub1);
-int find_level_page(struct ssd_info *, unsigned int, unsigned int, unsigned int, struct sub_request *, struct sub_request *);
+//int find_level_page(struct ssd_info *, unsigned int, unsigned int, unsigned int, struct sub_request *, struct sub_request *);
+Status find_level_page(struct ssd_info *ssd, unsigned int channel, unsigned int chip, unsigned int die, struct sub_request **sub, unsigned int subs_count);
+
 int go_one_step(struct ssd_info * ssd, struct sub_request * sub1, struct sub_request *sub2, unsigned int aim_state, unsigned int command);
 int services_2_r_wait(struct ssd_info * ssd, unsigned int channel, unsigned int * channel_busy_flag, unsigned int * change_current_time_flag);
 int services_2_r_data_trans(struct ssd_info * ssd, unsigned int channel, unsigned int * channel_busy_flag, unsigned int * change_current_time_flag);

@@ -25,6 +25,7 @@ Zuo Lu			2017/05/12		  1.1			Support advanced commands:mutli plane   617376665@q
 
 #define SECTOR 512
 #define BUFSIZE 200
+#define INDEX 10
 
 #define DYNAMIC_ALLOCATION 0
 #define STATIC_ALLOCATION 1
@@ -156,6 +157,7 @@ struct ssd_info{
 	int buffer_full_flag;				 //buffer blocking flag:0--unblocking , 1-- blocking
 	int trace_over_flag;				 //the end of trace flag:0-- not ending ,1--ending
 	__int64 request_lz_count;			 //trace request count
+	unsigned int update_sub_request;
 
 	__int64 current_time;                //Record system time
 	__int64 next_request_time;
@@ -427,6 +429,7 @@ struct sub_request{
 	struct sub_request *next_subs;    //Points to the child request that belongs to the same request
 	struct sub_request *next_node;    //Points to the next sub-request structure in the same channel
 	struct sub_request *update;       //Update the write request, mount this pointer on
+	struct request *total_request;
 
 	unsigned int update_read_flag;   //Update the read flag
 
@@ -505,6 +508,7 @@ struct parameter_value{
 	int aged;                       //1 indicates that the SSD needs to be aged, 0 means that the SSD needs to be kept non-aged
 	float aged_ratio; 
 	int queue_length;               //Request the length of the queue
+	int update_reqeust_max;		    //request the length of sub request(partial page)
 
 	struct ac_time_characteristics time_characteristics;
 };
@@ -553,7 +557,7 @@ struct direct_erase{
 struct gc_operation{          
 	unsigned int chip;
 	unsigned int die;
-	unsigned int plane[2];
+	unsigned int plane;
 	unsigned int block;           //This parameter is used only in the interruptable gc function (gc_interrupt), used to record the near-identified target block number
 	unsigned int page;            //This parameter is used only in the interruptable gc function (gc_interrupt), used to record the page number of the data migration that has been completed
 	unsigned int state;           //Record the status of the current gc request

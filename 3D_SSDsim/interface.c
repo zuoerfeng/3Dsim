@@ -56,6 +56,7 @@ int get_requests(struct ssd_info *ssd)
 	printf("enter get_requests,  current time:%I64u\n", ssd->current_time);
 #endif
 	
+	//对于trace读完的结束设计
 	if (ssd->trace_over_flag == 1)
 	{
 		nearest_event_time = find_nearest_event(ssd);
@@ -65,7 +66,7 @@ int get_requests(struct ssd_info *ssd)
 			ssd->current_time += 5000000;
 		return 0;
 	}
-		
+	
 	while (TRUE)
 	{
 		filepoint = ftell(ssd->tracefile);
@@ -78,6 +79,7 @@ int get_requests(struct ssd_info *ssd)
 		if (feof(ssd->tracefile))      //if the end of trace
 			break;
 	}
+	
 
 	if ((device<0) && (lsn<0) && (size<0) && (ope<0))
 	{
@@ -101,7 +103,7 @@ int get_requests(struct ssd_info *ssd)
 	if (nearest_event_time == 0x7fffffffffffffff)
 	{
 		ssd->current_time = time_t;
-		if (ssd->buffer_full_flag == 1)			   //buffer is full, request should be block
+		if (ssd->buffer_full_flag == 1)			   
 		{
 			fseek(ssd->tracefile, filepoint, 0);
 			return -1;
@@ -111,16 +113,17 @@ int get_requests(struct ssd_info *ssd)
 			fseek(ssd->tracefile, filepoint, 0);
 			return 0;
 		}
+		
 	}
 	else
 	{
-		if (ssd->buffer_full_flag == 1)			   //buffer is full, request should be block
+		if (ssd->buffer_full_flag == 1)			 
 		{
 			fseek(ssd->tracefile, filepoint, 0);
 			ssd->current_time = nearest_event_time;
 			return -1;
 		}
-
+		
 		/**********************************************************************
 		*nearest_event_time < time_t, flash has not yet finished,request should be block
 		*current_time should be update to nearest_event_time
@@ -150,8 +153,6 @@ int get_requests(struct ssd_info *ssd)
 			}
 		}
 	}
-
-	
 
 	if (time_t < 0)
 	{
@@ -209,8 +210,11 @@ int get_requests(struct ssd_info *ssd)
 	if (ssd->request_lz_count == 281)
 		printf("lz\n");
 	*/
+	/*
 	if (time_t == 5839256835 && lsn == 817773)
 		printf("lz\n");
+	*/
+
 
 	if (request1->operation == 1)             //Calculate the average request size ,1 for read 0 for write
 	{

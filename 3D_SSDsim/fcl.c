@@ -301,14 +301,6 @@ int services_2_r_wait(struct ssd_info * ssd, unsigned int channel, unsigned int 
 	struct sub_request * sub_interleave_one = NULL, *sub_interleave_two = NULL;
 
 	sub = ssd->channel_head[channel].subs_r_head;
-	while (sub != NULL)
-	{
-		if (sub->update_read_flag == 1)
-			break;
-		sub = sub->next_node;
-	}
-	if (sub == NULL)
-		sub = ssd->channel_head[channel].subs_r_head;
 
 	if ((ssd->parameter->advanced_commands&AD_TWOPLANE_READ) == AD_TWOPLANE_READ)         /*to find whether there are two sub request can be served by two plane operation*/
 	{
@@ -448,17 +440,15 @@ Status services_2_write(struct ssd_info * ssd, unsigned int channel, unsigned in
 *****************************************************************************************************************************/
 struct ssd_info *dynamic_advanced_process(struct ssd_info *ssd, unsigned int channel, unsigned int chip)
 {
-	//unsigned int die = 0, plane = 0;
 	unsigned int subs_count = 0;
-	unsigned int plane_count = 0;
-	int flag;                                                                   
+	unsigned int update_count = 0;
+	unsigned int plane_count = 0;                                                                
 	unsigned int plane_place;                                                             /*record which plane has sub request in static allocation*/
 	struct sub_request *sub = NULL, *p = NULL, *sub0 = NULL, *sub1 = NULL, *sub2 = NULL, *sub3 = NULL, *sub0_rw = NULL, *sub1_rw = NULL, *sub2_rw = NULL, *sub3_rw = NULL;
 	struct sub_request ** subs = NULL;
 	unsigned int max_sub_num = 0;
 	unsigned int die_token = 0, plane_token = 0;
 	unsigned int * plane_bits = NULL;
-	unsigned int interleaver_count = 0;
 
 	unsigned int mask = 0x00000001;
 	unsigned int i = 0, j = 0;
@@ -472,6 +462,7 @@ struct ssd_info *dynamic_advanced_process(struct ssd_info *ssd, unsigned int cha
 	{
 		subs[i] = NULL;  //executable request array
 	}
+	update_count = 0;
 
 	if ((ssd->parameter->allocation_scheme == 0))                                           /*Full dynamic allocation, you need to select the wait-to-service sub-request from ssd-> subs_w_head*/
 	{
@@ -487,16 +478,32 @@ struct ssd_info *dynamic_advanced_process(struct ssd_info *ssd, unsigned int cha
 			{
 				if ((sub->update == NULL) || ((sub->update != NULL) && ((sub->update->current_state == SR_COMPLETE) || ((sub->update->next_state == SR_COMPLETE) && (sub->update->next_state_predict_time <= ssd->current_time)))))    //没有需要提前读出的页
 				{
-					subs[subs_count] = sub;			//Put the current state of the wait request into the array
-					subs_count++;					//The number of subrequests that are currently processing wait states
+					subs[subs_count] = sub;			
+					subs_count++;					
 				}
 			}
+
+			if (sub->update_read_flag == 1)
+				update_count++;
+
 			p = sub;
 			sub = sub->next_node;
 		}
 
+		if (update_count > ssd->update_sub_request)
+			ssd->update_sub_request = update_count; 
+		
+		if (update_count > ssd->parameter->update_reqeust_max)
+		{
+			printf("update sub request is full!\n");
+			ssd->buffer_full_flag = 1;  //blcok the buffer
+		}
+		else
+			ssd->buffer_full_flag = 0;
+
+
 		//Write more than two requests, that can be advanced orders
-		if (subs_count >= 2)
+		if (subs_count >= ssd->parameter->plane_die)
 		{	
 			//Request a maximum of plane mutations of plane_die at a time
 			if ((ssd->parameter->advanced_commands&AD_TWOPLANE) == AD_TWOPLANE)
@@ -522,26 +529,48 @@ struct ssd_info *dynamic_advanced_process(struct ssd_info *ssd, unsigned int cha
 				printf("lz:normal_wr_1\n");
 				getchar();
 			}
-		}//if(subs_count>=2)
-		else if (subs_count == 1)     //only one request
+		}//if(subs_count>=ssd->parameter->plane_die)
+		else if (subs_count > 0)
 		{
-			get_ppn_for_normal_command(ssd, channel, chip, subs[0]);
-			printf("lz:normal_wr_1\n");
-			getchar();
+			//get_ppn_for_normal_command(ssd, channel, chip, subs[0]);
+			while (subs_count < ssd->parameter->plane_die)
+			{
+				getout2buffer(ssd, NULL, subs[0]->total_request);
+				//重新遍历整个写请求链，取出对应的两个写子请求
+				for (i = 0; i<max_sub_num; i++)
+				{
+					subs[i] = NULL;
+				}
+				sub = ssd->subs_w_head;
+				subs_count = 0;
+				while ((sub != NULL) && (subs_count<max_sub_num))
+				{
+					if (sub->current_state == SR_WAIT)
+					{
+						if ((sub->update == NULL) || ((sub->update != NULL) && ((sub->update->current_state == SR_COMPLETE) || ((sub->update->next_state == SR_COMPLETE) && (sub->update->next_state_predict_time <= ssd->current_time)))))    //没有需要提前读出的页
+						{
+							subs[subs_count] = sub;
+							subs_count++;
+						}
+					}
+					p = sub;
+					sub = sub->next_node;
+				}
+			}
+			get_ppn_for_advanced_commands(ssd, channel, chip, subs, subs_count, TWO_PLANE);
 		}
-		else						 /*No request can serve, return NULL*/
+		else	//subs_count = 0																	
 		{
 			for (i = 0; i<max_sub_num; i++)
 			{
 				subs[i] = NULL;
 			}
 			free(subs);
-
 			subs = NULL;
 			free(plane_bits);
 			return NULL;
 		}
-	}//if ((ssd->parameter->allocation_scheme==0)) 
+	} 
 
 	for (i = 0; i<max_sub_num; i++)
 	{
@@ -631,76 +660,74 @@ Status make_level_page(struct ssd_info * ssd, struct sub_request * sub0, struct 
 *The function of the function is to find two pages of the same horizontal position for the two plane 
 *command, and modify the statistics, modify the status of the page
 *******************************************************************************************************/
-Status find_level_page(struct ssd_info *ssd, unsigned int channel, unsigned int chip, unsigned int die, struct sub_request *subA, struct sub_request *subB)
+//Status find_level_page(struct ssd_info *ssd, unsigned int channel, unsigned int chip, unsigned int die, struct sub_request *subA, struct sub_request *subB)
+Status find_level_page(struct ssd_info *ssd, unsigned int channel, unsigned int chip, unsigned int die, struct sub_request **sub, unsigned int subs_count)
 {
-	unsigned int i, planeA, planeB, active_blockA, active_blockB, pageA, pageB, aim_page, old_plane;
+	unsigned int i, planeA, planeB, active_blockA, active_blockB, pageA, pageB, aim_page = 0, old_plane;
 	struct gc_operation *gc_node;
 	unsigned int gc_add;
-	//Find the current plane with a plane token
+
+	unsigned int plane, active_block, page,tmp_page,equal_flag;
+	unsigned int *page_place;
+
+	page_place = (unsigned int *)malloc(ssd->parameter->plane_die*sizeof(page_place));
 	old_plane = ssd->channel_head[channel].chip_head[chip].die_head[die].token;
-
-	/************************************************************
-	*Dynamic allocation of the case:
-	*PlaneA The token with the initial value of die, if planeA is even so planeB = planeA + 1
-	*PlaneA is odd, then planeA + 1 becomes even, and then planeB = planeA + 1
-	*************************************************************/
-	if (ssd->parameter->allocation_scheme == 0)
+	
+	for (i = 0; i < ssd->parameter->plane_die; i++)
 	{
-		planeA = ssd->channel_head[channel].chip_head[chip].die_head[die].token;
-		if (planeA % 2 == 0)
+		find_active_block(ssd, channel, chip, die, i);
+		active_block = ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[i].active_block;
+		page = ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[i].blk_head[active_block].last_write_page + 1;
+		page_place[i] = page;
+	}
+
+	equal_flag = 1;
+	for (i = 0; i < (ssd->parameter->plane_die - 1); i++)
+	{
+		if (page_place[i] != page_place[i + 1])
 		{
-			planeB = planeA + 1;
-			ssd->channel_head[channel].chip_head[chip].die_head[die].token = (ssd->channel_head[channel].chip_head[chip].die_head[die].token + 2) % ssd->parameter->plane_die;
-		}
-		else
-		{
-			planeA = (planeA + 1) % ssd->parameter->plane_die;
-			planeB = planeA + 1;
-			ssd->channel_head[channel].chip_head[chip].die_head[die].token = (ssd->channel_head[channel].chip_head[chip].die_head[die].token + 3) % ssd->parameter->plane_die;
+			equal_flag = 0;
+			break;
 		}
 	}
-	//find planeA and planeB respectively
-	find_active_block(ssd, channel, chip, die, planeA);                                      
-	find_active_block(ssd, channel, chip, die, planeB);
-	active_blockA = ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[planeA].active_block;
-	active_blockB = ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[planeB].active_block;
-	pageA = ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[planeA].blk_head[active_blockA].last_write_page + 1;
-	pageB = ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[planeB].blk_head[active_blockB].last_write_page + 1;
-
-	//do not guarantee that the active block is equal, so only to determine whether the two plane within the page offset address consistent
-	if (pageA == pageB)                                                              
+	
+	//判断所有的page是否相等，如果相等，执行mutli plane，如果不相等，贪婪的使用，将所有的page向最大的page靠近
+	if (equal_flag == 1)	//page偏移地址一致
 	{
-		//printf("block1 = %d,pageA = %d\nblock2 = %d,pageB = %d\n", active_blockA, pageA, active_blockB, pageB);
-		flash_page_state_modify(ssd, subA, channel, chip, die, planeA, active_blockA, pageA); 
-		flash_page_state_modify(ssd, subB, channel, chip, die, planeB, active_blockB, pageB);
+		for (i = 0; i < ssd->parameter->plane_die; i++)
+		{
+			active_block = ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[i].active_block;
+			flash_page_state_modify(ssd, sub[i], channel, chip, die, i, active_block, page_place[i]);
+		}
 	}
-	else
+	else				    //page偏移地址不一致
 	{
-		printf("block1 = %d,pageA = %d\nblock2 = %d,pageB = %d\n", active_blockA, pageA, active_blockB, pageB);
 		if (ssd->parameter->greed_MPW_ad == 1)                                             /*greedily use advanced commands*/
 		{
-			if (pageA<pageB)
+			for (i = 0; i < ssd->parameter->plane_die ; i++)
 			{
-				aim_page = pageB;
-				make_same_level(ssd, channel, chip, die, planeA, active_blockA, aim_page);     /*small page address to the big page address by*/
+				if (page_place[i] > aim_page)
+					aim_page = page_place[i];
 			}
-			else
+
+			for (i = 0; i < ssd->parameter->plane_die; i++)
 			{
-				aim_page = pageA;
-				make_same_level(ssd, channel, chip, die, planeB, active_blockB, aim_page);
+				active_block = ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[i].active_block;
+				if (page_place[i] != aim_page)
+					make_same_level(ssd, channel, chip, die, i, active_block, aim_page);
+				flash_page_state_modify(ssd, sub[i], channel, chip, die, i, active_block, aim_page);
 			}
-			flash_page_state_modify(ssd, subA, channel, chip, die, planeA, active_blockA, aim_page);
-			flash_page_state_modify(ssd, subB, channel, chip, die, planeB, active_blockB, aim_page);
+			ssd->channel_head[channel].chip_head[chip].die_head[die].token = old_plane;
 		}
 		else                                                                             /*can not greedy the use of advanced orders*/
 		{
-			subA = NULL;
-			subB = NULL;
 			ssd->channel_head[channel].chip_head[chip].die_head[die].token = old_plane;
+			for (i = 0; i < subs_count; i++)
+				sub[i] = NULL;
+			free(page_place);
 			return FAILURE;
 		}
 	}
-
 	gc_add = 1;
 	for ( i = 0; i < ssd->parameter->plane_die; i++)
 	{
@@ -716,8 +743,7 @@ Status find_level_page(struct ssd_info *ssd, unsigned int channel, unsigned int 
 		gc_node->next_node = NULL;
 		gc_node->chip = chip;
 		gc_node->die = die;
-		gc_node->plane[0] = planeA;
-		gc_node->plane[1] = planeB;
+		gc_node->plane = old_plane;
 		gc_node->block = 0xffffffff;
 		gc_node->page = 0;
 		gc_node->state = GC_WAIT;
@@ -726,7 +752,7 @@ Status find_level_page(struct ssd_info *ssd, unsigned int channel, unsigned int 
 		ssd->channel_head[channel].gc_command = gc_node;					//inserted into the head of the gc chain
 		ssd->gc_request++;
 	}
-
+	free(page_place);
 	return SUCCESS;
 }
 
@@ -1034,7 +1060,7 @@ Status go_one_step(struct ssd_info * ssd, struct sub_request * sub1, struct sub_
 	struct sub_request * sub_interleave_one = NULL, *sub_interleave_two = NULL;
 	struct local * location = NULL;
 
-	struct buffer_group *update_buffer_node = NULL, key;
+	struct buffer_group *update_buffer_node = NULL;
 
 	if (sub1 == NULL)
 	{
@@ -1116,21 +1142,9 @@ Status go_one_step(struct ssd_info * ssd, struct sub_request * sub1, struct sub_
 			sub->next_state_predict_time = ssd->current_time + (sub->size*ssd->parameter->subpage_capacity)*ssd->parameter->time_characteristics.tRC;
 			sub->complete_time = sub->next_state_predict_time;
 
-
 			if (sub->update_read_flag == 1)
-			{
-				//sub->update_read_flag = 0;
-				//Change the size of the sector that the buff is written
-				key.group = sub->lpn;
-				update_buffer_node = (struct buffer_group*)avlTreeFind(ssd->dram->buffer, (TREE_NODE *)&key);    /*Look for the buffer node in the balanced binary tree*/
-				update_buffer_node->stored = sub->state | update_buffer_node->stored;
-				update_buffer_node->dirty_clean = sub->state | update_buffer_node->stored;
-				update_buffer_node->page_type = 0;
-				ssd->buffer_full_flag = 0;   //To remove buff blocking
-
-			}
-
-
+				sub->update_read_flag = 0;
+			
 			ssd->channel_head[location->channel].current_state = CHANNEL_DATA_TRANSFER;
 			ssd->channel_head[location->channel].current_time = ssd->current_time;
 			ssd->channel_head[location->channel].next_state = CHANNEL_IDLE;
@@ -1247,27 +1261,10 @@ Status go_one_step(struct ssd_info * ssd, struct sub_request * sub1, struct sub_
 
 
 			if (sub_twoplane_one->update_read_flag == 1)
-			{
-				//sub_twoplane_one->update_read_flag = 0;
-				//Change the size of the sector that the buff is written
-				key.group = sub_twoplane_one->lpn;
-				update_buffer_node = (struct buffer_group*)avlTreeFind(ssd->dram->buffer, (TREE_NODE *)&key);   
-				update_buffer_node->stored = sub_twoplane_one->state | update_buffer_node->stored;
-				update_buffer_node->dirty_clean = sub_twoplane_one->state | update_buffer_node->stored;
-				update_buffer_node->page_type = 0;
-				ssd->buffer_full_flag = 0;
-			}
-			else if (sub_twoplane_two->update_read_flag == 1)
-			{
-				//sub_twoplane_two->update_read_flag = 0;
-				//Change the size of the sector that the buff is written
-				key.group = sub_twoplane_two->lpn;
-				update_buffer_node = (struct buffer_group*)avlTreeFind(ssd->dram->buffer, (TREE_NODE *)&key);  
-				update_buffer_node->stored = sub_twoplane_two->state | update_buffer_node->stored;
-				update_buffer_node->dirty_clean = sub_twoplane_two->state | update_buffer_node->stored;
-				update_buffer_node->page_type = 0;
-				ssd->buffer_full_flag = 0;
-			}
+				sub_twoplane_one->update_read_flag = 0;
+
+			if (sub_twoplane_two->update_read_flag == 1)
+				sub_twoplane_two->update_read_flag = 0;
 
 			ssd->channel_head[location->channel].current_state = CHANNEL_DATA_TRANSFER;
 			ssd->channel_head[location->channel].current_time = ssd->current_time;

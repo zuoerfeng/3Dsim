@@ -373,7 +373,7 @@ struct ssd_info *get_ppn(struct ssd_info *ssd, unsigned int channel, unsigned in
 			gc_node->next_node = NULL;
 			gc_node->chip = chip;
 			gc_node->die = die;
-			gc_node->plane[0] = plane;
+			gc_node->plane = plane;
 			gc_node->block = 0xffffffff;
 			gc_node->page = 0;
 			gc_node->state = GC_WAIT;
@@ -530,7 +530,7 @@ Status get_ppn_for_advanced_commands(struct ssd_info *ssd, unsigned int channel,
 	{
 		if (command == TWO_PLANE)
 		{
-			if (subs_count<2)
+			if ( subs_count < ssd->parameter->plane_die )
 			{
 				return ERROR;
 			}
@@ -539,7 +539,8 @@ Status get_ppn_for_advanced_commands(struct ssd_info *ssd, unsigned int channel,
 			{
 				if (j == (ssd->parameter->plane_die-1) )
 				{
-					state = find_level_page(ssd, channel, chip, die, subs[0], subs[1]);        /*Find subs[1] with the same page position as subs[0], execute TWO_PLANE advanced command*/
+					//state = find_level_page(ssd, channel, chip, die, subs[0], subs[1]);        /*Find subs[1] with the same page position as subs[0], execute TWO_PLANE advanced command*/
+					state = find_level_page(ssd, channel, chip, die, subs, subs_count);
 					if (state != SUCCESS)
 					{
 						get_ppn_for_normal_command(ssd, channel, chip, subs[0]);			   /*Ordinary command to deal with*/
@@ -556,6 +557,8 @@ Status get_ppn_for_advanced_commands(struct ssd_info *ssd, unsigned int channel,
 				else if (j> (ssd->parameter->plane_die-1) )									//beyong all plane sub_request
 				{
 					state = make_level_page(ssd, subs[0], subs[j]);                         /*Find subs[j] with the same ppn position as subs[0], execute TWO_PLANE advanced command*/
+					printf("lz:normal_wr_2\n");
+					getchar();
 					if (state != SUCCESS)
 					{
 						for (k = j; k<subs_count; k++)
