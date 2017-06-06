@@ -51,6 +51,13 @@ void main()
 	unsigned  int i,j,k,p,m,n;
 	struct ssd_info *ssd;
 
+	/*
+	int tmp;
+	tmp = _CrtSetDbgFlag(_CRTDBG_REPORT_FLAG);
+	tmp |= _CRTDBG_CHECK_ALWAYS_DF;
+	tmp |= _CRTDBG_DELAY_FREE_MEM_DF;
+	_CrtSetDbgFlag(tmp);
+	*/
 	#ifdef DEBUG
 	printf("enter main\n"); 
 	#endif
@@ -184,6 +191,8 @@ struct ssd_info *simulate(struct ssd_info *ssd)
 		
 		/*ftl+fcl+flash layer*/
 		process(ssd); 
+
+
 		trace_output(ssd);
 	
 		if (flag == 0 && ssd->request_queue == NULL)
@@ -244,7 +253,8 @@ struct ssd_info *process(struct ssd_info *ssd)
 	*Gc operation is completed, the read and write state changes
 	**********************************************************/
 	time = ssd->current_time;
-	services_2_r_cmd_trans_and_complete(ssd);                                            /*SR_R_C_A_TRANSFER/SR_COMPLETE/next state is SR_COMPLETE and predict_time < current_time*/
+	services_2_r_read(ssd);
+	services_2_r_complete(ssd);
 
 	random_num = ssd->program_count%ssd->parameter->channel_number;                      /*Generate a random number, to ensure that each time from a different channel query*/
 	for (chan = 0; chan<ssd->parameter->channel_number; chan++)
@@ -306,6 +316,7 @@ struct ssd_info *process(struct ssd_info *ssd)
 		}
 		*/
 	}
+
 	return ssd;
 }
 
@@ -384,12 +395,6 @@ void trace_output(struct ssd_info* ssd){
 					free((void *)pre_node);
 					pre_node = NULL;
 					ssd->request_queue_length--;
-
-					if (ssd->request_queue == 817773)
-					{
-						printf("lz\n");
-					}
-
 				}
 			}
 			else
@@ -500,14 +505,6 @@ void trace_output(struct ssd_info* ssd){
 						free(pre_node);
 						pre_node = NULL;
 						ssd->request_queue_length--;
-
-
-						if (ssd->request_queue->lsn == 817773)
-						{
-							printf("lz\n");
-						}
-
-
 					}
 				}
 				else

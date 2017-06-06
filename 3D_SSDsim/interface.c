@@ -206,10 +206,10 @@ int get_requests(struct ssd_info *ssd)
 	printf("request:%I64u\n", ssd->request_lz_count);
 	//printf("%d\n", ssd->request_queue_length);
 
-	/*
-	if (ssd->request_lz_count == 281)
+	
+	if (ssd->request_lz_count == 36)
 		printf("lz\n");
-	*/
+	
 	/*
 	if (time_t == 5839256835 && lsn == 817773)
 		printf("lz\n");

@@ -530,54 +530,31 @@ Status get_ppn_for_advanced_commands(struct ssd_info *ssd, unsigned int channel,
 	{
 		if (command == TWO_PLANE)
 		{
-			if ( subs_count < ssd->parameter->plane_die )
+			die = ssd->channel_head[channel].chip_head[chip].token;
+			if (subs_count == ssd->parameter->plane_die)
+			{
+				state = find_level_page(ssd, channel, chip, die, subs, subs_count);
+				if (state != SUCCESS)
+				{
+					get_ppn_for_normal_command(ssd, channel, chip, subs[0]);			   /*Ordinary command to deal with*/
+					printf("lz:normal_wr_2\n");
+					getchar();
+					return FAILURE;
+				}
+				else
+				{
+					valid_subs_count = ssd->parameter->plane_die;
+					ssd->channel_head[channel].chip_head[chip].token = (die + 1) % ssd->parameter->die_chip;   \
+					ssd->m_plane_prog_count++;
+					compute_serve_time(ssd, channel, chip, die, subs, valid_subs_count, TWO_PLANE);
+					printf("lz:mutli_plane_wr_3\n");
+					return SUCCESS;
+				}
+			}
+			else
 			{
 				return ERROR;
 			}
-			die = ssd->channel_head[channel].chip_head[chip].token;
-			for (j = 0; j<subs_count; j++)
-			{
-				if (j == (ssd->parameter->plane_die-1) )
-				{
-					//state = find_level_page(ssd, channel, chip, die, subs[0], subs[1]);        /*Find subs[1] with the same page position as subs[0], execute TWO_PLANE advanced command*/
-					state = find_level_page(ssd, channel, chip, die, subs, subs_count);
-					if (state != SUCCESS)
-					{
-						get_ppn_for_normal_command(ssd, channel, chip, subs[0]);			   /*Ordinary command to deal with*/
-						printf("lz:normal_wr_2\n");
-						getchar();
-						return FAILURE;
-					}
-					else
-					{
-						valid_subs_count = 2;
-						ssd->channel_head[channel].chip_head[chip].token = (die + 1) % ssd->parameter->die_chip;    //Multi plane execution is successful, indicating that the current die execution is complete, update the token to the next
-					}
-				}
-				else if (j> (ssd->parameter->plane_die-1) )									//beyong all plane sub_request
-				{
-					state = make_level_page(ssd, subs[0], subs[j]);                         /*Find subs[j] with the same ppn position as subs[0], execute TWO_PLANE advanced command*/
-					printf("lz:normal_wr_2\n");
-					getchar();
-					if (state != SUCCESS)
-					{
-						for (k = j; k<subs_count; k++)
-						{
-							subs[k] = NULL;
-						}
-						subs_count = j;
-						break;
-					}
-					else
-					{
-						valid_subs_count++;
-					}
-				}
-			}//for(j=0;j<subs_count;j++)
-			ssd->m_plane_prog_count++;
-			compute_serve_time(ssd, channel, chip, die, subs, valid_subs_count, TWO_PLANE);
-			printf("lz:mutli_plane_wr_3\n");
-			return SUCCESS;
 		}//else if(command==TWO_PLANE)
 		else
 		{

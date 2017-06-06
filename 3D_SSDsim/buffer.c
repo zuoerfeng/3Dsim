@@ -719,6 +719,7 @@ struct sub_request * creat_sub_request(struct ssd_info * ssd, unsigned int lpn, 
 	alloc_assert(sub, "sub_request");
 	memset(sub, 0, sizeof(struct sub_request));
 
+
 	if (sub == NULL)
 	{
 		return NULL;

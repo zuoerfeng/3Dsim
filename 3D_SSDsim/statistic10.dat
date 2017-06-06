@@ -84,14 +84,14 @@ greed MPW command=1;            #±íÊ¾ÊÇ·ñÌ°À·µØÊ¹ÓÃmulti-plane write¸ß¼¶ÃüÁî£¬0±
 aged=0;                         #1±íÊ¾ĞèÒª½«Õâ¸öSSD±ä³Éaged£¬0±íÊ¾ĞèÒª½«Õâ¸öSSD±£³Önon-aged
 aged ratio=0.5;                #±íÊ¾ÎªÁËÊ¹SSD±ä³ÉagedµÄSSD£¬ĞèÒª½«SSDÖĞÌáÇ°ÖÃÎªÊ§Ğ§µÄ±ÈÂÊ
 -----------------------simulation output----------------------
-the 0 channel, 0 chip, 0 die, 0 plane has :   0 erase operations,2760 read operations,1444 write operations,935 pre_process write operations
-the 0 channel, 0 chip, 0 die, 1 plane has :   0 erase operations,529 read operations,1444 write operations,935 pre_process write operations
-the 0 channel, 0 chip, 1 die, 0 plane has :   0 erase operations,3090 read operations,1444 write operations,935 pre_process write operations
-the 0 channel, 0 chip, 1 die, 1 plane has :   0 erase operations,632 read operations,1445 write operations,934 pre_process write operations
-the 1 channel, 0 chip, 0 die, 0 plane has :   0 erase operations,2495 read operations,1071 write operations,935 pre_process write operations
-the 1 channel, 0 chip, 0 die, 1 plane has :   0 erase operations,542 read operations,1071 write operations,935 pre_process write operations
-the 1 channel, 0 chip, 1 die, 0 plane has :   0 erase operations,3018 read operations,1071 write operations,934 pre_process write operations
-the 1 channel, 0 chip, 1 die, 1 plane has :   0 erase operations,531 read operations,1071 write operations,934 pre_process write operations
+the 0 channel, 0 chip, 0 die, 0 plane has :   0 erase operations,1681 read operations,1445 write operations,935 pre_process write operations
+the 0 channel, 0 chip, 0 die, 1 plane has :   0 erase operations,1609 read operations,1445 write operations,935 pre_process write operations
+the 0 channel, 0 chip, 1 die, 0 plane has :   0 erase operations,1765 read operations,1445 write operations,935 pre_process write operations
+the 0 channel, 0 chip, 1 die, 1 plane has :   0 erase operations,1956 read operations,1446 write operations,934 pre_process write operations
+the 1 channel, 0 chip, 0 die, 0 plane has :   0 erase operations,1480 read operations,1070 write operations,935 pre_process write operations
+the 1 channel, 0 chip, 0 die, 1 plane has :   0 erase operations,1554 read operations,1070 write operations,935 pre_process write operations
+the 1 channel, 0 chip, 1 die, 0 plane has :   0 erase operations,1790 read operations,1070 write operations,934 pre_process write operations
+the 1 channel, 0 chip, 1 die, 1 plane has :   0 erase operations,1762 read operations,1070 write operations,934 pre_process write operations
 
 
 ---------------------------statistic data---------------------------
@@ -110,22 +110,22 @@ erase count:             0
 direct erase count:             0
 
 multi-plane program count:          5030
-multi-plane read count:          4649
+multi-plane read count:          4657
 
 write flash count:         17537
 
 read request count:          4077
 write request count:          5922
 
-read request average size:     12.187478
+read request average size:     12.187196
 write request average size:      9.841782
 
-read request average response time:           139107
-write request average response time:           121501
+read request average response time:           149856
+write request average response time:           121948
 
 buffer read hits:           149
 buffer read miss:         13789
-buffer write hits:         11027
-buffer write miss:          8201
+buffer write hits:         11026
+buffer write miss:          8202
 buffer write hit request count :             4
 

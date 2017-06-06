@@ -432,6 +432,7 @@ struct sub_request{
 	struct request *total_request;
 
 	unsigned int update_read_flag;   //Update the read flag
+	unsigned int mutliplane_flag;
 
 };
 
