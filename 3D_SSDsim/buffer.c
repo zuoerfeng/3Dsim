@@ -99,6 +99,8 @@ struct ssd_info *buffer_management(struct ssd_info *ssd)
 	return ssd;
 }
 
+
+
 struct ssd_info *handle_write_buffer(struct ssd_info *ssd, struct request *req)
 {
 	unsigned int full_page, lsn, lpn, last_lpn, first_lpn;
@@ -757,7 +759,8 @@ struct sub_request * creat_sub_request(struct ssd_info * ssd, unsigned int lpn, 
 		sub->ppn = ssd->dram->map->map_entry[lpn].pn;
 		sub->operation = READ;
 		sub->state = (ssd->dram->map->map_entry[lpn].state & 0x7fffffff);
-		sub_r = p_ch->subs_r_head;                                                      /*一下几行包括flag用于判断该读子请求队列中是否有与这个子请求相同的，有的话，将新的子请求直接赋为完成*/
+		sub_r = ssd->channel_head[loc->channel].subs_r_head;
+
 		flag = 0;
 		while (sub_r != NULL)
 		{
@@ -770,15 +773,15 @@ struct sub_request * creat_sub_request(struct ssd_info * ssd, unsigned int lpn, 
 		}
 		if (flag == 0)
 		{
-			if (p_ch->subs_r_tail != NULL)
+			if (ssd->channel_head[loc->channel].subs_r_tail != NULL)
 			{
-				p_ch->subs_r_tail->next_node = sub;
-				p_ch->subs_r_tail = sub;
+				ssd->channel_head[loc->channel].subs_r_tail->next_node = sub;
+				ssd->channel_head[loc->channel].subs_r_tail = sub;
 			}
 			else
 			{
-				p_ch->subs_r_head = sub;
-				p_ch->subs_r_tail = sub;
+				ssd->channel_head[loc->channel].subs_r_head = sub;
+				ssd->channel_head[loc->channel].subs_r_tail = sub;
 			}
 		}
 		else

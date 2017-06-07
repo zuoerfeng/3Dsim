@@ -56,12 +56,12 @@ Status services_2_r_data_trans(struct ssd_info * ssd, unsigned int channel, unsi
 		{
 			for (aim_die = 0; aim_die < ssd->parameter->die_chip; aim_die++)
 			{
-				if ((ssd->parameter->advanced_commands&AD_TWOPLANE_READ) == AD_TWOPLANE_READ)
+				if ((ssd->parameter->advanced_commands&AD_MUTLIPLANE_READ) == AD_MUTLIPLANE_READ)
 				{
-	                sub_r_count = find_read_sub_request(ssd, channel, chip, aim_die, sub_r_request, SR_R_DATA_TRANSFER, TWO_PLANE);
+	                sub_r_count = find_read_sub_request(ssd, channel, chip, aim_die, sub_r_request, SR_R_DATA_TRANSFER, MUTLI_PLANE);
 					if (sub_r_count > 1)
 					{
-						go_one_step(ssd, sub_r_request, sub_r_count, SR_R_DATA_TRANSFER, TWO_PLANE);
+						go_one_step(ssd, sub_r_request, sub_r_count, SR_R_DATA_TRANSFER, MUTLI_PLANE);
 						*change_current_time_flag = 0;
 						*channel_busy_flag = 1;
 						break;
@@ -114,10 +114,10 @@ Status services_2_r_read(struct ssd_info * ssd)
 				for (aim_die = 0; aim_die < ssd->parameter->die_chip; aim_die++)
 				{
 					//首先去找mutli plane请求，能找到进行,否则进行normal plane
-					subs_count = find_read_sub_request(ssd, i, j, aim_die, subs, SR_R_READ, TWO_PLANE);
+					subs_count = find_read_sub_request(ssd, i, j, aim_die, subs, SR_R_READ, MUTLI_PLANE);
 					if (subs_count > 1)
 					{
-						go_one_step(ssd, subs, subs_count, SR_R_READ, TWO_PLANE);
+						go_one_step(ssd, subs, subs_count, SR_R_READ, MUTLI_PLANE);
 						break;
 					}
 					else
@@ -161,7 +161,7 @@ unsigned int find_read_sub_request(struct ssd_info * ssd, unsigned int channel, 
 		{
 			if (sub->next_state == state && sub->next_state_predict_time <= ssd->current_time)
 			{
-				if (command == TWO_PLANE)
+				if (command == MUTLI_PLANE)
 				{
 					if (sub->mutliplane_flag == 1)
 					{
@@ -198,7 +198,7 @@ unsigned int find_read_sub_request(struct ssd_info * ssd, unsigned int channel, 
 			}
 		}
 
-		if (command == TWO_PLANE)
+		if (command == MUTLI_PLANE)
 		{
 			if (j == ssd->parameter->plane_die)
 				break;
@@ -235,31 +235,46 @@ Status services_2_r_complete(struct ssd_info * ssd)
 	for (i = 0; i<ssd->parameter->channel_number; i++)                                       /*This loop does not require the channel time, when the read request is completed, it will be removed from the channel queue*/
 	{
 		sub = ssd->channel_head[i].subs_r_head;
+		p = NULL;
 		while (sub != NULL)
 		{
 			if ((sub->current_state == SR_COMPLETE) || ((sub->next_state == SR_COMPLETE) && (sub->next_state_predict_time <= ssd->current_time)))
 			{
-				if (sub != ssd->channel_head[i].subs_r_head)                             /*if the request is completed, we delete it from read queue */
+				if (sub != ssd->channel_head[i].subs_r_head)                         
 				{
-					p->next_node = sub->next_node;
 					if (sub == ssd->channel_head[i].subs_r_tail)
+					{
 						ssd->channel_head[i].subs_r_tail = p;
+						p->next_node = NULL;
+					}
+					else
+					{
+						p->next_node = sub->next_node;
+						sub = p->next_node;
+					}
 				}
 				else
 				{
 					if (ssd->channel_head[i].subs_r_head != ssd->channel_head[i].subs_r_tail)
 					{
 						ssd->channel_head[i].subs_r_head = sub->next_node;
+						sub = sub->next_node;
+						p = NULL;
 					}
 					else
 					{
 						ssd->channel_head[i].subs_r_head = NULL;
 						ssd->channel_head[i].subs_r_tail = NULL;
+						break;
 					}
 				}
 			}
-			p = sub;
-			sub = sub->next_node;
+			else
+			{
+				p = sub;
+				sub = sub->next_node;
+			}
+			
 		}
 	}
 
@@ -282,11 +297,11 @@ Status services_2_r_wait(struct ssd_info * ssd, unsigned int channel, unsigned i
 		sub_mutliplane_place[i] = NULL;
 	}
 
-	if ((ssd->parameter->advanced_commands&AD_TWOPLANE_READ) == AD_TWOPLANE_READ)         /*to find whether there are two sub request can be served by two plane operation*/
+	if ((ssd->parameter->advanced_commands&AD_MUTLIPLANE_READ) == AD_MUTLIPLANE_READ)         /*to find whether there are two sub request can be served by two plane operation*/
 	{
 		for (chip = 0; chip < ssd->parameter->chip_channel[channel]; chip++)
 		{
-			sub_r_req_count = find_mutliplane_sub_request(ssd, channel, chip, sub_mutliplane_place, TWO_PLANE);
+			sub_r_req_count = find_mutliplane_sub_request(ssd, channel, chip, sub_mutliplane_place, MUTLI_PLANE);
 			if (sub_r_req_count == 0)
 			{
 				//printf("sub_r_req in null");
@@ -307,7 +322,7 @@ Status services_2_r_wait(struct ssd_info * ssd, unsigned int channel, unsigned i
 			}
 			else
 			{
-				go_one_step(ssd, sub_mutliplane_place, sub_r_req_count, SR_R_C_A_TRANSFER, TWO_PLANE);
+				go_one_step(ssd, sub_mutliplane_place, sub_r_req_count, SR_R_C_A_TRANSFER, MUTLI_PLANE);
 				*change_current_time_flag = 0;
 				*channel_busy_flag = 1;
 			}
@@ -378,7 +393,7 @@ unsigned int find_mutliplane_sub_request(struct ssd_info * ssd, unsigned int cha
 						*/
 					}
 				}
-				if (command == TWO_PLANE)
+				if (command == MUTLI_PLANE)
 				{
 					if (i == ssd->parameter->plane_die)
 					{
@@ -551,10 +566,10 @@ Status go_one_step(struct ssd_info * ssd, struct sub_request ** subs, unsigned i
 		default:  return ERROR;
 		}
 	}
-	else if (command == TWO_PLANE)
+	else if (command == MUTLI_PLANE)
 	{
 		/**********************************************************************************************
-		*Advanced order TWO_PLANE processing, where the TWO_PLANE advanced command is a high-level command to read the child request
+		*Advanced order MUTLI_PLANE processing, where the MUTLI_PLANE advanced command is a high-level command to read the child request
 		*State transition and ordinary command, the difference is in SR_R_C_A_TRANSFER when the calculation of time is serial, because the sharing of a channel channel
 		*Also SR_R_DATA_TRANSFER also share a channel
 		**********************************************************************************************/
@@ -793,7 +808,7 @@ struct ssd_info *dynamic_advanced_process(struct ssd_info *ssd, unsigned int cha
 
 		if (subs_count >= ssd->parameter->plane_die)
 		{	
-			if ((ssd->parameter->advanced_commands&AD_TWOPLANE) == AD_TWOPLANE)
+			if ((ssd->parameter->advanced_commands&AD_MUTLIPLANE) == AD_MUTLIPLANE)
 			{
 				if (subs_count>ssd->parameter->plane_die)
 				{
@@ -803,7 +818,7 @@ struct ssd_info *dynamic_advanced_process(struct ssd_info *ssd, unsigned int cha
 					}
 					subs_count = ssd->parameter->plane_die;
 				}
-				get_ppn_for_advanced_commands(ssd, channel, chip, subs, subs_count, TWO_PLANE);
+				get_ppn_for_advanced_commands(ssd, channel, chip, subs, subs_count, MUTLI_PLANE);
 			}
 			else
 			{   
@@ -845,7 +860,7 @@ struct ssd_info *dynamic_advanced_process(struct ssd_info *ssd, unsigned int cha
 					sub = sub->next_node;
 				}
 			}
-			get_ppn_for_advanced_commands(ssd, channel, chip, subs, subs_count, TWO_PLANE);
+			get_ppn_for_advanced_commands(ssd, channel, chip, subs, subs_count, MUTLI_PLANE);
 		}
 		else	//subs_count = 0																	
 		{
@@ -1036,7 +1051,7 @@ struct ssd_info *compute_serve_time(struct ssd_info *ssd, unsigned int channel, 
 	struct sub_request * last_sub = NULL;
 	max_subs_num = ssd->parameter->die_chip*ssd->parameter->plane_die;
 
-	if (command == TWO_PLANE)
+	if (command == MUTLI_PLANE)
 	{
 		for (i = 0; i<max_subs_num; i++)
 		{

@@ -528,7 +528,7 @@ Status get_ppn_for_advanced_commands(struct ssd_info *ssd, unsigned int channel,
 
 	if (ssd->parameter->allocation_scheme == DYNAMIC_ALLOCATION)                        
 	{
-		if (command == TWO_PLANE)
+		if (command == MUTLI_PLANE)
 		{
 			die = ssd->channel_head[channel].chip_head[chip].token;
 			if (subs_count == ssd->parameter->plane_die)
@@ -546,7 +546,7 @@ Status get_ppn_for_advanced_commands(struct ssd_info *ssd, unsigned int channel,
 					valid_subs_count = ssd->parameter->plane_die;
 					ssd->channel_head[channel].chip_head[chip].token = (die + 1) % ssd->parameter->die_chip;   \
 					ssd->m_plane_prog_count++;
-					compute_serve_time(ssd, channel, chip, die, subs, valid_subs_count, TWO_PLANE);
+					compute_serve_time(ssd, channel, chip, die, subs, valid_subs_count, MUTLI_PLANE);
 					printf("lz:mutli_plane_wr_3\n");
 					return SUCCESS;
 				}
@@ -555,7 +555,7 @@ Status get_ppn_for_advanced_commands(struct ssd_info *ssd, unsigned int channel,
 			{
 				return ERROR;
 			}
-		}//else if(command==TWO_PLANE)
+		}//else if(command==MUTLI_PLANE)
 		else
 		{
 			return ERROR;

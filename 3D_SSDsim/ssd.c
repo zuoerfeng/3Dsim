@@ -219,6 +219,11 @@ struct ssd_info *process(struct ssd_info *ssd)
 	printf("enter process,  current time:%I64u\n", ssd->current_time);
 #endif
 
+	/*
+	if (ssd->channel_head[0].subs_r_head == NULL && ssd->channel_head[0].subs_r_tail != NULL)
+		printf("lz\n");
+	*/
+
 	/*********************************************************
 	*flag=0, processing read and write sub_requests
 	*flag=1, processing gc request

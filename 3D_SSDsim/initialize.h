@@ -31,17 +31,16 @@ Zuo Lu			2017/05/12		  1.1			Support advanced commands:mutli plane   617376665@q
 #define STATIC_ALLOCATION 1
 
 #define INTERLEAVE 0
-#define TWO_PLANE 1
-
+#define MUTLI_PLANE 1
 #define NORMAL    2
-#define INTERLEAVE_TWO_PLANE 3
+#define INTERLEAVE_MUTLI_PLANE 3
 #define COPY_BACK	4
 
 #define AD_RANDOM 1     //random
 #define AD_COPYBACK 2	//copyback
-#define AD_TWOPLANE 4   //mutli plane write
+#define AD_MUTLIPLANE 4   //mutli plane write
 #define AD_INTERLEAVE 8  //interleave
-#define AD_TWOPLANE_READ 16  //mutli plane read
+#define AD_MUTLIPLANE_READ 16  //mutli plane read
 
 #define READ 1
 #define WRITE 0

@@ -2,7 +2,7 @@ parameter file: page.parameters
 trace file: example.ascii
 -----------------------parameter file----------------------
 #parameter file
-dram capacity = 524288;     #the unit is B
+dram capacity = 4194304;     #the unit is B
 chip number[0] = 1;
 chip number[1] = 1;
 chip number[2] = 0;
@@ -25,11 +25,11 @@ chip number[18] = 0;
 channel number = 2;   #the number of channel
 chip number = 2;
 die number = 2;      
-plane number = 2;
+plane number = 4;
 block number = 1024;
 page number = 64;
-subpage page = 4; 						#can not beyond 32
-page capacity = 2048;					#16kb
+subpage page = 32; 						#can not beyond 32
+page capacity = 16384;					#16kb
 subpage capacity = 512;				#4kb
 t_PROG = 200000;             #the unit is ns
 t_DBSY = 50;
@@ -84,48 +84,56 @@ greed MPW command=1;            #±íÊ¾ÊÇ·ñÌ°À·µØÊ¹ÓÃmulti-plane write¸ß¼¶ÃüÁî£¬0±
 aged=0;                         #1±íÊ¾ÐèÒª½«Õâ¸öSSD±ä³Éaged£¬0±íÊ¾ÐèÒª½«Õâ¸öSSD±£³Önon-aged
 aged ratio=0.5;                #±íÊ¾ÎªÁËÊ¹SSD±ä³ÉagedµÄSSD£¬ÐèÒª½«SSDÖÐÌáÇ°ÖÃÎªÊ§Ð§µÄ±ÈÂÊ
 -----------------------simulation output----------------------
-the 0 channel, 0 chip, 0 die, 0 plane has :   0 erase operations,1681 read operations,1445 write operations,935 pre_process write operations
-the 0 channel, 0 chip, 0 die, 1 plane has :   0 erase operations,1609 read operations,1445 write operations,935 pre_process write operations
-the 0 channel, 0 chip, 1 die, 0 plane has :   0 erase operations,1765 read operations,1445 write operations,935 pre_process write operations
-the 0 channel, 0 chip, 1 die, 1 plane has :   0 erase operations,1956 read operations,1446 write operations,934 pre_process write operations
-the 1 channel, 0 chip, 0 die, 0 plane has :   0 erase operations,1480 read operations,1070 write operations,935 pre_process write operations
-the 1 channel, 0 chip, 0 die, 1 plane has :   0 erase operations,1554 read operations,1070 write operations,935 pre_process write operations
-the 1 channel, 0 chip, 1 die, 0 plane has :   0 erase operations,1790 read operations,1070 write operations,934 pre_process write operations
-the 1 channel, 0 chip, 1 die, 1 plane has :   0 erase operations,1762 read operations,1070 write operations,934 pre_process write operations
+the 0 channel, 0 chip, 0 die, 0 plane has :   0 erase operations,  0 read operations,  0 write operations, 70 pre_process write operations
+the 0 channel, 0 chip, 0 die, 1 plane has :   0 erase operations,  0 read operations,  0 write operations, 70 pre_process write operations
+the 0 channel, 0 chip, 0 die, 2 plane has :   0 erase operations,  0 read operations,  0 write operations, 70 pre_process write operations
+the 0 channel, 0 chip, 0 die, 3 plane has :   0 erase operations,  0 read operations,  0 write operations, 70 pre_process write operations
+the 0 channel, 0 chip, 1 die, 0 plane has :   0 erase operations,  0 read operations,  0 write operations, 70 pre_process write operations
+the 0 channel, 0 chip, 1 die, 1 plane has :   0 erase operations,  0 read operations,  0 write operations, 70 pre_process write operations
+the 0 channel, 0 chip, 1 die, 2 plane has :   0 erase operations,  0 read operations,  0 write operations, 70 pre_process write operations
+the 0 channel, 0 chip, 1 die, 3 plane has :   0 erase operations,  0 read operations,  0 write operations, 70 pre_process write operations
+the 1 channel, 0 chip, 0 die, 0 plane has :   0 erase operations,  0 read operations,  0 write operations, 70 pre_process write operations
+the 1 channel, 0 chip, 0 die, 1 plane has :   0 erase operations,  0 read operations,  0 write operations, 70 pre_process write operations
+the 1 channel, 0 chip, 0 die, 2 plane has :   0 erase operations,  0 read operations,  0 write operations, 70 pre_process write operations
+the 1 channel, 0 chip, 0 die, 3 plane has :   0 erase operations,  0 read operations,  0 write operations, 70 pre_process write operations
+the 1 channel, 0 chip, 1 die, 0 plane has :   0 erase operations,  0 read operations,  0 write operations, 70 pre_process write operations
+the 1 channel, 0 chip, 1 die, 1 plane has :   0 erase operations,  0 read operations,  0 write operations, 69 pre_process write operations
+the 1 channel, 0 chip, 1 die, 2 plane has :   0 erase operations,  0 read operations,  0 write operations, 69 pre_process write operations
+the 1 channel, 0 chip, 1 die, 3 plane has :   0 erase operations,  0 read operations,  0 write operations, 69 pre_process write operations
 
 
 ---------------------------statistic data---------------------------
 min lsn:           132
 max lsn:       1002411
-read count:         13597
-the read operation leaded by un-covered update count:           217
+read count:             0
+the read operation leaded by un-covered update count:             0
 the read operation leaded by gc read count:             0
 
-program count:         10060
-the write operation leaded by pre_process write count:          7477
-the write operation leaded by un-covered update count:           217
+program count:             0
+the write operation leaded by pre_process write count:          1117
+the write operation leaded by un-covered update count:             0
 the write operation leaded by gc read count:             0
 
 erase count:             0
 direct erase count:             0
 
-multi-plane program count:          5030
-multi-plane read count:          4657
+multi-plane program count:             0
+multi-plane read count:             0
 
-write flash count:         17537
+write flash count:          1117
 
 read request count:          4077
 write request count:          5922
 
-read request average size:     12.187196
-write request average size:      9.841782
+read request average size:     12.186174
+write request average size:      9.841781
 
-read request average response time:           149856
-write request average response time:           121948
+read request average response time:             1000
+write request average response time:             1000
 
-buffer read hits:           149
-buffer read miss:         13789
-buffer write hits:         11026
-buffer write miss:          8202
-buffer write hit request count :             4
+buffer read hits:          5588
+buffer read miss:             0
+buffer write hits:          7475
+buffer write miss:             0
+buffer write hit request count :             0
 
