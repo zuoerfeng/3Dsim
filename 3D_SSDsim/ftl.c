@@ -29,7 +29,7 @@ Zuo Lu			2017/05/12		  1.1			Support advanced commands:mutli plane   617376665@q
 #include "ftl.h"
 #include "fcl.h"
 
-
+extern int secno_num_per_page, secno_num_sub_page;
 /******************************************************************************************下面是ftl层map操作******************************************************************************************/
 
 /*********************************************************************
@@ -40,11 +40,11 @@ Zuo Lu			2017/05/12		  1.1			Support advanced commands:mutli plane   617376665@q
 struct ssd_info *pre_process_page(struct ssd_info *ssd)
 {
 	int fl = 0;
-	unsigned int device, lsn, size, ope, lpn, full_page;
-	unsigned int largest_lsn, sub_size, ppn, add_size = 0;
+	unsigned int device, lsn, size, ope;
+	unsigned int largest_lsn, ppn;
+	unsigned int lpn, full_page, last_lpn, first_lpn, mask, state;
+	unsigned int offset1 = 0, offset2 = 0;
 	unsigned int i = 0, j, k, p;
-	int map_entry_new, map_entry_old, modify;
-	int flag = 0;
 	char buffer_request[200];
 	struct local *location;
 	__int64 time;
@@ -61,7 +61,7 @@ struct ssd_info *pre_process_page(struct ssd_info *ssd)
 
 	full_page = ~(0xffffffff << (ssd->parameter->subpage_page));
 	/*Calculate the maximum logical sector number for this ssd*/
-	largest_lsn = (unsigned int)((ssd->parameter->chip_num*ssd->parameter->die_chip*ssd->parameter->plane_die*ssd->parameter->block_plane*ssd->parameter->page_block*ssd->parameter->subpage_page)*(1 - ssd->parameter->overprovide));
+	largest_lsn = (unsigned int)((ssd->parameter->chip_num*ssd->parameter->die_chip*ssd->parameter->plane_die*ssd->parameter->block_plane*ssd->parameter->page_block*secno_num_per_page)*(1 - ssd->parameter->overprovide));
 
 	while (fgets(buffer_request, 200, ssd->tracefile))
 	{
@@ -69,65 +69,65 @@ struct ssd_info *pre_process_page(struct ssd_info *ssd)
 		fl++;
 		trace_assert(time, device, lsn, size, ope);                       
 
-		add_size = 0;                                                     /*Add_size is the size of the request that has been pre_processed*/
-
-		if (ope == 1)                                                      
+		//进行预处理，即处理所有的读请求，将读请求转换为写请求，同时在映射表中记录
+		if (ope == 1)
 		{
-			while (add_size<size)
+			//进行4kb对齐
+			size = ((lsn + size - 1) / secno_num_sub_page - (lsn) / secno_num_sub_page + 1) * secno_num_sub_page;
+			lsn /= secno_num_sub_page;
+			lsn *= secno_num_sub_page;
+
+			lpn = lsn / secno_num_per_page;
+			last_lpn = (lsn + size - 1) / secno_num_per_page;
+			first_lpn = lsn / secno_num_per_page;   //计算lpn
+
+			while (lpn <= last_lpn)
 			{
-				lsn = lsn%largest_lsn;                                    /*To prevent access to lsn larger than the largest lsn*/
-				sub_size = ssd->parameter->subpage_page - (lsn%ssd->parameter->subpage_page);
-				if (add_size + sub_size >= size)                          /*This happens only if the size of a request is less than the size of a page or when the last page of a request is processed*/
+				mask = ~(0xffffffff << (ssd->parameter->subpage_page));   //掩码表示的是子页的掩码
+				state = mask;
+
+				if (lpn == first_lpn)
 				{
-					sub_size = size - add_size;
-					add_size += sub_size;
+					//offset表示state中0的个数，也就是第一个页中缺失的部分
+					offset1 = ssd->parameter->subpage_page - (((lpn + 1)*secno_num_per_page - lsn) / secno_num_sub_page);
+					state = state&(0xffffffff << offset1);
+				}
+				if (lpn == last_lpn)
+				{
+					offset2 = ssd->parameter->subpage_page - ((lpn + 1)*secno_num_per_page - (lsn + size)) / secno_num_sub_page;
+					state = state&(~(0xffffffff << offset2));
 				}
 
-				if ((sub_size>ssd->parameter->subpage_page) || (add_size>size))/*When preprocessing a sub-size, the size is greater than a page or has been processed size larger than size*/
-				{
-					printf("pre_process sub_size:%d\n", sub_size);
-				}
-
-				/*******************************************************************************************************
-				*The logical page number lpn is calculated using the logical sector number lsn
-				*To determine the dram in the mapping table map in the lpn position of the state
-				*A，state=0，that has not been written before, write directly the size of the sub_size 
-				*B，state>0，That has been written before, Merge sector of map state and request state
-				********************************************************************************************************/
-				lpn = lsn / ssd->parameter->subpage_page;
-				if (ssd->dram->map->map_entry[lpn].state == 0)                
+				//state表示请求的状态位
+				if (ssd->dram->map->map_entry[lpn].state == 0)
 				{
 					ppn = get_ppn_for_pre_process(ssd, lsn);
 					location = find_location(ssd, ppn);
 					ssd->pre_all_write++;
 					ssd->dram->map->map_entry[lpn].pn = ppn;
-					ssd->dram->map->map_entry[lpn].state = set_entry_state(ssd, lsn, sub_size);   //0001
+					ssd->dram->map->map_entry[lpn].state = state;   
 					ssd->channel_head[location->channel].chip_head[location->chip].die_head[location->die].plane_head[location->plane].blk_head[location->block].pre_write_count++;
 					ssd->channel_head[location->channel].chip_head[location->chip].die_head[location->die].plane_head[location->plane].blk_head[location->block].page_head[location->page].lpn = lpn;
 					ssd->channel_head[location->channel].chip_head[location->chip].die_head[location->die].plane_head[location->plane].blk_head[location->block].page_head[location->page].valid_state = ssd->dram->map->map_entry[lpn].state;
 					ssd->channel_head[location->channel].chip_head[location->chip].die_head[location->die].plane_head[location->plane].blk_head[location->block].page_head[location->page].free_state = ((~ssd->dram->map->map_entry[lpn].state)&full_page);
-					
+				
 					free(location);
 					location = NULL;
-				}//if(ssd->dram->map->map_entry[lpn].state==0)
-				else if (ssd->dram->map->map_entry[lpn].state>0)           
+				}
+				else if (ssd->dram->map->map_entry[lpn].state>0)
 				{
-					map_entry_new = set_entry_state(ssd, lsn, sub_size);      /*Get a new state, and with the original state phase to a state*/
-					map_entry_old = ssd->dram->map->map_entry[lpn].state;
-					modify = map_entry_new | map_entry_old;
-					ppn = ssd->dram->map->map_entry[lpn].pn;				
+					ppn = ssd->dram->map->map_entry[lpn].pn;
 					location = find_location(ssd, ppn);
-					ssd->dram->map->map_entry[lsn / ssd->parameter->subpage_page].state = modify;
-					ssd->channel_head[location->channel].chip_head[location->chip].die_head[location->die].plane_head[location->plane].blk_head[location->block].page_head[location->page].valid_state = modify;
-					ssd->channel_head[location->channel].chip_head[location->chip].die_head[location->die].plane_head[location->plane].blk_head[location->block].page_head[location->page].free_state = ((~modify)&full_page);
+					ssd->dram->map->map_entry[lpn].state |= state;
+					ssd->channel_head[location->channel].chip_head[location->chip].die_head[location->die].plane_head[location->plane].blk_head[location->block].page_head[location->page].valid_state = ssd->dram->map->map_entry[lpn].state;
+					ssd->channel_head[location->channel].chip_head[location->chip].die_head[location->die].plane_head[location->plane].blk_head[location->block].page_head[location->page].free_state = ((~ssd->dram->map->map_entry[lpn].state)&full_page);
 
 					free(location);
 					location = NULL;
-				}//else if(ssd->dram->map->map_entry[lpn].state>0)
-				lsn = lsn + sub_size;                                       
-				add_size += sub_size;                                      
-			}//while(add_size<size)
-		}//if(ope==1) 
+				}
+				lpn++;
+			}
+		}
 	}
 
 	printf("\n");
@@ -148,19 +148,6 @@ struct ssd_info *pre_process_page(struct ssd_info *ssd)
 }
 
 
-/**************************************************
-*The function is to get the state of a read request
-***************************************************/
-int set_entry_state(struct ssd_info *ssd, unsigned int lsn, unsigned int size)
-{
-	int temp, state, move;
-
-	temp = ~(0xffffffff << size);
-	move = lsn%ssd->parameter->subpage_page;
-	state = temp << move;
-
-	return state;
-}
 
 /**********************************************
 *The function is to obtain the physical 
@@ -181,7 +168,7 @@ unsigned int get_ppn_for_pre_process(struct ssd_info *ssd, unsigned int lsn)
 	chip_num = ssd->parameter->chip_channel[0];
 	die_num = ssd->parameter->die_chip;
 	plane_num = ssd->parameter->plane_die;
-	lpn = lsn / ssd->parameter->subpage_page;
+	lpn = lsn / secno_num_per_page;
 
 	if (ssd->parameter->allocation_scheme == 0)                           /*Dynamic way to get ppn*/
 	{

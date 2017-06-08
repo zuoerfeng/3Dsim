@@ -1,5 +1,5 @@
 parameter file: page.parameters
-trace file: example.ascii
+trace file: src0_16GB.ascii
 -----------------------parameter file----------------------
 #parameter file
 dram capacity = 4194304;     #the unit is B
@@ -25,12 +25,12 @@ chip number[18] = 0;
 channel number = 2;   #the number of channel
 chip number = 2;
 die number = 2;      
-plane number = 4;
+plane number = 2;
 block number = 1024;
 page number = 64;
-subpage page = 32; 						#can not beyond 32
+subpage page = 4; 						#can not beyond 32
 page capacity = 16384;					#16kb
-subpage capacity = 512;				#4kb
+subpage capacity = 4096;			
 t_PROG = 200000;             #the unit is ns
 t_DBSY = 50;
 t_BERS = 1500000;
@@ -84,56 +84,3 @@ greed MPW command=1;            #±íÊ¾ÊÇ·ñÌ°À·µØÊ¹ÓÃmulti-plane write¸ß¼¶ÃüÁî£¬0±
 aged=0;                         #1±íÊ¾ĞèÒª½«Õâ¸öSSD±ä³Éaged£¬0±íÊ¾ĞèÒª½«Õâ¸öSSD±£³Önon-aged
 aged ratio=0.5;                #±íÊ¾ÎªÁËÊ¹SSD±ä³ÉagedµÄSSD£¬ĞèÒª½«SSDÖĞÌáÇ°ÖÃÎªÊ§Ğ§µÄ±ÈÂÊ
 -----------------------simulation output----------------------
-the 0 channel, 0 chip, 0 die, 0 plane has :   0 erase operations,  0 read operations,  0 write operations, 70 pre_process write operations
-the 0 channel, 0 chip, 0 die, 1 plane has :   0 erase operations,  0 read operations,  0 write operations, 70 pre_process write operations
-the 0 channel, 0 chip, 0 die, 2 plane has :   0 erase operations,  0 read operations,  0 write operations, 70 pre_process write operations
-the 0 channel, 0 chip, 0 die, 3 plane has :   0 erase operations,  0 read operations,  0 write operations, 70 pre_process write operations
-the 0 channel, 0 chip, 1 die, 0 plane has :   0 erase operations,  0 read operations,  0 write operations, 70 pre_process write operations
-the 0 channel, 0 chip, 1 die, 1 plane has :   0 erase operations,  0 read operations,  0 write operations, 70 pre_process write operations
-the 0 channel, 0 chip, 1 die, 2 plane has :   0 erase operations,  0 read operations,  0 write operations, 70 pre_process write operations
-the 0 channel, 0 chip, 1 die, 3 plane has :   0 erase operations,  0 read operations,  0 write operations, 70 pre_process write operations
-the 1 channel, 0 chip, 0 die, 0 plane has :   0 erase operations,  0 read operations,  0 write operations, 70 pre_process write operations
-the 1 channel, 0 chip, 0 die, 1 plane has :   0 erase operations,  0 read operations,  0 write operations, 70 pre_process write operations
-the 1 channel, 0 chip, 0 die, 2 plane has :   0 erase operations,  0 read operations,  0 write operations, 70 pre_process write operations
-the 1 channel, 0 chip, 0 die, 3 plane has :   0 erase operations,  0 read operations,  0 write operations, 70 pre_process write operations
-the 1 channel, 0 chip, 1 die, 0 plane has :   0 erase operations,  0 read operations,  0 write operations, 70 pre_process write operations
-the 1 channel, 0 chip, 1 die, 1 plane has :   0 erase operations,  0 read operations,  0 write operations, 69 pre_process write operations
-the 1 channel, 0 chip, 1 die, 2 plane has :   0 erase operations,  0 read operations,  0 write operations, 69 pre_process write operations
-the 1 channel, 0 chip, 1 die, 3 plane has :   0 erase operations,  0 read operations,  0 write operations, 69 pre_process write operations
-
-
----------------------------statistic data---------------------------
-min lsn:           132
-max lsn:       1002411
-read count:             0
-the read operation leaded by un-covered update count:             0
-the read operation leaded by gc read count:             0
-
-program count:             0
-the write operation leaded by pre_process write count:          1117
-the write operation leaded by un-covered update count:             0
-the write operation leaded by gc read count:             0
-
-erase count:             0
-direct erase count:             0
-
-multi-plane program count:             0
-multi-plane read count:             0
-
-write flash count:          1117
-
-read request count:          4077
-write request count:          5922
-
-read request average size:     12.186174
-write request average size:      9.841781
-
-read request average response time:             1000
-write request average response time:             1000
-
-buffer read hits:          5588
-buffer read miss:             0
-buffer write hits:          7475
-buffer write miss:             0
-buffer write hit request count :             0
-

@@ -34,6 +34,7 @@ Zuo Lu			2017/05/12		  1.1			Support advanced commands:mutli plane   617376665@q
 #include "ftl.h"
 #include "fcl.h"
 
+int secno_num_per_page, secno_num_sub_page;
 
 /********************************************************************************************************************************
 1£¬the initiation() used to initialize ssd;

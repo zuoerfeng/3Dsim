@@ -1,5 +1,5 @@
 #parameter file
-dram capacity = 524288;     #the unit is B
+dram capacity = 4194304;     #the unit is B
 chip number[0] = 1;
 chip number[1] = 1;
 chip number[2] = 0;
@@ -22,12 +22,12 @@ chip number[18] = 0;
 channel number = 2;   #the number of channel
 chip number = 2;
 die number = 2;      
-plane number = 4;
+plane number = 2;
 block number = 1024;
 page number = 64;
 subpage page = 4; 						#can not beyond 32
-page capacity = 2048;					#16kb
-subpage capacity = 512;				#4kb
+page capacity = 16384;					#16kb
+subpage capacity = 4096;			
 t_PROG = 200000;             #the unit is ns
 t_DBSY = 50;
 t_BERS = 1500000;

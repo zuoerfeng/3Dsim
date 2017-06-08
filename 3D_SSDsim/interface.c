@@ -32,7 +32,7 @@ Zuo Lu			2017/05/12		  1.1			Support advanced commands:mutli plane   617376665@q
 #include "ftl.h"
 #include "fcl.h"
 
-
+extern int secno_num_per_page, secno_num_sub_page;
 /********    get_request    ******************************************************
 *	1.get requests that arrived already
 *	2.add those request node to ssd->reuqest_queue
@@ -73,7 +73,7 @@ int get_requests(struct ssd_info *ssd)
 		fgets(buffer, 200, ssd->tracefile);
 		sscanf(buffer, "%I64u %d %d %d %d", &time_t, &device, &lsn, &size, &ope);
 
-		if (size < (ssd->parameter->dram_capacity / 512))
+		if (size < (ssd->parameter->dram_capacity / ssd->parameter->page_capacity)*SECTOR)
 			break;
 
 		if (feof(ssd->tracefile))      //if the end of trace
@@ -90,7 +90,7 @@ int get_requests(struct ssd_info *ssd)
 	if (lsn>ssd->max_lsn)
 		ssd->max_lsn = lsn;
 
-	large_lsn = (int)((ssd->parameter->subpage_page*ssd->parameter->page_block*ssd->parameter->block_plane*ssd->parameter->plane_die*ssd->parameter->die_chip*ssd->parameter->chip_num)*(1 - ssd->parameter->overprovide));
+	large_lsn = (int)((secno_num_per_page*ssd->parameter->page_block*ssd->parameter->block_plane*ssd->parameter->plane_die*ssd->parameter->die_chip*ssd->parameter->chip_num)*(1 - ssd->parameter->overprovide));
 	lsn = lsn%large_lsn;
 
 	nearest_event_time = find_nearest_event(ssd);  //Find the time of the latest event
@@ -206,10 +206,10 @@ int get_requests(struct ssd_info *ssd)
 	printf("request:%I64u\n", ssd->request_lz_count);
 	//printf("%d\n", ssd->request_queue_length);
 
-	/*
-	if (ssd->request_lz_count == 1617)
+	
+	if (ssd->request_lz_count == 1388)
 		printf("lz\n");
-	*/
+	
 	/*
 	if (time_t == 109726921875 && lsn == 618111)
 		printf("lz\n");

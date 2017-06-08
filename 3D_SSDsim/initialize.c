@@ -32,6 +32,7 @@ Zuo Lu			2017/05/12		  1.1			Support advanced commands:mutli plane   617376665@q
 #define ACTIVE_FIXED 0
 #define ACTIVE_ADJUST 1
 
+extern int secno_num_per_page, secno_num_sub_page;
 
 /************************************************************************
 * Compare function for AVL Tree                                        
@@ -86,9 +87,9 @@ struct ssd_info *initiation(struct ssd_info *ssd)
 //	gets(ssd->tracefilename);
 //	strcpy_s(ssd->tracefilename, 50, "16M_2KB_sequence_RandW.ascii");
 //	strcpy_s(ssd->tracefilename, 25, "f2_512MB.ascii");
-	strcpy_s(ssd->tracefilename, 25, "example.ascii");
-//	strcpy_s(ssd->tracefilename, 50, "update_16_count.ascii");
-//	strcpy_s(ssd->tracefilename, 50, "512M_4KB_sequence_RandW.ascii");
+//	strcpy_s(ssd->tracefilename, 25, "example.ascii");
+	strcpy_s(ssd->tracefilename, 25, "src0_16GB.ascii");
+//	strcpy_s(ssd->tracefilename, 50, "512M_4KB_random_RandW.ascii");
 
 //	printf("\ninput output file name:");
 //	gets(ssd->outputfilename);
@@ -110,7 +111,8 @@ struct ssd_info *initiation(struct ssd_info *ssd)
 	ssd->min_lsn=0x7fffffff;
 	ssd->page=ssd->parameter->chip_num*ssd->parameter->die_chip*ssd->parameter->plane_die*ssd->parameter->block_plane*ssd->parameter->page_block;
 	ssd->parameter->update_reqeust_max = (ssd->parameter->dram_capacity / ssd->parameter->page_capacity) / INDEX;
-
+	secno_num_per_page = ssd->parameter->page_capacity / SECTOR;
+	secno_num_sub_page = ssd->parameter->subpage_capacity / SECTOR;
 
 	//Initializes the global variable for ssd_info
 	ssd->make_age_free_page = 0;
@@ -226,7 +228,7 @@ struct dram_info * initialize_dram(struct ssd_info * ssd)
 	struct dram_info *dram=ssd->dram;
 	dram->dram_capacity = ssd->parameter->dram_capacity;		
 	dram->buffer = (tAVLTree *)avlTreeCreate((void*)keyCompareFunc , (void *)freeFunc);
-	dram->buffer->max_buffer_sector=ssd->parameter->dram_capacity/SECTOR; //512
+	dram->buffer->max_buffer_sector=ssd->parameter->dram_capacity / ssd->parameter->subpage_capacity; 
 
 	dram->map = (struct map_info *)malloc(sizeof(struct map_info));
 	alloc_assert(dram->map,"dram->map");

@@ -26,7 +26,6 @@ unsigned int get_ppn_for_gc(struct ssd_info *ssd, unsigned int channel, unsigned
 unsigned int find_ppn(struct ssd_info * ssd, unsigned int channel, unsigned int chip, unsigned int die, unsigned int plane, unsigned int block, unsigned int page);
 
 int gc_for_channel(struct ssd_info *ssd, unsigned int channel);
-int set_entry_state(struct ssd_info *ssd, unsigned int lsn, unsigned int size);
 int delete_gc_node(struct ssd_info *ssd, unsigned int channel, struct gc_operation *gc_node);
 int get_ppn_for_normal_command(struct ssd_info * ssd, unsigned int channel, unsigned int chip, struct sub_request * sub);
 int  find_active_block(struct ssd_info *ssd, unsigned int channel, unsigned int chip, unsigned int die, unsigned int plane);
