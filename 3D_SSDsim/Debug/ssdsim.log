@@ -1,4 +1,4 @@
-﻿生成启动时间为 2017/6/8 22:18:51。
+﻿生成启动时间为 2017/6/9 16:20:29。
      1>项目“C:\Users\lz\Desktop\3D_SSDsim\3D_SSDsim_v1\3D_SSDsim\ssdsim.vcxproj”在节点 2 上(Build 个目标)。
      1>ClCompile:
          D:\2_tmp\Microsoft Visual Studio 12.0\VC\bin\CL.exe /c /Zi /nologo /W3 /WX- /Od /Oy- /D WIN32 /D _DEBUG /D _CONSOLE /Gm /EHsc /RTC1 /MDd /GS /fp:precise /Zc:wchar_t /Zc:forScope /Fo"Debug\\" /Fd"Debug\vc120.pdb" /Gd /TC /analyze- /errorReport:prompt initialize.c
@@ -148,4 +148,4 @@
 
 生成成功。
 
-已用时间 00:00:00.30
+已用时间 00:00:00.28

@@ -88,7 +88,7 @@ struct ssd_info *initiation(struct ssd_info *ssd)
 //	strcpy_s(ssd->tracefilename, 50, "16M_2KB_sequence_RandW.ascii");
 //	strcpy_s(ssd->tracefilename, 25, "f2_512MB.ascii");
 //	strcpy_s(ssd->tracefilename, 25, "example.ascii");
-	strcpy_s(ssd->tracefilename, 25, "src0_16GB.ascii");
+	strcpy_s(ssd->tracefilename, 50, "16G_16KB_sequence_R.ascii");
 //	strcpy_s(ssd->tracefilename, 50, "512M_4KB_random_RandW.ascii");
 
 //	printf("\ninput output file name:");

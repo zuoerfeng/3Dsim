@@ -98,6 +98,12 @@ struct ssd_info *pre_process_page(struct ssd_info *ssd)
 					state = state&(~(0xffffffff << offset2));
 				}
 
+				if (state > 15)
+					printf("error\n");
+
+				if (lpn > ssd->parameter->page_block*ssd->parameter->block_plane*ssd->parameter->plane_die*ssd->parameter->die_chip*ssd->parameter->chip_num)\
+					printf("error\n");
+
 				//state表示请求的状态位
 				if (ssd->dram->map->map_entry[lpn].state == 0)
 				{

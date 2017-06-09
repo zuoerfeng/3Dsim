@@ -73,7 +73,7 @@ int get_requests(struct ssd_info *ssd)
 		fgets(buffer, 200, ssd->tracefile);
 		sscanf(buffer, "%I64u %d %d %d %d", &time_t, &device, &lsn, &size, &ope);
 
-		if (size < (ssd->parameter->dram_capacity / ssd->parameter->page_capacity)*SECTOR)
+		if (size < (ssd->parameter->dram_capacity / SECTOR))
 			break;
 
 		if (feof(ssd->tracefile))      //if the end of trace
