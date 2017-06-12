@@ -6,7 +6,7 @@ This is a project on 3D_SSDsim, based on ssdsim under the framework of the compl
 4.4-layer structure
 
 FileName： fcl.c
-Author: Zuo Lu 		Version: 1.1	Date:2017/05/12
+Author: Zuo Lu 		Version: 1.2	Date:2017/06/12
 Description:
 fcl layer: remove other high-level commands, leaving only mutli plane;
 
@@ -14,6 +14,7 @@ History:
 <contributor>     <time>        <version>       <desc>									<e-mail>
 Zuo Lu	        2017/04/06	      1.0		    Creat 3D_SSDsim							617376665@qq.com
 Zuo Lu			2017/05/12		  1.1			Support advanced commands:mutli plane   617376665@qq.com
+Zuo Lu			2017/06/12		  1.2			Support advanced commands:half page read   617376665@qq.com
 *****************************************************************************************************************************/
 
 #define _CRTDBG_MAP_ALLOC
@@ -56,7 +57,7 @@ Status services_2_r_data_trans(struct ssd_info * ssd, unsigned int channel, unsi
 		{
 			for (aim_die = 0; aim_die < ssd->parameter->die_chip; aim_die++)
 			{
-				if ((ssd->parameter->advanced_commands&AD_MUTLIPLANE_READ) == AD_MUTLIPLANE_READ)
+				if ((ssd->parameter->advanced_commands&AD_MUTLIPLANE) == AD_MUTLIPLANE)
 				{
 	                sub_r_count = find_read_sub_request(ssd, channel, chip, aim_die, sub_r_request, SR_R_DATA_TRANSFER, MUTLI_PLANE);
 					if (sub_r_count > 1)
@@ -94,6 +95,7 @@ Status services_2_r_data_trans(struct ssd_info * ssd, unsigned int channel, unsi
 Status services_2_r_read(struct ssd_info * ssd)
 {
 	unsigned int i,j,subs_count = 0,aim_die;
+	unsigned int mask;
 
 	struct sub_request ** subs = NULL;
 	subs = (struct sub_request **)malloc((ssd->parameter->plane_die) * sizeof(struct sub_request *));
@@ -103,6 +105,7 @@ Status services_2_r_read(struct ssd_info * ssd)
 		subs[i] = NULL;
 	}
 
+	mask = ~(0xffffffff << (ssd->parameter->subpage_page));
 	for (i = 0; i < ssd->parameter->channel_number; i++)                                    
 	{
 		for (j = 0; j < ssd->parameter->chip_channel[i]; j++)
@@ -125,7 +128,17 @@ Status services_2_r_read(struct ssd_info * ssd)
 						subs_count = find_read_sub_request(ssd, i, j, aim_die, subs, SR_R_READ, NORMAL);
 						if (subs_count == 1)
 						{
-							go_one_step(ssd, subs, subs_count, SR_R_READ, NORMAL);
+							if ((ssd->parameter->advanced_commands&AD_HALFPAGE_READ) == AD_HALFPAGE_READ)
+							{
+								if ( (subs[0]->state&mask) == 0x000c || (subs[0]->state&mask) == 0x0003 )
+									go_one_step(ssd, subs, subs_count, SR_R_READ, HALF_PAGE);
+								else
+									go_one_step(ssd, subs, subs_count, SR_R_READ, NORMAL);
+							}
+							else
+								go_one_step(ssd, subs, subs_count, SR_R_READ, NORMAL);
+
+
 							break;
 						}
 					}
@@ -297,7 +310,7 @@ Status services_2_r_wait(struct ssd_info * ssd, unsigned int channel, unsigned i
 		sub_mutliplane_place[i] = NULL;
 	}
 
-	if ((ssd->parameter->advanced_commands&AD_MUTLIPLANE_READ) == AD_MUTLIPLANE_READ)         /*to find whether there are two sub request can be served by two plane operation*/
+	if ((ssd->parameter->advanced_commands&AD_MUTLIPLANE) == AD_MUTLIPLANE)         /*to find whether there are two sub request can be served by two plane operation*/
 	{
 		for (chip = 0; chip < ssd->parameter->chip_channel[channel]; chip++)
 		{
@@ -547,19 +560,21 @@ Status go_one_step(struct ssd_info * ssd, struct sub_request ** subs, unsigned i
 			sub->current_time = ssd->current_time;
 			sub->current_state = SR_W_TRANSFER;
 			sub->next_state = SR_COMPLETE;
-			sub->next_state_predict_time = ssd->current_time + 7 * ssd->parameter->time_characteristics.tWC + (sub->size*ssd->parameter->subpage_capacity)*ssd->parameter->time_characteristics.tWC;
+			sub->next_state_predict_time = ssd->current_time + 7 * ssd->parameter->time_characteristics.tWC + 
+			(sub->size*ssd->parameter->subpage_capacity)*ssd->parameter->time_characteristics.tWC + ssd->parameter->time_characteristics.tPROG;
+			
 			sub->complete_time = sub->next_state_predict_time;
 			time = sub->complete_time;
 
 			ssd->channel_head[location->channel].current_state = CHANNEL_TRANSFER;
 			ssd->channel_head[location->channel].current_time = ssd->current_time;
 			ssd->channel_head[location->channel].next_state = CHANNEL_IDLE;
-			ssd->channel_head[location->channel].next_state_predict_time = time;
+			ssd->channel_head[location->channel].next_state_predict_time = ssd->current_time + 7 * ssd->parameter->time_characteristics.tWC + (sub->size*ssd->parameter->subpage_capacity)*ssd->parameter->time_characteristics.tWC;
 
 			ssd->channel_head[location->channel].chip_head[location->chip].current_state = CHIP_WRITE_BUSY;
 			ssd->channel_head[location->channel].chip_head[location->chip].current_time = ssd->current_time;
 			ssd->channel_head[location->channel].chip_head[location->chip].next_state = CHIP_IDLE;
-			ssd->channel_head[location->channel].chip_head[location->chip].next_state_predict_time = time + ssd->parameter->time_characteristics.tPROG;
+			ssd->channel_head[location->channel].chip_head[location->chip].next_state_predict_time = time;
 
 			break;
 		}
@@ -674,6 +689,43 @@ Status go_one_step(struct ssd_info * ssd, struct sub_request ** subs, unsigned i
 			}
 			default:  return ERROR;
 		}
+	}
+	else if (command == HALF_PAGE)    //half page read仅仅是更改读介质的时间，其余状态的跳转为普通状态跳转
+	{
+		sub = subs[0];
+		location = subs[0]->location;
+
+		switch (aim_state)
+		{
+			case SR_R_READ:
+			{
+				/*****************************************************************************************************
+				*This target state is flash in the state of reading data, sub the next state should be transmitted data SR_R_DATA_TRANSFER.
+				*Then has nothing to do with the channel, only with the chip so to modify the chip status CHIP_READ_BUSY, the next state is CHIP_DATA_TRANSFER
+				******************************************************************************************************/
+				sub->current_time = ssd->current_time;
+				sub->current_state = SR_R_READ;
+				sub->next_state = SR_R_DATA_TRANSFER;
+				sub->next_state_predict_time = ssd->current_time + ssd->parameter->time_characteristics.tR/2;
+
+				ssd->read_count++;
+				ssd->half_page_read_count++;
+				ssd->channel_head[location->channel].chip_head[location->chip].die_head[location->die].plane_head[location->plane].blk_head[location->block].page_read_count++;
+
+				ssd->channel_head[location->channel].chip_head[location->chip].current_state = CHIP_READ_BUSY;
+				ssd->channel_head[location->channel].chip_head[location->chip].current_time = ssd->current_time;
+				ssd->channel_head[location->channel].chip_head[location->chip].next_state = CHIP_DATA_TRANSFER;
+				ssd->channel_head[location->channel].chip_head[location->chip].next_state_predict_time = ssd->current_time + ssd->parameter->time_characteristics.tR/2;
+
+				break;
+			}
+			default:
+			{
+				printf("\nERROR: Unexpected state !\n");
+				return ERROR;
+			}
+		}
+
 	}
 	else
 	{
@@ -820,6 +872,18 @@ struct ssd_info *dynamic_advanced_process(struct ssd_info *ssd, unsigned int cha
 				}
 				get_ppn_for_advanced_commands(ssd, channel, chip, subs, subs_count, MUTLI_PLANE);
 			}
+			else if ((ssd->parameter->advanced_commands&AD_ONESHOT_PROGRAM) == AD_ONESHOT_PROGRAM)
+			{
+				if (subs_count > PAGE_INDEX)
+				{
+					for (i = PAGE_INDEX; i<subs_count; i++)
+					{
+						subs[i] = NULL;
+					}
+					subs_count = PAGE_INDEX;
+				}
+				get_ppn_for_advanced_commands(ssd, channel, chip, subs, subs_count, ONE_SHOT);
+			}
 			else
 			{   
 				//后续高级命令的添加
@@ -828,7 +892,7 @@ struct ssd_info *dynamic_advanced_process(struct ssd_info *ssd, unsigned int cha
 					subs[i] = NULL;
 				}
 				subs_count = 1;
-				get_ppn_for_normal_command(ssd, channel, chip, subs[0]);
+				get_ppn_for_normal_command(ssd, channel, chip, subs ,subs_count ,NORMAL);
 				printf("lz:normal_wr_1\n");
 				getchar();
 			}
@@ -1057,7 +1121,6 @@ struct ssd_info *compute_serve_time(struct ssd_info *ssd, unsigned int channel, 
 		{
 			if (subs[i] != NULL)
 			{
-
 				subs[i]->current_state = SR_W_TRANSFER;
 				if (last_sub == NULL)
 				{
@@ -1085,6 +1148,60 @@ struct ssd_info *compute_serve_time(struct ssd_info *ssd, unsigned int channel, 
 		ssd->channel_head[channel].chip_head[chip].current_time = ssd->current_time;
 		ssd->channel_head[channel].chip_head[chip].next_state = CHIP_IDLE;
 		ssd->channel_head[channel].chip_head[chip].next_state_predict_time = ssd->channel_head[channel].next_state_predict_time + ssd->parameter->time_characteristics.tPROG;
+
+		//给请求都加上写介质的时间
+		for (i = 0; i < max_subs_num; i++)
+		{
+			if (subs[i] != NULL)
+			{
+				subs[i]->current_time = ssd->current_time;
+				subs[i]->current_state = SR_W_TRANSFER;
+				subs[i]->next_state = SR_COMPLETE;
+				subs[i]->next_state_predict_time = subs[i]->next_state_predict_time + ssd->parameter->time_characteristics.tPROG;
+				subs[i]->complete_time = subs[i]->next_state_predict_time;
+			}
+		}
+	}
+	else if (command == ONE_SHOT)
+	{
+		for (i = 0; i<subs_count; i++)
+		{
+			subs[i]->current_state = SR_W_TRANSFER;
+			if (last_sub == NULL)
+			{
+				subs[i]->current_time = ssd->current_time;
+			}
+			else
+			{
+				subs[i]->current_time = last_sub->complete_time + ssd->parameter->time_characteristics.tDBSY;
+			}
+
+			subs[i]->next_state = SR_COMPLETE;
+			subs[i]->next_state_predict_time = subs[i]->current_time + 7 * ssd->parameter->time_characteristics.tWC + (subs[i]->size*ssd->parameter->subpage_capacity)*ssd->parameter->time_characteristics.tWC;
+			subs[i]->complete_time = subs[i]->next_state_predict_time;
+			last_sub = subs[i];
+
+			delete_from_channel(ssd, channel, subs[i]);
+		}
+		ssd->channel_head[channel].current_state = CHANNEL_TRANSFER;
+		ssd->channel_head[channel].current_time = ssd->current_time;
+		ssd->channel_head[channel].next_state = CHANNEL_IDLE;
+		ssd->channel_head[channel].next_state_predict_time = last_sub->complete_time;
+
+		ssd->channel_head[channel].chip_head[chip].current_state = CHIP_WRITE_BUSY;
+		ssd->channel_head[channel].chip_head[chip].current_time = ssd->current_time;
+		ssd->channel_head[channel].chip_head[chip].next_state = CHIP_IDLE;
+		ssd->channel_head[channel].chip_head[chip].next_state_predict_time = ssd->channel_head[channel].next_state_predict_time + ssd->parameter->time_characteristics.tPROG;
+
+		//给请求都加上写介质的时间
+		for (i = 0; i < subs_count; i++)
+		{
+			subs[i]->current_time = ssd->current_time;
+			subs[i]->current_state = SR_W_TRANSFER;
+			subs[i]->next_state = SR_COMPLETE;
+			subs[i]->next_state_predict_time = subs[i]->next_state_predict_time + ssd->parameter->time_characteristics.tPROG;
+			subs[i]->complete_time = subs[i]->next_state_predict_time;
+		}
 	}
 	else if (command == NORMAL)
 	{
@@ -1105,6 +1222,10 @@ struct ssd_info *compute_serve_time(struct ssd_info *ssd, unsigned int channel, 
 		ssd->channel_head[channel].chip_head[chip].current_time = ssd->current_time;
 		ssd->channel_head[channel].chip_head[chip].next_state = CHIP_IDLE;
 		ssd->channel_head[channel].chip_head[chip].next_state_predict_time = ssd->channel_head[channel].next_state_predict_time + ssd->parameter->time_characteristics.tPROG;
+
+		//给当前请求加上写介质的时间
+		subs[0]->next_state_predict_time = subs[0]->next_state_predict_time + ssd->parameter->time_characteristics.tPROG;
+		subs[0]->complete_time = subs[0]->next_state_predict_time;
 	}
 	else
 	{

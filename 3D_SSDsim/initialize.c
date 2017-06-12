@@ -6,7 +6,7 @@ This is a project on 3D_SSDsim, based on ssdsim under the framework of the compl
 4.4-layer structure
 
 FileName£º initialize.c
-Author: Zuo Lu 		Version: 1.1	Date:2017/05/12
+Author: Zuo Lu 		Version: 1.2	Date:2017/06/12
 Description: 
 Initialization layer: complete ssd organizational data structure, request queue creation and memory space initialization
 
@@ -14,6 +14,7 @@ History:
 <contributor>     <time>        <version>       <desc>									<e-mail>
 Zuo Lu	        2017/04/06	      1.0		    Creat 3D_SSDsim							617376665@qq.com
 Zuo Lu			2017/05/12		  1.1			Support advanced commands:mutli plane   617376665@qq.com
+Zuo Lu			2017/06/12		  1.2			Support advanced commands:half page read   617376665@qq.com
 *****************************************************************************************************************************/
 
 #define _CRTDBG_MAP_ALLOC
@@ -88,7 +89,7 @@ struct ssd_info *initiation(struct ssd_info *ssd)
 //	strcpy_s(ssd->tracefilename, 50, "16M_2KB_sequence_RandW.ascii");
 //	strcpy_s(ssd->tracefilename, 25, "f2_512MB.ascii");
 //	strcpy_s(ssd->tracefilename, 25, "example.ascii");
-	strcpy_s(ssd->tracefilename, 50, "16G_16KB_sequence_R.ascii");
+	strcpy_s(ssd->tracefilename, 50, "16G_4KB_random_RandW.ascii");
 //	strcpy_s(ssd->tracefilename, 50, "512M_4KB_random_RandW.ascii");
 
 //	printf("\ninput output file name:");

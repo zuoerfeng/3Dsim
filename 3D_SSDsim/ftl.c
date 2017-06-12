@@ -6,7 +6,7 @@ This is a project on 3D_SSDsim, based on ssdsim under the framework of the compl
 4.4-layer structure
 
 FileName£º ftl.c
-Author: Zuo Lu 		Version: 1.1	Date:2017/05/12
+Author: Zuo Lu 		Version: 1.2	Date:2017/06/12
 Description: 
 ftl layer: can not interrupt the global gc operation, gc operation to migrate valid pages using ordinary read and write operations, remove support copyback operation;
 
@@ -14,6 +14,7 @@ History:
 <contributor>     <time>        <version>       <desc>									<e-mail>
 Zuo Lu	        2017/04/06	      1.0		    Creat 3D_SSDsim							617376665@qq.com
 Zuo Lu			2017/05/12		  1.1			Support advanced commands:mutli plane   617376665@qq.com
+Zuo Lu			2017/06/12		  1.2			Support advanced commands:half page read   617376665@qq.com
 *****************************************************************************************************************************/
 
 #define _CRTDBG_MAP_ALLOC
@@ -463,33 +464,40 @@ struct local *find_location(struct ssd_info *ssd, unsigned int ppn)
 /*******************************************************************
 *When executing a write request, get ppn for a normal write request
 *********************************************************************/
-Status get_ppn_for_normal_command(struct ssd_info * ssd, unsigned int channel, unsigned int chip, struct sub_request * sub)
+Status get_ppn_for_normal_command(struct ssd_info * ssd, unsigned int channel, unsigned int chip, struct sub_request ** subs, unsigned int subs_count, unsigned int command)
 {
 	unsigned int die = 0;
 	unsigned int plane = 0;
-	if (sub == NULL)
+	unsigned int i = 0;
+
+	for (i = 0; i < subs_count; i++)
 	{
-		return ERROR;
+		if (subs[i] == NULL)
+			return ERROR;
 	}
 
 	if (ssd->parameter->allocation_scheme == DYNAMIC_ALLOCATION)
 	{
-		die = ssd->channel_head[channel].chip_head[chip].token;
-		plane = ssd->channel_head[channel].chip_head[chip].die_head[die].token;
-		get_ppn(ssd, channel, chip, die, plane, sub);
+		for (i = 0; i < subs_count; i++)
+		{
+			die = ssd->channel_head[channel].chip_head[chip].token;
+			plane = ssd->channel_head[channel].chip_head[chip].die_head[die].token;
+			get_ppn(ssd, channel, chip, die, plane, subs[i]);
 
-		if (ssd->parameter->dynamic_allocation_priority == 1)				
-		{
-			ssd->channel_head[channel].chip_head[chip].die_head[die].token = (plane + 1) % ssd->parameter->plane_die;			
-			if (plane == (ssd->parameter->plane_die - 1))
+			if (ssd->parameter->dynamic_allocation_priority == 1)
+			{
+				ssd->channel_head[channel].chip_head[chip].die_head[die].token = (plane + 1) % ssd->parameter->plane_die;
+				if (plane == (ssd->parameter->plane_die - 1))
+					ssd->channel_head[channel].chip_head[chip].token = (die + 1) % ssd->parameter->die_chip;
+			}
+			else
+			{
+				ssd->channel_head[channel].chip_head[chip].die_head[die].token = (plane + 1) % ssd->parameter->plane_die;
 				ssd->channel_head[channel].chip_head[chip].token = (die + 1) % ssd->parameter->die_chip;
+			}
 		}
-		else
-		{
-			ssd->channel_head[channel].chip_head[chip].die_head[die].token = (plane + 1) % ssd->parameter->plane_die;
-			ssd->channel_head[channel].chip_head[chip].token = (die + 1) % ssd->parameter->die_chip;
-		}
-		compute_serve_time(ssd, channel, chip, die, &sub, 1, NORMAL);
+
+		compute_serve_time(ssd, channel, chip, die, subs, subs_count, command);
  		return SUCCESS;
 	}
 }
@@ -529,7 +537,7 @@ Status get_ppn_for_advanced_commands(struct ssd_info *ssd, unsigned int channel,
 				state = find_level_page(ssd, channel, chip, die, subs, subs_count);
 				if (state != SUCCESS)
 				{
-					get_ppn_for_normal_command(ssd, channel, chip, subs[0]);			   /*Ordinary command to deal with*/
+					get_ppn_for_normal_command(ssd, channel, chip, subs, subs_count, NORMAL);		   /*Ordinary command to deal with*/
 					printf("lz:normal_wr_2\n");
 					getchar();
 					return FAILURE;
@@ -549,6 +557,11 @@ Status get_ppn_for_advanced_commands(struct ssd_info *ssd, unsigned int channel,
 				return ERROR;
 			}
 		}//else if(command==MUTLI_PLANE)
+		if (command == ONE_SHOT)
+		{
+			//one shot three page
+			get_ppn_for_normal_command(ssd, channel, chip, subs,subs_count,ONE_SHOT);
+		}
 		else
 		{
 			return ERROR;

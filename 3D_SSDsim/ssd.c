@@ -6,7 +6,7 @@ This is a project on 3D_SSDsim, based on ssdsim under the framework of the compl
 4.4-layer structure
 
 FileName£º ssd.c
-Author: Zuo Lu 		Version: 1.1	Date:2017/05/12
+Author: Zuo Lu 		Version: 1.2	Date:2017/06/12
 Description: System main function c file, Contains the basic flow of simulation.
 Mainly includes: initialization, make_aged, pre_process_page three parts
 
@@ -14,6 +14,7 @@ History:
 <contributor>     <time>        <version>       <desc>									<e-mail>
 Zuo Lu	        2017/04/06	      1.0		    Creat 3D_SSDsim							617376665@qq.com
 Zuo Lu			2017/05/12		  1.1			Support advanced commands:mutli plane   617376665@qq.com
+Zuo Lu			2017/06/12		  1.2			Support advanced commands:half page read   617376665@qq.com
 *****************************************************************************************************************************/
 
 #define _CRTDBG_MAP_ALLOC
@@ -646,7 +647,7 @@ void statistic_output(struct ssd_info *ssd)
 	fprintf(ssd->outputfile,"write request average size: %13f\n",ssd->ave_write_size);
 	fprintf(ssd->outputfile, "\n");
 	fprintf(ssd->outputfile,"read request average response time: %16I64u\n",ssd->read_avg/ssd->read_request_count);
-//	fprintf(ssd->outputfile,"write request average response time: %16I64u\n",ssd->write_avg/ssd->write_request_count);
+	fprintf(ssd->outputfile,"write request average response time: %16I64u\n",ssd->write_avg/ssd->write_request_count);
 	fprintf(ssd->outputfile, "\n");
 	fprintf(ssd->outputfile,"buffer read hits: %13d\n",ssd->dram->buffer->read_hit);
 	fprintf(ssd->outputfile,"buffer read miss: %13d\n",ssd->dram->buffer->read_miss_hit);
@@ -697,7 +698,7 @@ void statistic_output(struct ssd_info *ssd)
 	fprintf(ssd->statisticfile,"write request average size: %13f\n",ssd->ave_write_size);
 	fprintf(ssd->statisticfile, "\n");
 	fprintf(ssd->statisticfile,"read request average response time: %16I64u\n",ssd->read_avg/ssd->read_request_count);
-//	fprintf(ssd->statisticfile,"write request average response time: %16I64u\n",ssd->write_avg/ssd->write_request_count);
+	fprintf(ssd->statisticfile,"write request average response time: %16I64u\n",ssd->write_avg/ssd->write_request_count);
 	fprintf(ssd->statisticfile, "\n");
 	fprintf(ssd->statisticfile,"buffer read hits: %13d\n",ssd->dram->buffer->read_hit);
 	fprintf(ssd->statisticfile,"buffer read miss: %13d\n",ssd->dram->buffer->read_miss_hit);
@@ -705,6 +706,7 @@ void statistic_output(struct ssd_info *ssd)
 	fprintf(ssd->statisticfile,"buffer write miss: %13d\n",ssd->dram->buffer->write_miss_hit);
 
 	fprintf(ssd->statisticfile, "buffer write hit request count : %13d\n", ssd->update_sub_request);
+	fprintf(ssd->statisticfile, "buffer write hit request count : %13d\n", ssd->half_page_read_count);
 
 	fprintf(ssd->statisticfile, "\n");
 	fflush(ssd->statisticfile);

@@ -6,7 +6,7 @@ This is a project on 3D_SSDsim, based on ssdsim under the framework of the compl
 4.4-layer structure
 
 FileName£º buffer.c
-Author: Zuo Lu 		Version: 1.1	Date:2017/05/12
+Author: Zuo Lu 		Version: 1.2	Date:2017/06/12
 Description: 
 buff layer: only contains data cache (minimum processing size for the sector, that is, unit = 512B), mapping table (page-level);
 
@@ -14,6 +14,7 @@ History:
 <contributor>     <time>        <version>       <desc>									<e-mail>
 Zuo Lu	        2017/04/06	      1.0		    Creat 3D_SSDsim							617376665@qq.com
 Zuo Lu			2017/05/12		  1.1			Support advanced commands:mutli plane   617376665@qq.com
+Zuo Lu			2017/06/12		  1.2			Support advanced commands:half page read   617376665@qq.com
 *****************************************************************************************************************************/
 #define _CRTDBG_MAP_ALLOC
 
@@ -143,7 +144,7 @@ struct ssd_info * check_w_buff(struct ssd_info *ssd, unsigned int lpn, int state
 		sub_req_state = state;
 		sub_req_size = size(state);
 		sub_req_lpn = lpn;
-		sub_req = creat_sub_request(ssd, sub_req_lpn, sub_req_size, 0, req, READ);
+		sub_req = creat_sub_request(ssd, sub_req_lpn, sub_req_size, sub_req_state, req, READ);
 
 		ssd->dram->buffer->read_miss_hit++;
 	}
@@ -159,7 +160,7 @@ struct ssd_info * check_w_buff(struct ssd_info *ssd, unsigned int lpn, int state
 			sub_req_state = (state | buffer_node->stored) ^ buffer_node->stored;
 			sub_req_size = size(sub_req_state);
 			sub_req_lpn = lpn;
-			sub_req = creat_sub_request(ssd, sub_req_lpn, sub_req_size, 0, req, READ);
+			sub_req = creat_sub_request(ssd, sub_req_lpn, sub_req_size, sub_req_state, req, READ);
 
 			ssd->dram->buffer->read_miss_hit++;
 		}
@@ -534,7 +535,7 @@ struct sub_request * creat_sub_request(struct ssd_info * ssd, unsigned int lpn, 
 		p_ch = &ssd->channel_head[loc->channel];
 		sub->ppn = ssd->dram->map->map_entry[lpn].pn;
 		sub->operation = READ;
-		sub->state = (ssd->dram->map->map_entry[lpn].state & 0x7fffffff);
+		sub->state = state;
 		sub_r = ssd->channel_head[loc->channel].subs_r_head;
 
 		flag = 0;
