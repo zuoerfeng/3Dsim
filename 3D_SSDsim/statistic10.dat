@@ -1,5 +1,5 @@
 parameter file: page.parameters
-trace file: 16G_4KB_random_RandW.ascii
+trace file: 16G_16KB_random_RandW.ascii
 -----------------------parameter file----------------------
 #parameter file
 dram capacity = 8388608;     #the unit is B
@@ -25,7 +25,7 @@ chip number[18] = 0;
 channel number = 2;   #the number of channel
 chip number = 2;
 die number = 2;      
-plane number = 4;
+plane number = 2;
 block number = 1024;
 page number = 64;
 subpage page = 4; 						#can not beyond 32
@@ -34,6 +34,7 @@ subpage capacity = 4096;
 t_PROG = 200000;             #the unit is ns
 t_DBSY = 50;
 t_BERS = 1500000;
+t_PROGO = 200000;            #one shot program time
 t_CLS = 12;
 t_CLH = 5;
 t_CS = 20;
@@ -76,65 +77,59 @@ scheduling algorithm=1;               #记录使用哪种调度算法，1:FCFS
 gc hard threshold=0.10;          #普通策略中用不到该参数，只有在主动写策略中，当满足这个阈值时，GC操作不可中断
 allocation=0;                   #确定分配方式，0表示动态分配，1表示静态分配
 dynamic_allocation=0;           #记录在采用哪种动态分配方式，0表示全动态，1表示channel定package，die，plane动态，2表示channel，package，die定plane动态
-dynamic_allocation_priority=1;			#表示ssd分配方式的优先级，0表示channel>chip>die>plane,1表示plane>channel>chip>die
-advanced command=1;             #是否使用高级命令，0表示不使用。利用二进制01分别表示mutli plane(00001), half-page-read(00010), one shot program(00100)是否使用，全部使用是00011，即3；
+dynamic_allocation_priority=1;	#表示ssd分配方式的优先级，0表示channel>chip>die>plane,1表示plane>channel>chip>die
+advanced command=5;             #是否使用高级命令，0表示不使用。利用二进制01分别表示mutli plane(00001), half-page-read(00010), one shot program(00100)是否使用，全部使用是00011，即3；
 advanced command priority2=0;    #0表示interleave优先级高于two plane，1表示two plane优先级高于interleave
 greed CB command=0;            #表示是否贪婪地使用copyback高级命令，0表示否，1表示是贪婪地使用
 greed MPW command=1;            #表示是否贪婪地使用multi-plane write高级命令，0表示否，1表示是贪婪地使用
 aged=0;                         #1表示需要将这个SSD变成aged，0表示需要将这个SSD保持non-aged
 aged ratio=0.5;                #表示为了使SSD变成aged的SSD，需要将SSD中提前置为失效的比率
+flash mode=1;					#表示flash的模式，0--slc,1--tlc
 -----------------------simulation output----------------------
-the 0 channel, 0 chip, 0 die, 0 plane has :   0 erase operations,3047 read operations,1953 write operations, 65 pre_process write operations
-the 0 channel, 0 chip, 0 die, 1 plane has :   0 erase operations,3063 read operations,1953 write operations, 65 pre_process write operations
-the 0 channel, 0 chip, 0 die, 2 plane has :   0 erase operations,3004 read operations,1954 write operations, 64 pre_process write operations
-the 0 channel, 0 chip, 0 die, 3 plane has :   0 erase operations,3155 read operations,1954 write operations, 64 pre_process write operations
-the 0 channel, 0 chip, 1 die, 0 plane has :   0 erase operations,3013 read operations,1953 write operations, 64 pre_process write operations
-the 0 channel, 0 chip, 1 die, 1 plane has :   0 erase operations,3035 read operations,1953 write operations, 64 pre_process write operations
-the 0 channel, 0 chip, 1 die, 2 plane has :   0 erase operations,2976 read operations,1953 write operations, 64 pre_process write operations
-the 0 channel, 0 chip, 1 die, 3 plane has :   0 erase operations,3009 read operations,1953 write operations, 64 pre_process write operations
-the 1 channel, 0 chip, 0 die, 0 plane has :   0 erase operations,2328 read operations,1495 write operations, 64 pre_process write operations
-the 1 channel, 0 chip, 0 die, 1 plane has :   0 erase operations,2325 read operations,1495 write operations, 64 pre_process write operations
-the 1 channel, 0 chip, 0 die, 2 plane has :   0 erase operations,2384 read operations,1495 write operations, 64 pre_process write operations
-the 1 channel, 0 chip, 0 die, 3 plane has :   0 erase operations,2420 read operations,1495 write operations, 64 pre_process write operations
-the 1 channel, 0 chip, 1 die, 0 plane has :   0 erase operations,2339 read operations,1494 write operations, 64 pre_process write operations
-the 1 channel, 0 chip, 1 die, 1 plane has :   0 erase operations,2242 read operations,1494 write operations, 64 pre_process write operations
-the 1 channel, 0 chip, 1 die, 2 plane has :   0 erase operations,2404 read operations,1494 write operations, 64 pre_process write operations
-the 1 channel, 0 chip, 1 die, 3 plane has :   0 erase operations,2222 read operations,1494 write operations, 64 pre_process write operations
+the 0 channel, 0 chip, 0 die, 0 plane has :   0 erase operations,5704 read operations,5583 write operations,129 pre_process write operations
+the 0 channel, 0 chip, 0 die, 1 plane has :   0 erase operations,5609 read operations,5583 write operations,129 pre_process write operations
+the 0 channel, 0 chip, 1 die, 0 plane has :   0 erase operations,5610 read operations,5580 write operations,129 pre_process write operations
+the 0 channel, 0 chip, 1 die, 1 plane has :   0 erase operations,5449 read operations,5581 write operations,128 pre_process write operations
+the 1 channel, 0 chip, 0 die, 0 plane has :   0 erase operations,3963 read operations,3891 write operations,129 pre_process write operations
+the 1 channel, 0 chip, 0 die, 1 plane has :   0 erase operations,3801 read operations,3891 write operations,129 pre_process write operations
+the 1 channel, 0 chip, 1 die, 0 plane has :   0 erase operations,3981 read operations,3891 write operations,128 pre_process write operations
+the 1 channel, 0 chip, 1 die, 1 plane has :   0 erase operations,3862 read operations,3891 write operations,128 pre_process write operations
 
 
 ---------------------------statistic data---------------------------
 min lsn:             0
 max lsn:         32767
-read count:         42966
-the read operation leaded by un-covered update count:         11038
+read count:         37979
+the read operation leaded by un-covered update count:          3749
 the read operation leaded by gc read count:             0
 
-program count:         27580
-the write operation leaded by pre_process write count:          1026
-the write operation leaded by un-covered update count:         11038
+program count:         37890
+the write operation leaded by pre_process write count:          1029
+the write operation leaded by un-covered update count:          3749
 the write operation leaded by gc read count:             0
 
 erase count:             0
 direct erase count:             0
 
-multi-plane program count:          6895
-multi-plane read count:           915
+multi-plane program count:         18945
+multi-plane read count:          4852
 
-write flash count:         28606
+write flash count:         38919
 
-read request count:         40117
-write request count:         59882
+read request count:         40093
+write request count:         59906
 
-read request average size:     24.100878
-write request average size:     24.048986
+read request average size:     96.005241
+write request average size:     95.887306
 
-read request average response time:           168593
-write request average response time:           150869
+read request average response time:           244456
+write request average response time:           839783
 
-buffer read hits:         37188
-buffer read miss:         31934
-buffer write hits:        102187
-buffer write miss:         27580
-buffer write hit request count :            14
-buffer write hit request count :             0
+buffer read hits:        124919
+buffer read miss:         34238
+buffer write hits:        198670
+buffer write miss:         37890
+update sub request count :             6
+half page read count :             0
+mutli plane one shot count :          6315
 

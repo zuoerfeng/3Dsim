@@ -27,20 +27,24 @@ Zuo Lu			2017/06/12		  1.2			Support advanced commands:half page read   61737666
 #define SECTOR 512
 #define BUFSIZE 200
 #define INDEX 10
-#define PAGE_INDEX 3  //tlc mode .LSB/CSB/MSB
+#define PAGE_INDEX 3 //tlc mode .LSB/CSB/MSB
 
 #define DYNAMIC_ALLOCATION 0
 #define STATIC_ALLOCATION 1
+
+#define SLC_MODE 0
+#define TLC_MODE 1
 
 #define MUTLI_PLANE 0
 #define NORMAL    1
 #define HALF_PAGE 2
 #define ONE_SHOT 3
+#define ONE_SHOT_MUTLI_PLANE 4
 
 //advanced command
 #define AD_MUTLIPLANE  1  //mutli plane 
 #define AD_HALFPAGE_READ 2  //half page read ,only used in single plane read operation
-#define AD_ONESHOT_PROGRAM 3  //one shot program ,used in mutli plane and single plane program operation
+#define AD_ONESHOT_PROGRAM 4  //one shot program ,used in mutli plane and single plane program operation
 
 #define READ 1
 #define WRITE 0
@@ -116,6 +120,7 @@ struct ac_time_characteristics{
 	int tPROG;     //program time
 	int tDBSY;     //bummy busy time for two-plane program
 	int tBERS;     //block erase time
+	int tPROGO;   //one shot program time
 	int tCLS;      //CLE setup time
 	int tCLH;      //CLE hold time
 	int tCS;       //CE setup time
@@ -191,15 +196,10 @@ struct ssd_info{
 	//Advanced command read and write erase statistics
 	unsigned long m_plane_read_count;
 	unsigned long m_plane_prog_count;
-	unsigned long interleave_count;
-	unsigned long interleave_read_count;
-	unsigned long inter_mplane_count;
-	unsigned long inter_mplane_prog_count;
-	unsigned long interleave_erase_count;
 	unsigned long mplane_erase_conut;
-	unsigned long interleave_mplane_erase_count;
-	unsigned long gc_copy_back;
-	unsigned long copy_back_count;
+
+	unsigned long ontshot_prog_count;
+	unsigned long mutliplane_oneshot_prog_count;
 
 	unsigned long write_flash_count;     //The actual write to the flash
 	unsigned long waste_page_count;      //Record the page waste due to restrictions on advanced commands
@@ -510,6 +510,7 @@ struct parameter_value{
 	float aged_ratio; 
 	int queue_length;               //Request the length of the queue
 	int update_reqeust_max;		    //request the length of sub request(partial page)
+	int flash_mode;                 //0--slc mode,1--tlc mode
 
 	struct ac_time_characteristics time_characteristics;
 };

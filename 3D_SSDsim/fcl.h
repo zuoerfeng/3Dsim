@@ -33,3 +33,4 @@ Status services_2_r_data_trans(struct ssd_info * ssd, unsigned int channel, unsi
 Status services_2_r_complete(struct ssd_info * ssd);
 
 int services_2_write(struct ssd_info * ssd, unsigned int channel, unsigned int * channel_busy_flag, unsigned int * change_current_time_flag);
+Status service_advance_command(struct ssd_info *ssd, unsigned int channel, unsigned int chip, struct sub_request ** subs, unsigned int subs_count, unsigned int aim_subs_count, unsigned int command);

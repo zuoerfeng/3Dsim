@@ -196,7 +196,6 @@ struct ssd_info * insert2buffer(struct ssd_info *ssd, unsigned int lpn, int stat
 		if (free_sector >= sector_count)
 		{
 			flag = 1;
-			ssd->dram->buffer->write_hit++;
 		}
 		if (flag == 0)
 		{
@@ -257,6 +256,7 @@ struct ssd_info * insert2buffer(struct ssd_info *ssd, unsigned int lpn, int stat
 		new_node->LRU_link_pre = NULL;
 		avlTreeAdd(ssd->dram->buffer, (TREE_NODE *)new_node);
 		ssd->dram->buffer->buffer_sector_count += sector_count;
+		//ssd->dram->buffer->write_hit++;
 	}
 	else
 	{

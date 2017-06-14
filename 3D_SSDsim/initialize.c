@@ -89,7 +89,7 @@ struct ssd_info *initiation(struct ssd_info *ssd)
 //	strcpy_s(ssd->tracefilename, 50, "16M_2KB_sequence_RandW.ascii");
 //	strcpy_s(ssd->tracefilename, 25, "f2_512MB.ascii");
 //	strcpy_s(ssd->tracefilename, 25, "example.ascii");
-	strcpy_s(ssd->tracefilename, 50, "16G_4KB_random_RandW.ascii");
+	strcpy_s(ssd->tracefilename, 50, "16G_16KB_random_RandW.ascii");
 //	strcpy_s(ssd->tracefilename, 50, "512M_4KB_random_RandW.ascii");
 
 //	printf("\ninput output file name:");
@@ -408,7 +408,7 @@ struct parameter_value *load_parameters(char parameter_file[30])
 	p = (struct parameter_value *)malloc(sizeof(struct parameter_value));
 	alloc_assert(p,"parameter_value");
 	memset(p,0,sizeof(struct parameter_value));
-	p->queue_length=4;
+	p->queue_length=8;
 	memset(buf,0,BUFSIZE);
 		
 	if((ferr = fopen_s(&fp,parameter_file,"r"))!= 0)
@@ -465,6 +465,8 @@ struct parameter_value *load_parameters(char parameter_file[30])
 			sscanf(buf + next_eql,"%d",&p->time_characteristics.tDBSY); 
 		}else if((res_eql=strcmp(buf,"t_BERS")) ==0){
 			sscanf(buf + next_eql,"%d",&p->time_characteristics.tBERS); // erases the time of a block
+		}else if((res_eql=strcmp(buf,"t_PROGO"))== 0){
+			sscanf(buf + next_eql, "%d", &p->time_characteristics.tPROGO);  //one shot program time
 		}else if((res_eql=strcmp(buf,"t_CLS")) ==0){
 			sscanf(buf + next_eql,"%d",&p->time_characteristics.tCLS); 
 		}else if((res_eql=strcmp(buf,"t_CLH")) ==0){
@@ -563,6 +565,8 @@ struct parameter_value *load_parameters(char parameter_file[30])
 			sscanf(buf + next_eql,"%d",&p->aged);                       //1 indicates that the SSD needs to be aged, 0 means that the SSD needs to be kept non-aged
 		}else if((res_eql=strcmp(buf,"aged ratio")) ==0){
 			sscanf(buf + next_eql,"%f",&p->aged_ratio);                 //Indicates that the SSD needs to be set to invaild in advance for SSD to become aged
+		}else if ((res_eql = strcmp(buf, "flash mode")) == 0){
+			sscanf(buf + next_eql, "%d", &p->flash_mode);
 		}else if((res_eql=strcmp(buf,"queue_length")) ==0){
 			sscanf(buf + next_eql,"%d",&p->queue_length);               //Request the queue depth
 		}else if((res_eql=strncmp(buf,"chip number",11)) ==0)

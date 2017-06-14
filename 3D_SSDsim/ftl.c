@@ -464,41 +464,34 @@ struct local *find_location(struct ssd_info *ssd, unsigned int ppn)
 /*******************************************************************
 *When executing a write request, get ppn for a normal write request
 *********************************************************************/
-Status get_ppn_for_normal_command(struct ssd_info * ssd, unsigned int channel, unsigned int chip, struct sub_request ** subs, unsigned int subs_count, unsigned int command)
+Status get_ppn_for_normal_command(struct ssd_info * ssd, unsigned int channel, unsigned int chip, struct sub_request * sub)
 {
 	unsigned int die = 0;
 	unsigned int plane = 0;
-	unsigned int i = 0;
-
-	for (i = 0; i < subs_count; i++)
+	if (sub == NULL)
 	{
-		if (subs[i] == NULL)
-			return ERROR;
+		return ERROR;
 	}
 
 	if (ssd->parameter->allocation_scheme == DYNAMIC_ALLOCATION)
 	{
-		for (i = 0; i < subs_count; i++)
+		die = ssd->channel_head[channel].chip_head[chip].token;
+		plane = ssd->channel_head[channel].chip_head[chip].die_head[die].token;
+		get_ppn(ssd, channel, chip, die, plane, sub);
+
+		if (ssd->parameter->dynamic_allocation_priority == 1)
 		{
-			die = ssd->channel_head[channel].chip_head[chip].token;
-			plane = ssd->channel_head[channel].chip_head[chip].die_head[die].token;
-			get_ppn(ssd, channel, chip, die, plane, subs[i]);
-
-			if (ssd->parameter->dynamic_allocation_priority == 1)
-			{
-				ssd->channel_head[channel].chip_head[chip].die_head[die].token = (plane + 1) % ssd->parameter->plane_die;
-				if (plane == (ssd->parameter->plane_die - 1))
-					ssd->channel_head[channel].chip_head[chip].token = (die + 1) % ssd->parameter->die_chip;
-			}
-			else
-			{
-				ssd->channel_head[channel].chip_head[chip].die_head[die].token = (plane + 1) % ssd->parameter->plane_die;
+			ssd->channel_head[channel].chip_head[chip].die_head[die].token = (plane + 1) % ssd->parameter->plane_die;
+			if (plane == (ssd->parameter->plane_die - 1))
 				ssd->channel_head[channel].chip_head[chip].token = (die + 1) % ssd->parameter->die_chip;
-			}
 		}
-
-		compute_serve_time(ssd, channel, chip, die, subs, subs_count, command);
- 		return SUCCESS;
+		else
+		{
+			ssd->channel_head[channel].chip_head[chip].die_head[die].token = (plane + 1) % ssd->parameter->plane_die;
+			ssd->channel_head[channel].chip_head[chip].token = (die + 1) % ssd->parameter->die_chip;
+		}
+		compute_serve_time(ssd, channel, chip, die, &sub, 1, NORMAL);
+		return SUCCESS;
 	}
 }
 
@@ -520,56 +513,92 @@ Status get_ppn_for_advanced_commands(struct ssd_info *ssd, unsigned int channel,
 	unsigned int die_token = 0, plane_token = 0;
 	struct sub_request * sub = NULL;
 	unsigned int i = 0, j = 0, k = 0;
-	unsigned int unvalid_subs_count = 0;
 	unsigned int valid_subs_count = 0;
-	unsigned int max_subs_num = 0;
-	unsigned int state = SUCCESS;
+	unsigned int state ;
 
-	max_subs_num = ssd->parameter->die_chip*ssd->parameter->plane_die;
-
-	if (ssd->parameter->allocation_scheme == DYNAMIC_ALLOCATION)                        
+	struct sub_request ** mutli_subs = NULL;
+	mutli_subs = (struct sub_request **)malloc(ssd->parameter->plane_die * sizeof(struct sub_request *));
+    
+	if (command == ONE_SHOT_MUTLI_PLANE)
 	{
-		if (command == MUTLI_PLANE)
+		die = ssd->channel_head[channel].chip_head[chip].token;
+		for (i = 0; i < PAGE_INDEX; i++)
 		{
-			die = ssd->channel_head[channel].chip_head[chip].token;
-			if (subs_count == ssd->parameter->plane_die)
+			for (j = 0; j < ssd->parameter->plane_die; j++)
+				mutli_subs[j] = subs[j + k];
+
+			//进行mutli plane的操作
+			find_level_page(ssd, channel, chip, die, mutli_subs, ssd->parameter->plane_die);
+
+			k = k + ssd->parameter->plane_die;
+		}
+
+		valid_subs_count = subs_count;
+		ssd->channel_head[channel].chip_head[chip].token = (die + 1) % ssd->parameter->die_chip;
+
+		compute_serve_time(ssd, channel, chip, die, subs, valid_subs_count, ONE_SHOT_MUTLI_PLANE);
+		printf("lz:mutli plane one shot\n");
+
+		//free mutli_subs
+		for (i = 0; i < ssd->parameter->plane_die; i++)
+			mutli_subs[i] = NULL;
+		free(mutli_subs);
+		mutli_subs = NULL;
+		return SUCCESS;
+	}
+	else if (command == MUTLI_PLANE)
+	{
+		die = ssd->channel_head[channel].chip_head[chip].token;
+		if (subs_count == ssd->parameter->plane_die)
+		{
+			state = find_level_page(ssd, channel, chip, die, subs, subs_count);
+			if (state != SUCCESS)
 			{
-				state = find_level_page(ssd, channel, chip, die, subs, subs_count);
-				if (state != SUCCESS)
-				{
-					get_ppn_for_normal_command(ssd, channel, chip, subs, subs_count, NORMAL);		   /*Ordinary command to deal with*/
-					printf("lz:normal_wr_2\n");
-					getchar();
-					return FAILURE;
-				}
-				else
-				{
-					valid_subs_count = ssd->parameter->plane_die;
-					ssd->channel_head[channel].chip_head[chip].token = (die + 1) % ssd->parameter->die_chip;   \
-					ssd->m_plane_prog_count++;
-					compute_serve_time(ssd, channel, chip, die, subs, valid_subs_count, MUTLI_PLANE);
-					printf("lz:mutli_plane_wr_3\n");
-					return SUCCESS;
-				}
+				get_ppn_for_normal_command(ssd, channel, chip, subs[0]);		 
+				printf("lz:normal program\n");
+				getchar();
+				return FAILURE;
 			}
 			else
 			{
-				return ERROR;
+				valid_subs_count = ssd->parameter->plane_die;
+				ssd->channel_head[channel].chip_head[chip].token = (die + 1) % ssd->parameter->die_chip;   
+			
+				compute_serve_time(ssd, channel, chip, die, subs, valid_subs_count, MUTLI_PLANE);
+				printf("lz:mutli_plane\n");
+				return SUCCESS;
 			}
-		}//else if(command==MUTLI_PLANE)
-		if (command == ONE_SHOT)
-		{
-			//one shot three page
-			get_ppn_for_normal_command(ssd, channel, chip, subs,subs_count,ONE_SHOT);
 		}
 		else
 		{
 			return ERROR;
 		}
-	}//if (ssd->parameter->allocation_scheme==DYNAMIC_ALLOCATION)
+	}
+	else if (command == ONE_SHOT)
+	{
+		for (i = 0; i < subs_count; i++)
+		{
+			die = ssd->channel_head[channel].chip_head[chip].token;
+			plane = ssd->channel_head[channel].chip_head[chip].die_head[die].token;
+			get_ppn(ssd, channel, chip, die, plane, subs[i]);
+		}
+
+		//更新plane die
+		ssd->channel_head[channel].chip_head[chip].die_head[die].token = (plane + 1) % ssd->parameter->plane_die;
+		if (plane == (ssd->parameter->plane_die - 1))
+			ssd->channel_head[channel].chip_head[chip].token = (die + 1) % ssd->parameter->die_chip;
+
+		valid_subs_count = PAGE_INDEX;
+		compute_serve_time(ssd, channel, chip, die, subs, valid_subs_count, ONE_SHOT);
+
+		printf("lz:one shot\n");
+		return SUCCESS;
+	}
+	else
+	{
+		return ERROR;
+	}
 }
-
-
 
 /******************************************************************************************下面是ftl层gc操作******************************************************************************************/
 

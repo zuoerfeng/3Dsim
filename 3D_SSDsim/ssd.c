@@ -705,8 +705,9 @@ void statistic_output(struct ssd_info *ssd)
 	fprintf(ssd->statisticfile,"buffer write hits: %13d\n",ssd->dram->buffer->write_hit);
 	fprintf(ssd->statisticfile,"buffer write miss: %13d\n",ssd->dram->buffer->write_miss_hit);
 
-	fprintf(ssd->statisticfile, "buffer write hit request count : %13d\n", ssd->update_sub_request);
-	fprintf(ssd->statisticfile, "buffer write hit request count : %13d\n", ssd->half_page_read_count);
+	fprintf(ssd->statisticfile, "update sub request count : %13d\n", ssd->update_sub_request);
+	fprintf(ssd->statisticfile, "half page read count : %13d\n", ssd->half_page_read_count);
+	fprintf(ssd->statisticfile, "mutli plane one shot count : %13d\n", ssd->mutliplane_oneshot_prog_count);
 
 	fprintf(ssd->statisticfile, "\n");
 	fflush(ssd->statisticfile);
