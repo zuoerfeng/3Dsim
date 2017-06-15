@@ -343,6 +343,7 @@ struct dram_info{
 	struct map_info *map;
 	struct buffer_info *buffer; 
 
+	struct buffer_info *command_buffer;   //used in advanced command buffer
 };
 
 

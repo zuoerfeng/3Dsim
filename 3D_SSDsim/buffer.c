@@ -206,14 +206,13 @@ struct ssd_info * insert2buffer(struct ssd_info *ssd, unsigned int lpn, int stat
 				sub_req_state = ssd->dram->buffer->buffer_tail->stored;
 				sub_req_size = size(ssd->dram->buffer->buffer_tail->stored);
 				sub_req_lpn = ssd->dram->buffer->buffer_tail->group;
-				sub_req = creat_sub_request(ssd, sub_req_lpn, sub_req_size, sub_req_state, req, WRITE);
-	
+				//sub_req = creat_sub_request(ssd, sub_req_lpn, sub_req_size, sub_req_state, req, WRITE);
+				insert2_command_buffer(ssd, sub_req_lpn, sub_req_size, sub_req_state, req, WRITE);
 				ssd->dram->buffer->write_miss_hit++;
-				/*********************************************************************
-				*写请求插入到了平衡二叉树，这时就要修改dram的buffer_sector_count；
-				*维持平衡二叉树调用avlTreeDel()和AVL_TREENODE_FREE()函数；维持LRU算法；
-				**********************************************************************/
-				ssd->dram->buffer->buffer_sector_count = ssd->dram->buffer->buffer_sector_count - sub_req->size;
+
+				
+				ssd->dram->buffer->buffer_sector_count = ssd->dram->buffer->buffer_sector_count - sub_req_size;
+				//ssd->dram->buffer->buffer_sector_count = ssd->dram->buffer->buffer_sector_count - sub_req->size;
 				pt = ssd->dram->buffer->buffer_tail;
 				avlTreeDel(ssd->dram->buffer, (TREE_NODE *)pt);
 				if (ssd->dram->buffer->buffer_head->LRU_link_next == NULL){
@@ -229,7 +228,8 @@ struct ssd_info * insert2buffer(struct ssd_info *ssd, unsigned int lpn, int stat
 				AVL_TREENODE_FREE(ssd->dram->buffer, (TREE_NODE *)pt);
 				pt = NULL;
 
-				write_back_count = write_back_count - sub_req->size;                            /*因为产生了实时写回操作，需要将主动写回操作区域增加*/
+				write_back_count = write_back_count - sub_req_size;                            /*因为产生了实时写回操作，需要将主动写回操作区域增加*/
+				//write_back_count = write_back_count - sub_req->size;
 			}
 		}
 
@@ -256,7 +256,7 @@ struct ssd_info * insert2buffer(struct ssd_info *ssd, unsigned int lpn, int stat
 		new_node->LRU_link_pre = NULL;
 		avlTreeAdd(ssd->dram->buffer, (TREE_NODE *)new_node);
 		ssd->dram->buffer->buffer_sector_count += sector_count;
-		//ssd->dram->buffer->write_hit++;
+		ssd->dram->buffer->write_hit++;
 	}
 	else
 	{
@@ -282,7 +282,7 @@ struct ssd_info * insert2buffer(struct ssd_info *ssd, unsigned int lpn, int stat
 					buffer_node->LRU_link_pre = NULL;
 					ssd->dram->buffer->buffer_head = buffer_node;
 				}
-				req->complete_lsn_count += state;                                       
+				req->complete_lsn_count += size(state);                                       
 			}
 		}
 		else
@@ -306,7 +306,8 @@ struct ssd_info * insert2buffer(struct ssd_info *ssd, unsigned int lpn, int stat
 				sub_req_state = ssd->dram->buffer->buffer_tail->stored;
 				sub_req_size = size(ssd->dram->buffer->buffer_tail->stored);
 				sub_req_lpn = ssd->dram->buffer->buffer_tail->group;
-				sub_req = creat_sub_request(ssd, sub_req_lpn, sub_req_size, sub_req_state, req, WRITE);
+				//sub_req = creat_sub_request(ssd, sub_req_lpn, sub_req_size, sub_req_state, req, WRITE);
+				insert2_command_buffer(ssd, sub_req_lpn, sub_req_size, sub_req_state, req, WRITE);
 
 				ssd->dram->buffer->write_miss_hit++;
 				//删除尾节点
@@ -326,7 +327,8 @@ struct ssd_info * insert2buffer(struct ssd_info *ssd, unsigned int lpn, int stat
 				AVL_TREENODE_FREE(ssd->dram->buffer, (TREE_NODE *)pt);
 				pt = NULL;
 
-				ssd->dram->buffer->buffer_sector_count = ssd->dram->buffer->buffer_sector_count - sub_req->size;
+				ssd->dram->buffer->buffer_sector_count = ssd->dram->buffer->buffer_sector_count - sub_req_size;
+				//ssd->dram->buffer->buffer_sector_count = ssd->dram->buffer->buffer_sector_count - sub_req->size;
 			}
 			/*如果该buffer节点不在buffer的队首，需要将这个节点提到队首*/
 			if (ssd->dram->buffer->buffer_head != buffer_node)                   
@@ -362,40 +364,80 @@ struct ssd_info * getout2buffer(struct ssd_info *ssd, struct sub_request *sub, s
 	unsigned int sub_req_state = 0, sub_req_size = 0, sub_req_lpn = 0, sub_req_type = 0;
 	struct sub_request *sub_req = NULL;
 
-	//tail node replacement
-	pt = ssd->dram->buffer->buffer_tail;
-	sub_req_state = pt->stored;
-	sub_req_size = size(pt->stored);
-	sub_req_lpn = pt->group;
-	sub_req = NULL;
-	sub_req = creat_sub_request(ssd, sub_req_lpn, sub_req_size, sub_req_state, req, WRITE);
-	ssd->dram->buffer->write_miss_hit++;
-
-	//Delete the node
-	ssd->dram->buffer->buffer_sector_count = ssd->dram->buffer->buffer_sector_count - sub_req_size;
-
-	if (pt == ssd->dram->buffer->buffer_tail)
+	//先从二级缓存中替换页下来，再从一级缓存中拿页
+	if (ssd->dram->command_buffer->command_buff_page != 0)
 	{
-		if (ssd->dram->buffer->buffer_head->LRU_link_next == NULL){
-			ssd->dram->buffer->buffer_head = NULL;
-			ssd->dram->buffer->buffer_tail = NULL;
+		pt = ssd->dram->command_buffer->buffer_tail;
+		sub_req_state = pt->stored;
+		sub_req_size = size(pt->stored);
+		sub_req_lpn = pt->group;
+		sub_req = NULL;
+		sub_req = creat_sub_request(ssd, sub_req_lpn, sub_req_size, sub_req_state, req, WRITE);
+
+		//Delete the node
+		ssd->dram->command_buffer->command_buff_page--;
+
+		if (pt == ssd->dram->command_buffer->buffer_tail)
+		{
+			if (ssd->dram->command_buffer->buffer_head->LRU_link_next == NULL){
+				ssd->dram->command_buffer->buffer_head = NULL;
+				ssd->dram->command_buffer->buffer_tail = NULL;
+			}
+			else{
+				ssd->dram->command_buffer->buffer_tail = pt->LRU_link_pre;
+				ssd->dram->command_buffer->buffer_tail->LRU_link_next = NULL;
+			}
 		}
-		else{
-			ssd->dram->buffer->buffer_tail = pt->LRU_link_pre;
-			ssd->dram->buffer->buffer_tail->LRU_link_next = NULL;
+		else
+		{
+			printf("buffer_tail delete failed\n");
+			getchar();
 		}
+
+		avlTreeDel(ssd->dram->command_buffer, (TREE_NODE *)pt);
+		pt->LRU_link_next = NULL;
+		pt->LRU_link_pre = NULL;
+		AVL_TREENODE_FREE(ssd->dram->command_buffer, (TREE_NODE *)pt);
+		pt = NULL;
 	}
 	else
 	{
-		printf("buffer_tail delete failed\n");
-		getchar();
+		//tail node replacement
+		pt = ssd->dram->buffer->buffer_tail;
+		sub_req_state = pt->stored;
+		sub_req_size = size(pt->stored);
+		sub_req_lpn = pt->group;
+		sub_req = NULL;
+		sub_req = creat_sub_request(ssd, sub_req_lpn, sub_req_size, sub_req_state, req, WRITE);
+		ssd->dram->buffer->write_miss_hit++;
+
+		//Delete the node
+		ssd->dram->buffer->buffer_sector_count = ssd->dram->buffer->buffer_sector_count - sub_req_size;
+
+		if (pt == ssd->dram->buffer->buffer_tail)
+		{
+			if (ssd->dram->buffer->buffer_head->LRU_link_next == NULL){
+				ssd->dram->buffer->buffer_head = NULL;
+				ssd->dram->buffer->buffer_tail = NULL;
+			}
+			else{
+				ssd->dram->buffer->buffer_tail = pt->LRU_link_pre;
+				ssd->dram->buffer->buffer_tail->LRU_link_next = NULL;
+			}
+		}
+		else
+		{
+			printf("buffer_tail delete failed\n");
+			getchar();
+		}
+
+		avlTreeDel(ssd->dram->buffer, (TREE_NODE *)pt);
+		pt->LRU_link_next = NULL;
+		pt->LRU_link_pre = NULL;
+		AVL_TREENODE_FREE(ssd->dram->buffer, (TREE_NODE *)pt);
+		pt = NULL;
 	}
 
-	avlTreeDel(ssd->dram->buffer, (TREE_NODE *)pt);
-	pt->LRU_link_next = NULL;
-	pt->LRU_link_pre = NULL;
-	AVL_TREENODE_FREE(ssd->dram->buffer, (TREE_NODE *)pt);
-	pt = NULL;
 
 	return ssd;
 }
@@ -483,6 +525,116 @@ unsigned int size(unsigned int stored)
 #endif
 	return total;
 }
+
+
+struct ssd_info * insert2_command_buffer(struct ssd_info * ssd, unsigned int lpn, int size_count, unsigned int state, struct request * req, unsigned int operation)
+{
+	unsigned int i = 0;
+	unsigned int sub_req_state = 0, sub_req_size = 0, sub_req_lpn = 0;
+	struct buffer_group *command_buffer_node = NULL, *pt, *new_node = NULL, key;
+	struct sub_request *sub_req = NULL;
+
+	//遍历缓存的节点，判断是否有命中
+	key.group = lpn;
+	command_buffer_node = (struct buffer_group*)avlTreeFind(ssd->dram->command_buffer, (TREE_NODE *)&key);
+	
+	if (command_buffer_node == NULL)
+	{
+		//如果是更新写操作，直接写到flash上
+		/*
+		if ((state&ssd->dram->map->map_entry[lpn].state) != ssd->dram->map->map_entry[lpn].state)
+		{
+			creat_sub_request(ssd, lpn, size_count, state, req, operation);
+			return ssd;
+		}
+		*/
+
+		//生成 一个buff_node,根据这个页的情况分别赋值给各个成员，并且添加到队首
+		new_node = NULL;
+		new_node = (struct buffer_group *)malloc(sizeof(struct buffer_group));
+		alloc_assert(new_node, "buffer_group_node");
+		memset(new_node, 0, sizeof(struct buffer_group));
+
+		new_node->group = lpn;
+		new_node->stored = state;
+		new_node->dirty_clean = state;
+		new_node->LRU_link_pre = NULL;
+		new_node->LRU_link_next = ssd->dram->command_buffer->buffer_head;
+		if (ssd->dram->command_buffer->buffer_head != NULL){
+			ssd->dram->command_buffer->buffer_head->LRU_link_pre = new_node;
+		}
+		else{
+			ssd->dram->command_buffer->buffer_tail = new_node;
+		}
+		ssd->dram->command_buffer->buffer_head = new_node;
+		new_node->LRU_link_pre = NULL;
+		avlTreeAdd(ssd->dram->command_buffer, (TREE_NODE *)new_node);
+		ssd->dram->command_buffer->command_buff_page++;
+
+		//如果缓存已满，此时发生flush操作，将缓存的内存一次性flush到闪存上
+		if (ssd->dram->command_buffer->command_buff_page == ssd->dram->command_buffer->max_command_buff_page)
+		{
+			printf("begin to flush command_buffer\n");
+			for (i = 0; i < ssd->dram->command_buffer->max_command_buff_page; i++)
+			{
+				sub_req = NULL;
+				sub_req_state = ssd->dram->command_buffer->buffer_tail->stored;
+				sub_req_size = size(ssd->dram->command_buffer->buffer_tail->stored);
+				sub_req_lpn = ssd->dram->command_buffer->buffer_tail->group;
+				sub_req = creat_sub_request(ssd, sub_req_lpn, sub_req_size, sub_req_state, req, operation);
+
+				//删除buff中的节点
+				pt = ssd->dram->command_buffer->buffer_tail;
+				avlTreeDel(ssd->dram->command_buffer, (TREE_NODE *)pt);
+				if (ssd->dram->command_buffer->buffer_head->LRU_link_next == NULL){
+					ssd->dram->command_buffer->buffer_head = NULL;
+					ssd->dram->command_buffer->buffer_tail = NULL;
+				}
+				else{
+					ssd->dram->command_buffer->buffer_tail = ssd->dram->command_buffer->buffer_tail->LRU_link_pre;
+					ssd->dram->command_buffer->buffer_tail->LRU_link_next = NULL;
+				}
+				pt->LRU_link_next = NULL;
+				pt->LRU_link_pre = NULL;
+				AVL_TREENODE_FREE(ssd->dram->command_buffer, (TREE_NODE *)pt);
+				pt = NULL;
+
+				ssd->dram->command_buffer->command_buff_page--;
+			}
+			if (ssd->dram->command_buffer->command_buff_page != 0)
+			{
+				printf("command buff flush failed\n");
+				getchar();
+			}
+		}
+	}
+	else  //命中的情况，合并扇区数
+	{
+		if (ssd->dram->command_buffer->buffer_head != command_buffer_node)
+		{
+			if (ssd->dram->command_buffer->buffer_tail == command_buffer_node)
+			{
+				command_buffer_node->LRU_link_pre->LRU_link_next = NULL;
+				ssd->dram->command_buffer->buffer_tail = command_buffer_node->LRU_link_pre;
+			}
+			else
+			{
+				command_buffer_node->LRU_link_pre->LRU_link_next = command_buffer_node->LRU_link_next;
+				command_buffer_node->LRU_link_next->LRU_link_pre = command_buffer_node->LRU_link_pre;
+			}
+			command_buffer_node->LRU_link_next = ssd->dram->command_buffer->buffer_head;
+			ssd->dram->command_buffer->buffer_head->LRU_link_pre = command_buffer_node;
+			command_buffer_node->LRU_link_pre = NULL;
+			ssd->dram->command_buffer->buffer_head = command_buffer_node;
+		}
+
+		command_buffer_node->stored = command_buffer_node->stored | state;
+		command_buffer_node->dirty_clean = command_buffer_node->dirty_clean | state;
+	}
+
+	return ssd;
+}
+
 
 /**************************************************************
 this function is to create sub_request based on lpn, size, state

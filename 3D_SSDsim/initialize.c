@@ -227,9 +227,34 @@ struct dram_info * initialize_dram(struct ssd_info * ssd)
 	unsigned int page_num;
 
 	struct dram_info *dram=ssd->dram;
-	dram->dram_capacity = ssd->parameter->dram_capacity;		
+	dram->dram_capacity = ssd->parameter->dram_capacity;	
 	dram->buffer = (tAVLTree *)avlTreeCreate((void*)keyCompareFunc , (void *)freeFunc);
 	dram->buffer->max_buffer_sector=ssd->parameter->dram_capacity / ssd->parameter->subpage_capacity; 
+
+	//增加高级命令的缓存初始化
+	dram->command_buffer = (tAVLTree *)avlTreeCreate((void*)keyCompareFunc, (void *)freeFunc);
+	if (ssd->parameter->flash_mode == SLC_MODE)
+	{
+		if ((ssd->parameter->advanced_commands&AD_MUTLIPLANE) == AD_MUTLIPLANE)
+			dram->command_buffer->max_command_buff_page = ssd->parameter->plane_die;
+		else
+			dram->command_buffer->max_command_buff_page = 1;
+	}
+	else if (ssd->parameter->flash_mode == TLC_MODE)
+	{
+		if ((ssd->parameter->advanced_commands&AD_ONESHOT_PROGRAM) == AD_ONESHOT_PROGRAM)
+		{
+			if ((ssd->parameter->advanced_commands&AD_MUTLIPLANE) == AD_MUTLIPLANE)
+				dram->command_buffer->max_command_buff_page = ssd->parameter->plane_die * PAGE_INDEX;
+			else
+				dram->command_buffer->max_command_buff_page = PAGE_INDEX;
+		}
+		else
+		{
+			printf("Error! tlc mode match advanced commamd failed!\n");
+			getchar();
+		}
+	}
 
 	dram->map = (struct map_info *)malloc(sizeof(struct map_info));
 	alloc_assert(dram->map,"dram->map");
@@ -243,6 +268,8 @@ struct dram_info * initialize_dram(struct ssd_info * ssd)
 	
 	return dram;
 }
+
+
 
 struct page_info * initialize_page(struct page_info * p_page )
 {

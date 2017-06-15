@@ -40,6 +40,9 @@ typedef struct buffer_info
 	unsigned int max_buffer_sector;
 	unsigned int buffer_sector_count;
 
+	unsigned int max_command_buff_page;
+	unsigned int command_buff_page;
+
 #ifdef ORDER_LIST_WANTED
 	TREE_NODE	*pListHeader;
 	TREE_NODE	*pListTail;

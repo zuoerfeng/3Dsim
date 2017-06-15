@@ -920,13 +920,13 @@ Status service_advance_command(struct ssd_info *ssd, unsigned int channel, unsig
 
 	max_sub_num = (ssd->parameter->die_chip)*(ssd->parameter->plane_die)*PAGE_INDEX;
 
-	/*
+	
 	if (ssd->trace_over_flag == 1 && ssd->request_work == NULL)
 	{
 		for (i = 0; i <= subs_count;i++)
 			get_ppn_for_normal_command(ssd, channel, chip, subs[i]);
 	}
-	*/
+	
 
 	if (subs_count >= aim_subs_count)
 	{
@@ -939,6 +939,7 @@ Status service_advance_command(struct ssd_info *ssd, unsigned int channel, unsig
 	}
 	else if (subs_count > 0)
 	{
+		
 		while (subs_count < aim_subs_count)
 		{
 			getout2buffer(ssd, NULL, subs[0]->total_request);
@@ -962,13 +963,11 @@ Status service_advance_command(struct ssd_info *ssd, unsigned int channel, unsig
 				p = sub;
 				sub = sub->next_node;
 			}
-			
-			//if (subs_count >= 3)
-				break;
-			
 		}
 		if (subs_count == aim_subs_count)
 			get_ppn_for_advanced_commands(ssd, channel, chip, subs, subs_count, command);	
+
+		
 	}
 	else
 	{
