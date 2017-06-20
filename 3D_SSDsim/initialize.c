@@ -6,7 +6,7 @@ This is a project on 3D_SSDsim, based on ssdsim under the framework of the compl
 4.4-layer structure
 
 FileName£º initialize.c
-Author: Zuo Lu 		Version: 1.2	Date:2017/06/12
+Author: Zuo Lu 		Version: 1.3	Date:2017/06/16
 Description: 
 Initialization layer: complete ssd organizational data structure, request queue creation and memory space initialization
 
@@ -15,6 +15,7 @@ History:
 Zuo Lu	        2017/04/06	      1.0		    Creat 3D_SSDsim							617376665@qq.com
 Zuo Lu			2017/05/12		  1.1			Support advanced commands:mutli plane   617376665@qq.com
 Zuo Lu			2017/06/12		  1.2			Support advanced commands:half page read   617376665@qq.com
+Zuo Lu			2017/06/16		  1.3			Support advanced commands:one shot program   617376665@qq.com
 *****************************************************************************************************************************/
 
 #define _CRTDBG_MAP_ALLOC
@@ -435,7 +436,6 @@ struct parameter_value *load_parameters(char parameter_file[30])
 	p = (struct parameter_value *)malloc(sizeof(struct parameter_value));
 	alloc_assert(p,"parameter_value");
 	memset(p,0,sizeof(struct parameter_value));
-	p->queue_length=8;
 	memset(buf,0,BUFSIZE);
 		
 	if((ferr = fopen_s(&fp,parameter_file,"r"))!= 0)
@@ -566,8 +566,6 @@ struct parameter_value *load_parameters(char parameter_file[30])
 			sscanf(buf + next_eql,"%d",&p->gc);							//Gc strategy, the general gc strategy, using the gc_threshold as a threshold, the active write strategy, that can be interrupted gc, need to use gc_hard_threshold hard threshold
 		}else if((res_eql=strcmp(buf,"overprovide")) ==0){ 
 			sscanf(buf + next_eql,"%f",&p->overprovide);                //The size of the op space
-		}else if((res_eql=strcmp(buf,"gc threshold")) ==0){
-			sscanf(buf + next_eql,"%f",&p->gc_threshold);               //Gc threshold setting
 		}else if((res_eql=strcmp(buf,"buffer management")) ==0){
 			sscanf(buf + next_eql,"%d",&p->buffer_management);          //Whether to support data cache
 		}else if((res_eql=strcmp(buf,"scheduling algorithm")) ==0){
@@ -582,10 +580,6 @@ struct parameter_value *load_parameters(char parameter_file[30])
 			sscanf(buf + next_eql, "%d", &p->dynamic_allocation_priority);	 //Indicates the priority of the ssd allocation mode, 0 means channel> chip> die> plane, and 1 represents plane> channel> chip> die
 		}else if((res_eql=strcmp(buf,"advanced command")) ==0){
 			sscanf(buf + next_eql,"%d",&p->advanced_commands);         //Whether to use the advanced command, 0 means not to use. (00001), copyback (00010), two-plane-program (00100), interleave (01000), and two-plane-read (10000) are used respectively, and all use is 11111, both 31       
-		}else if((res_eql=strcmp(buf,"advanced command priority2")) ==0){
-			sscanf(buf + next_eql,"%d",&p->ad_priority2);				//The priority of the advanced command, 0 that interleave priority higher than the two plane, 1 said two plane priority higher than interleave
-		}else if((res_eql=strcmp(buf,"greed CB command")) ==0){
-			sscanf(buf + next_eql,"%d",&p->greed_CB_ad);				//Indicates whether greedy use of the copyback advanced command, 0 for no, 1 for greedy use
 		}else if((res_eql=strcmp(buf,"greed MPW command")) ==0){
 			sscanf(buf + next_eql,"%d",&p->greed_MPW_ad);               //Indicates whether greedy use of multi-plane write advanced command, 0 for no, 1 for greedy use
 		}else if((res_eql=strcmp(buf,"aged")) ==0){
@@ -594,7 +588,7 @@ struct parameter_value *load_parameters(char parameter_file[30])
 			sscanf(buf + next_eql,"%f",&p->aged_ratio);                 //Indicates that the SSD needs to be set to invaild in advance for SSD to become aged
 		}else if ((res_eql = strcmp(buf, "flash mode")) == 0){
 			sscanf(buf + next_eql, "%d", &p->flash_mode);
-		}else if((res_eql=strcmp(buf,"queue_length")) ==0){
+		}else if((res_eql=strcmp(buf,"requset queue depth")) ==0){
 			sscanf(buf + next_eql,"%d",&p->queue_length);               //Request the queue depth
 		}else if((res_eql=strncmp(buf,"chip number",11)) ==0)
 		{

@@ -66,55 +66,53 @@ t_IR = 0;
 t_RHW = 100;
 t_WHR = 60;
 t_RST = 5000;
-erase limit=100000;                          #record the erasure number of block
-address mapping=1;                    #mapping schemes，1：page；2：block；3：fast
-wear leveling=1;                      #WL算法
-gc=1;                                 #记录gc策略
-overprovide=0.20;
-gc threshold=0.10;                    #当达到这个阈值时，开始GC操作，在主动写策略中，开始GC操作后可以临时中断GC操作，服务新到的请求；在普通策略中，GC不可中断
-buffer management=0;                  #表示哪种buffer的功能
-scheduling algorithm=1;               #记录使用哪种调度算法，1:FCFS
-gc hard threshold=0.10;          #普通策略中用不到该参数，只有在主动写策略中，当满足这个阈值时，GC操作不可中断
-allocation=0;                   #确定分配方式，0表示动态分配，1表示静态分配
-dynamic_allocation=0;           #记录在采用哪种动态分配方式，0表示全动态，1表示channel定package，die，plane动态，2表示channel，package，die定plane动态
-dynamic_allocation_priority=1;	#表示ssd分配方式的优先级，0表示channel>chip>die>plane,1表示plane>channel>chip>die
-advanced command=5;             #是否使用高级命令，0表示不使用。利用二进制01分别表示mutli plane(00001), half-page-read(00010), one shot program(00100)是否使用，全部使用是00011，即3；
-advanced command priority2=0;    #0表示interleave优先级高于two plane，1表示two plane优先级高于interleave
-greed CB command=0;            #表示是否贪婪地使用copyback高级命令，0表示否，1表示是贪婪地使用
-greed MPW command=1;            #表示是否贪婪地使用multi-plane write高级命令，0表示否，1表示是贪婪地使用
-aged=0;                         #1表示需要将这个SSD变成aged，0表示需要将这个SSD保持non-aged
-aged ratio=0.5;                #表示为了使SSD变成aged的SSD，需要将SSD中提前置为失效的比率
-flash mode=1;					#表示flash的模式，0--slc,1--tlc
+erase limit=100000;              #记录block最大次数擦写次数
+overprovide=0.20;				 #op空间大小
+requset queue depth=8; 			 #请求队列深度
+scheduling algorithm=1;          #记录使用哪种调度算法，1:FCFS
+buffer management=0;             #缓存策略：0：sub_page拼凑
+address mapping=1;               #映射表策略：1：page；2：4kb_map(目前只支持page-level)
+wear leveling=1;                 #WL算法
+gc=1;                            #gc策略：1：superblock
+gc hard threshold=0.10;          #gc硬阈值大小，当plane内无效页个数超过此阈值时，触发gc操作
+allocation=0;                    #分配方式，0：动态分配，1：静态分配
+dynamic_allocation=0;            #动态分配方式类型，0:全动态，1:channel静态,chip，die，plane动态，2:channel，package，die静态,plane动态
+dynamic_allocation_priority=1;	 #动态分配方式优先级，0：channel>chip>die>plane,1：plane>channel>chip>die
+advanced command=3;              #高级命令支持，用二进制表示，无(00000)、mutli plane(00001), half-page-read(00010), one shot program(00100)
+greed MPW command=1;             #multi-plane贪心算法，0：非贪心，1：贪心
+aged=0;                          #旧化处理，0：non-aged，1：aged
+aged ratio=0.5;                	 #旧化率
+flash mode=0;					 #flash支持模式，0：slc,1：tlc
 -----------------------simulation output----------------------
-the 0 channel, 0 chip, 0 die, 0 plane has :   0 erase operations,15424 read operations,15357 write operations,129 pre_process write operations
-the 0 channel, 0 chip, 0 die, 1 plane has :   0 erase operations,15632 read operations,15357 write operations,129 pre_process write operations
-the 0 channel, 0 chip, 1 die, 0 plane has :   0 erase operations,15366 read operations,15354 write operations,129 pre_process write operations
-the 0 channel, 0 chip, 1 die, 1 plane has :   0 erase operations,15538 read operations,15355 write operations,128 pre_process write operations
-the 1 channel, 0 chip, 0 die, 0 plane has :   0 erase operations,12243 read operations,12072 write operations,129 pre_process write operations
-the 1 channel, 0 chip, 0 die, 1 plane has :   0 erase operations,12490 read operations,12072 write operations,129 pre_process write operations
-the 1 channel, 0 chip, 1 die, 0 plane has :   0 erase operations,12170 read operations,12069 write operations,128 pre_process write operations
-the 1 channel, 0 chip, 1 die, 1 plane has :   0 erase operations,12295 read operations,12069 write operations,128 pre_process write operations
+the 0 channel, 0 chip, 0 die, 0 plane has :   0 erase operations,16439 read operations,16126 write operations,129 pre_process write operations
+the 0 channel, 0 chip, 0 die, 1 plane has :   0 erase operations,16493 read operations,16126 write operations,129 pre_process write operations
+the 0 channel, 0 chip, 1 die, 0 plane has :   0 erase operations,16211 read operations,16126 write operations,129 pre_process write operations
+the 0 channel, 0 chip, 1 die, 1 plane has :   0 erase operations,15970 read operations,16127 write operations,128 pre_process write operations
+the 1 channel, 0 chip, 0 die, 0 plane has :   0 erase operations,10473 read operations,10445 write operations,129 pre_process write operations
+the 1 channel, 0 chip, 0 die, 1 plane has :   0 erase operations,10695 read operations,10445 write operations,129 pre_process write operations
+the 1 channel, 0 chip, 1 die, 0 plane has :   0 erase operations,10426 read operations,10445 write operations,128 pre_process write operations
+the 1 channel, 0 chip, 1 die, 1 plane has :   0 erase operations,10763 read operations,10445 write operations,128 pre_process write operations
 
 
 ---------------------------statistic data---------------------------
 min lsn:             0
 max lsn:         32767
-read count:        111158
-the read operation leaded by un-covered update count:         22206
+read count:        107470
+the read operation leaded by un-covered update count:         20952
 the read operation leaded by gc read count:             0
 
-program count:        109704
+program count:        106284
 the write operation leaded by pre_process write count:          1029
-the write operation leaded by un-covered update count:         22206
+the write operation leaded by un-covered update count:         20952
 the write operation leaded by gc read count:             0
 
 erase count:             0
 direct erase count:             0
 
-multi-plane program count:         54852
-multi-plane read count:         12177
+multi-plane program count:         53142
+multi-plane read count:         13014
 
-write flash count:        110733
+write flash count:        107313
 
 read request count:         40093
 write request count:         59906
@@ -122,14 +120,14 @@ write request count:         59906
 read request average size:     96.005463
 write request average size:     95.886711
 
-read request average response time:           643728
-write request average response time:           543854
+read request average response time:           563449
+write request average response time:           677373
 
-buffer read hits:         70186
-buffer read miss:         88971
+buffer read hits:         72621
+buffer read miss:         86536
 buffer write hits:        237511
-buffer write miss:        109706
-update sub request count :            12
-half page read count :             0
-mutli plane one shot count :         18284
+buffer write miss:        106285
+update sub request count :             7
+half page read count :         17309
+mutli plane one shot count :             0
 

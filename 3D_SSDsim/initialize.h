@@ -6,7 +6,7 @@ This is a project on 3D_SSDsim, based on ssdsim under the framework of the compl
 4.4-layer structure
 
 FileName： initialize.h
-Author: Zuo Lu 		Version: 1.2	Date:2017/06/12
+Author: Zuo Lu 		Version: 1.3	Date:2017/06/16
 Description:
 Initialization layer: complete ssd organizational data structure, request queue creation and memory space initialization
 
@@ -15,6 +15,7 @@ History:
 Zuo Lu	        2017/04/06	      1.0		    Creat 3D_SSDsim							617376665@qq.com
 Zuo Lu			2017/05/12		  1.1			Support advanced commands:mutli plane   617376665@qq.com
 Zuo Lu			2017/06/12		  1.2			Support advanced commands:half page read   617376665@qq.com
+Zuo Lu			2017/06/16		  1.3			Support advanced commands:one shot program   617376665@qq.com
 *****************************************************************************************************************************/
 
 #include <stdio.h>
@@ -31,6 +32,10 @@ Zuo Lu			2017/06/12		  1.2			Support advanced commands:half page read   61737666
 
 #define DYNAMIC_ALLOCATION 0
 #define STATIC_ALLOCATION 1
+
+#define FULL_ALLOCATION 0
+#define DIE_ALLOCATION 1
+#define PLANE_ALLOCATION 2
 
 #define SLC_MODE 0
 #define TLC_MODE 1
@@ -474,7 +479,6 @@ struct parameter_value{
 	int clean_in_background;        //Whether the cleanup operation is done in the foreground
 	int alloc_pool;                 //allocation pool 大小(plane，die，chip，channel),也就是拥有active_block的单位
 	float overprovide;
-	float gc_threshold;             //When this threshold is reached, the GC operation is started
 
 	double operating_current;       //NAND FLASH operating current(uA)
 	double supply_voltage;	
@@ -504,8 +508,6 @@ struct parameter_value{
 	int dynamic_allocation_priority; //The priority of the dynamic allocation 0--channel>chip>die>plane,1--plane>channel>chip>die
 	int advanced_commands;  
 	int ad_priority;                //record the priority between two plane operation and interleave operation
-	int ad_priority2;               //record the priority of channel-level, 0 indicates that the priority order of channel-level is highest; 1 indicates the contrary
-	int greed_CB_ad;                //0 don't use copyback advanced commands greedily; 1 use copyback advanced commands greedily
 	int greed_MPW_ad;               //0 don't use multi-plane write advanced commands greedily; 1 use multi-plane write advanced commands greedily
 	int aged;                       //1 indicates that the SSD needs to be aged, 0 means that the SSD needs to be kept non-aged
 	float aged_ratio; 

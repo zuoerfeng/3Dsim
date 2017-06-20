@@ -6,7 +6,7 @@ This is a project on 3D_SSDsim, based on ssdsim under the framework of the compl
 4.4-layer structure
 
 FileName£º ftl.h
-Author: Zuo Lu 		Version: 1.2	Date:2017/06/12
+Author: Zuo Lu 		Version: 1.3	Date:2017/06/16
 Description:
 ftl layer: can not interrupt the global gc operation, gc operation to migrate valid pages using ordinary read and write operations, remove support copyback operation;
 
@@ -15,6 +15,7 @@ History:
 Zuo Lu	        2017/04/06	      1.0		    Creat 3D_SSDsim							617376665@qq.com
 Zuo Lu			2017/05/12		  1.1			Support advanced commands:mutli plane   617376665@qq.com
 Zuo Lu			2017/06/12		  1.2			Support advanced commands:half page read   617376665@qq.com
+Zuo Lu			2017/06/16		  1.3			Support advanced commands:one shot program   617376665@qq.com
 *****************************************************************************************************************************/
 
 struct ssd_info *pre_process_page(struct ssd_info *ssd);

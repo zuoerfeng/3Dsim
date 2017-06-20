@@ -6,7 +6,7 @@ This is a project on 3D_SSDsim, based on ssdsim under the framework of the compl
 4.4-layer structure
 
 FileName£º ftl.c
-Author: Zuo Lu 		Version: 1.2	Date:2017/06/12
+Author: Zuo Lu 		Version: 1.2	Date:2017/06/16
 Description: 
 ftl layer: can not interrupt the global gc operation, gc operation to migrate valid pages using ordinary read and write operations, remove support copyback operation;
 
@@ -15,6 +15,7 @@ History:
 Zuo Lu	        2017/04/06	      1.0		    Creat 3D_SSDsim							617376665@qq.com
 Zuo Lu			2017/05/12		  1.1			Support advanced commands:mutli plane   617376665@qq.com
 Zuo Lu			2017/06/12		  1.2			Support advanced commands:half page read   617376665@qq.com
+Zuo Lu			2017/06/16		  1.3			Support advanced commands:one shot program   617376665@qq.com
 *****************************************************************************************************************************/
 
 #define _CRTDBG_MAP_ALLOC
@@ -177,9 +178,9 @@ unsigned int get_ppn_for_pre_process(struct ssd_info *ssd, unsigned int lsn)
 	plane_num = ssd->parameter->plane_die;
 	lpn = lsn / secno_num_per_page;
 
-	if (ssd->parameter->allocation_scheme == 0)                           /*Dynamic way to get ppn*/
+	if (ssd->parameter->allocation_scheme == DYNAMIC_ALLOCATION)                           /*Dynamic way to get ppn*/
 	{
-		if (ssd->parameter->dynamic_allocation == 0)                      
+		if (ssd->parameter->dynamic_allocation == FULL_ALLOCATION)
 		{
 			if (ssd->parameter->dynamic_allocation_priority == 0)			//assign priority£ºchannel>die>plane
 			{
@@ -646,9 +647,9 @@ unsigned int gc(struct ssd_info *ssd, unsigned int channel, unsigned int flag)
 	//Passive gc
 	else                                                                               /*Only for a specific channel, chip, die gc request operation (only the target die to determine whether to see is idle)*/
 	{
-		if ((ssd->parameter->allocation_scheme == 0) && (ssd->parameter->dynamic_allocation == 0))
+		if ((ssd->parameter->allocation_scheme == DYNAMIC_ALLOCATION) && (ssd->parameter->dynamic_allocation == FULL_ALLOCATION))
 		{
-			if ((ssd->channel_head[channel].subs_r_head != NULL) || (ssd->channel_head[channel].subs_w_head != NULL))    /*Queue has a request, first service request*/
+			if ((ssd->channel_head[channel].subs_r_head != NULL) || (ssd->channel_head[channel].subs_w_head != NULL) || (ssd->subs_w_head != NULL))    /*Queue has a request, first service request*/
 			{
 				return 0;
 			}

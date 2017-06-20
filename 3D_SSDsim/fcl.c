@@ -6,7 +6,7 @@ This is a project on 3D_SSDsim, based on ssdsim under the framework of the compl
 4.4-layer structure
 
 FileName£º fcl.c
-Author: Zuo Lu 		Version: 1.2	Date:2017/06/12
+Author: Zuo Lu 		Version: 1.3	Date:2017/06/16
 Description:
 fcl layer: remove other high-level commands, leaving only mutli plane;
 
@@ -15,6 +15,7 @@ History:
 Zuo Lu	        2017/04/06	      1.0		    Creat 3D_SSDsim							617376665@qq.com
 Zuo Lu			2017/05/12		  1.1			Support advanced commands:mutli plane   617376665@qq.com
 Zuo Lu			2017/06/12		  1.2			Support advanced commands:half page read   617376665@qq.com
+Zuo Lu			2017/06/16		  1.3			Support advanced commands:one shot program   617376665@qq.com
 *****************************************************************************************************************************/
 
 #define _CRTDBG_MAP_ALLOC
@@ -751,7 +752,7 @@ Status services_2_write(struct ssd_info * ssd, unsigned int channel, unsigned in
 	*************************************************************************************************************************/
 	if (ssd->subs_w_head != NULL)
 	{
-		if (ssd->parameter->allocation_scheme == 0)                                      
+		if (ssd->parameter->allocation_scheme == DYNAMIC_ALLOCATION)
 		{
 			for (j = 0; j<ssd->channel_head[channel].chip; j++)							  //Traverse all the chips
 			{
@@ -822,9 +823,9 @@ struct ssd_info *dynamic_advanced_process(struct ssd_info *ssd, unsigned int cha
 	}
 	update_count = 0;
 
-	if ((ssd->parameter->allocation_scheme == 0))                                           /*Full dynamic allocation, you need to select the wait-to-service sub-request from ssd-> subs_w_head*/
+	if ((ssd->parameter->allocation_scheme == DYNAMIC_ALLOCATION))                                           /*Full dynamic allocation, you need to select the wait-to-service sub-request from ssd-> subs_w_head*/
 	{
-		if (ssd->parameter->dynamic_allocation == 0)
+		if (ssd->parameter->dynamic_allocation == FULL_ALLOCATION)
 			sub = ssd->subs_w_head;
 		else
 			sub = ssd->channel_head[channel].subs_w_head;
@@ -1218,7 +1219,7 @@ struct ssd_info *compute_serve_time(struct ssd_info *ssd, unsigned int channel, 
 struct ssd_info *delete_from_channel(struct ssd_info *ssd, unsigned int channel, struct sub_request * sub_req)
 {
 	struct sub_request *sub, *p;
-	if ((ssd->parameter->allocation_scheme == 0) && (ssd->parameter->dynamic_allocation == 0))
+	if ((ssd->parameter->allocation_scheme == DYNAMIC_ALLOCATION) && (ssd->parameter->dynamic_allocation == FULL_ALLOCATION))
 	{
 		sub = ssd->subs_w_head;
 	}
@@ -1232,12 +1233,9 @@ struct ssd_info *delete_from_channel(struct ssd_info *ssd, unsigned int channel,
 	{
 		if (sub == sub_req)
 		{
-			if ((ssd->parameter->allocation_scheme == 0) && (ssd->parameter->dynamic_allocation == 0))
+			if ((ssd->parameter->allocation_scheme == DYNAMIC_ALLOCATION) && (ssd->parameter->dynamic_allocation == FULL_ALLOCATION))
 			{
-				if (ssd->parameter->ad_priority2 == 0)
-				{
-					ssd->real_time_subreq--;
-				}
+				ssd->real_time_subreq--;
 
 				if (sub == ssd->subs_w_head)                                                     /*This sub request is removed from the sub request queue*/
 				{
@@ -1270,11 +1268,11 @@ struct ssd_info *delete_from_channel(struct ssd_info *ssd, unsigned int channel,
 						break;
 					}
 				}
-			}//if ((ssd->parameter->allocation_scheme==0)&&(ssd->parameter->dynamic_allocation==0)) 
-		}//if (sub==sub_req)
+			}
+		}
 		p = sub;
 		sub = sub->next_node;
-	}//while (sub!=NULL)
+	}
 
 	return ssd;
 }

@@ -6,7 +6,7 @@ This is a project on 3D_SSDsim, based on ssdsim under the framework of the compl
 4.4-layer structure
 
 FileName： buffer.c
-Author: Zuo Lu 		Version: 1.2	Date:2017/06/12
+Author: Zuo Lu 		Version: 1.3	Date:2017/06/16
 Description: 
 buff layer: only contains data cache (minimum processing size for the sector, that is, unit = 512B), mapping table (page-level);
 
@@ -15,6 +15,7 @@ History:
 Zuo Lu	        2017/04/06	      1.0		    Creat 3D_SSDsim							617376665@qq.com
 Zuo Lu			2017/05/12		  1.1			Support advanced commands:mutli plane   617376665@qq.com
 Zuo Lu			2017/06/12		  1.2			Support advanced commands:half page read   617376665@qq.com
+Zuo Lu			2017/06/16		  1.3			Support advanced commands:one shot program   617376665@qq.com
 *****************************************************************************************************************************/
 #define _CRTDBG_MAP_ALLOC
 
@@ -780,7 +781,7 @@ Status allocate_location(struct ssd_info * ssd, struct sub_request *sub_req)
 	plane_num = ssd->parameter->plane_die;
 
 
-	if (ssd->parameter->allocation_scheme == 0)                                          /*动态分配的情况*/
+	if (ssd->parameter->allocation_scheme == DYNAMIC_ALLOCATION)                                          /*动态分配的情况*/
 	{
 		/******************************************************************
 		* 在动态分配中，因为页的更新操作使用不了copyback操作，
@@ -833,7 +834,7 @@ Status allocate_location(struct ssd_info * ssd, struct sub_request *sub_req)
 			}
 		}
 
-		if (ssd->parameter->dynamic_allocation == 0)
+		if (ssd->parameter->dynamic_allocation == FULL_ALLOCATION)
 		{
 			sub_req->location->channel = -1;
 			sub_req->location->chip = -1;

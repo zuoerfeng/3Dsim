@@ -1,8 +1,147 @@
-﻿生成启动时间为 2017/6/15 20:37:36。
+﻿生成启动时间为 2017/6/20 10:56:36。
      1>项目“C:\Users\lz\Desktop\3D_SSDsim\3D_SSDsim_v1\3D_SSDsim\ssdsim.vcxproj”在节点 2 上(Build 个目标)。
      1>ClCompile:
-         D:\2_tmp\Microsoft Visual Studio 12.0\VC\bin\CL.exe /c /Zi /nologo /W3 /WX- /Od /Oy- /D WIN32 /D _DEBUG /D _CONSOLE /Gm /EHsc /RTC1 /MDd /GS /fp:precise /Zc:wchar_t /Zc:forScope /Fo"Debug\\" /Fd"Debug\vc120.pdb" /Gd /TC /analyze- /errorReport:prompt buffer.c
-         buffer.c
+         D:\2_tmp\Microsoft Visual Studio 12.0\VC\bin\CL.exe /c /Zi /nologo /W3 /WX- /Od /Oy- /D WIN32 /D _DEBUG /D _CONSOLE /Gm /EHsc /RTC1 /MDd /GS /fp:precise /Zc:wchar_t /Zc:forScope /Fo"Debug\\" /Fd"Debug\vc120.pdb" /Gd /TC /analyze- /errorReport:prompt initialize.c ssd.c
+         ssd.c
+     1>ssd.c(54): warning C4101: “p”: 未引用的局部变量
+     1>ssd.c(54): warning C4101: “n”: 未引用的局部变量
+     1>ssd.c(132): warning C4101: “p”: 未引用的局部变量
+     1>ssd.c(132): warning C4101: “m”: 未引用的局部变量
+     1>ssd.c(217): warning C4101: “p”: 未引用的局部变量
+     1>ssd.c(217): warning C4101: “k”: 未引用的局部变量
+     1>ssd.c(217): warning C4101: “m”: 未引用的局部变量
+     1>ssd.c(217): warning C4101: “j”: 未引用的局部变量
+         initialize.c
+     1>initialize.c(131): warning C4013: “alloc_assert”未定义；假设外部返回 int
+     1>initialize.c(470): warning C4996: 'sscanf': This function or variable may be unsafe. Consider using sscanf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+                 D:\2_tmp\Microsoft Visual Studio 12.0\VC\include\stdio.h(304) : 参见“sscanf”的声明
+     1>initialize.c(472): warning C4996: 'sscanf': This function or variable may be unsafe. Consider using sscanf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+                 D:\2_tmp\Microsoft Visual Studio 12.0\VC\include\stdio.h(304) : 参见“sscanf”的声明
+     1>initialize.c(474): warning C4996: 'sscanf': This function or variable may be unsafe. Consider using sscanf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+                 D:\2_tmp\Microsoft Visual Studio 12.0\VC\include\stdio.h(304) : 参见“sscanf”的声明
+     1>initialize.c(476): warning C4996: 'sscanf': This function or variable may be unsafe. Consider using sscanf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+                 D:\2_tmp\Microsoft Visual Studio 12.0\VC\include\stdio.h(304) : 参见“sscanf”的声明
+     1>initialize.c(478): warning C4996: 'sscanf': This function or variable may be unsafe. Consider using sscanf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+                 D:\2_tmp\Microsoft Visual Studio 12.0\VC\include\stdio.h(304) : 参见“sscanf”的声明
+     1>initialize.c(480): warning C4996: 'sscanf': This function or variable may be unsafe. Consider using sscanf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+                 D:\2_tmp\Microsoft Visual Studio 12.0\VC\include\stdio.h(304) : 参见“sscanf”的声明
+     1>initialize.c(482): warning C4996: 'sscanf': This function or variable may be unsafe. Consider using sscanf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+                 D:\2_tmp\Microsoft Visual Studio 12.0\VC\include\stdio.h(304) : 参见“sscanf”的声明
+     1>initialize.c(484): warning C4996: 'sscanf': This function or variable may be unsafe. Consider using sscanf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+                 D:\2_tmp\Microsoft Visual Studio 12.0\VC\include\stdio.h(304) : 参见“sscanf”的声明
+     1>initialize.c(486): warning C4996: 'sscanf': This function or variable may be unsafe. Consider using sscanf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+                 D:\2_tmp\Microsoft Visual Studio 12.0\VC\include\stdio.h(304) : 参见“sscanf”的声明
+     1>initialize.c(488): warning C4996: 'sscanf': This function or variable may be unsafe. Consider using sscanf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+                 D:\2_tmp\Microsoft Visual Studio 12.0\VC\include\stdio.h(304) : 参见“sscanf”的声明
+     1>initialize.c(490): warning C4996: 'sscanf': This function or variable may be unsafe. Consider using sscanf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+                 D:\2_tmp\Microsoft Visual Studio 12.0\VC\include\stdio.h(304) : 参见“sscanf”的声明
+     1>initialize.c(492): warning C4996: 'sscanf': This function or variable may be unsafe. Consider using sscanf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+                 D:\2_tmp\Microsoft Visual Studio 12.0\VC\include\stdio.h(304) : 参见“sscanf”的声明
+     1>initialize.c(494): warning C4996: 'sscanf': This function or variable may be unsafe. Consider using sscanf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+                 D:\2_tmp\Microsoft Visual Studio 12.0\VC\include\stdio.h(304) : 参见“sscanf”的声明
+     1>initialize.c(496): warning C4996: 'sscanf': This function or variable may be unsafe. Consider using sscanf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+                 D:\2_tmp\Microsoft Visual Studio 12.0\VC\include\stdio.h(304) : 参见“sscanf”的声明
+     1>initialize.c(498): warning C4996: 'sscanf': This function or variable may be unsafe. Consider using sscanf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+                 D:\2_tmp\Microsoft Visual Studio 12.0\VC\include\stdio.h(304) : 参见“sscanf”的声明
+     1>initialize.c(500): warning C4996: 'sscanf': This function or variable may be unsafe. Consider using sscanf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+                 D:\2_tmp\Microsoft Visual Studio 12.0\VC\include\stdio.h(304) : 参见“sscanf”的声明
+     1>initialize.c(502): warning C4996: 'sscanf': This function or variable may be unsafe. Consider using sscanf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+                 D:\2_tmp\Microsoft Visual Studio 12.0\VC\include\stdio.h(304) : 参见“sscanf”的声明
+     1>initialize.c(504): warning C4996: 'sscanf': This function or variable may be unsafe. Consider using sscanf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+                 D:\2_tmp\Microsoft Visual Studio 12.0\VC\include\stdio.h(304) : 参见“sscanf”的声明
+     1>initialize.c(506): warning C4996: 'sscanf': This function or variable may be unsafe. Consider using sscanf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+                 D:\2_tmp\Microsoft Visual Studio 12.0\VC\include\stdio.h(304) : 参见“sscanf”的声明
+     1>initialize.c(508): warning C4996: 'sscanf': This function or variable may be unsafe. Consider using sscanf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+                 D:\2_tmp\Microsoft Visual Studio 12.0\VC\include\stdio.h(304) : 参见“sscanf”的声明
+     1>initialize.c(510): warning C4996: 'sscanf': This function or variable may be unsafe. Consider using sscanf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+                 D:\2_tmp\Microsoft Visual Studio 12.0\VC\include\stdio.h(304) : 参见“sscanf”的声明
+     1>initialize.c(512): warning C4996: 'sscanf': This function or variable may be unsafe. Consider using sscanf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+                 D:\2_tmp\Microsoft Visual Studio 12.0\VC\include\stdio.h(304) : 参见“sscanf”的声明
+     1>initialize.c(514): warning C4996: 'sscanf': This function or variable may be unsafe. Consider using sscanf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+                 D:\2_tmp\Microsoft Visual Studio 12.0\VC\include\stdio.h(304) : 参见“sscanf”的声明
+     1>initialize.c(516): warning C4996: 'sscanf': This function or variable may be unsafe. Consider using sscanf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+                 D:\2_tmp\Microsoft Visual Studio 12.0\VC\include\stdio.h(304) : 参见“sscanf”的声明
+     1>initialize.c(518): warning C4996: 'sscanf': This function or variable may be unsafe. Consider using sscanf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+                 D:\2_tmp\Microsoft Visual Studio 12.0\VC\include\stdio.h(304) : 参见“sscanf”的声明
+     1>initialize.c(520): warning C4996: 'sscanf': This function or variable may be unsafe. Consider using sscanf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+                 D:\2_tmp\Microsoft Visual Studio 12.0\VC\include\stdio.h(304) : 参见“sscanf”的声明
+     1>initialize.c(522): warning C4996: 'sscanf': This function or variable may be unsafe. Consider using sscanf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+                 D:\2_tmp\Microsoft Visual Studio 12.0\VC\include\stdio.h(304) : 参见“sscanf”的声明
+     1>initialize.c(524): warning C4996: 'sscanf': This function or variable may be unsafe. Consider using sscanf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+                 D:\2_tmp\Microsoft Visual Studio 12.0\VC\include\stdio.h(304) : 参见“sscanf”的声明
+     1>initialize.c(526): warning C4996: 'sscanf': This function or variable may be unsafe. Consider using sscanf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+                 D:\2_tmp\Microsoft Visual Studio 12.0\VC\include\stdio.h(304) : 参见“sscanf”的声明
+     1>initialize.c(528): warning C4996: 'sscanf': This function or variable may be unsafe. Consider using sscanf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+                 D:\2_tmp\Microsoft Visual Studio 12.0\VC\include\stdio.h(304) : 参见“sscanf”的声明
+     1>initialize.c(530): warning C4996: 'sscanf': This function or variable may be unsafe. Consider using sscanf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+                 D:\2_tmp\Microsoft Visual Studio 12.0\VC\include\stdio.h(304) : 参见“sscanf”的声明
+     1>initialize.c(532): warning C4996: 'sscanf': This function or variable may be unsafe. Consider using sscanf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+                 D:\2_tmp\Microsoft Visual Studio 12.0\VC\include\stdio.h(304) : 参见“sscanf”的声明
+     1>initialize.c(534): warning C4996: 'sscanf': This function or variable may be unsafe. Consider using sscanf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+                 D:\2_tmp\Microsoft Visual Studio 12.0\VC\include\stdio.h(304) : 参见“sscanf”的声明
+     1>initialize.c(536): warning C4996: 'sscanf': This function or variable may be unsafe. Consider using sscanf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+                 D:\2_tmp\Microsoft Visual Studio 12.0\VC\include\stdio.h(304) : 参见“sscanf”的声明
+     1>initialize.c(538): warning C4996: 'sscanf': This function or variable may be unsafe. Consider using sscanf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+                 D:\2_tmp\Microsoft Visual Studio 12.0\VC\include\stdio.h(304) : 参见“sscanf”的声明
+     1>initialize.c(540): warning C4996: 'sscanf': This function or variable may be unsafe. Consider using sscanf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+                 D:\2_tmp\Microsoft Visual Studio 12.0\VC\include\stdio.h(304) : 参见“sscanf”的声明
+     1>initialize.c(542): warning C4996: 'sscanf': This function or variable may be unsafe. Consider using sscanf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+                 D:\2_tmp\Microsoft Visual Studio 12.0\VC\include\stdio.h(304) : 参见“sscanf”的声明
+     1>initialize.c(544): warning C4996: 'sscanf': This function or variable may be unsafe. Consider using sscanf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+                 D:\2_tmp\Microsoft Visual Studio 12.0\VC\include\stdio.h(304) : 参见“sscanf”的声明
+     1>initialize.c(546): warning C4996: 'sscanf': This function or variable may be unsafe. Consider using sscanf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+                 D:\2_tmp\Microsoft Visual Studio 12.0\VC\include\stdio.h(304) : 参见“sscanf”的声明
+     1>initialize.c(548): warning C4996: 'sscanf': This function or variable may be unsafe. Consider using sscanf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+                 D:\2_tmp\Microsoft Visual Studio 12.0\VC\include\stdio.h(304) : 参见“sscanf”的声明
+     1>initialize.c(550): warning C4996: 'sscanf': This function or variable may be unsafe. Consider using sscanf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+                 D:\2_tmp\Microsoft Visual Studio 12.0\VC\include\stdio.h(304) : 参见“sscanf”的声明
+     1>initialize.c(552): warning C4996: 'sscanf': This function or variable may be unsafe. Consider using sscanf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+                 D:\2_tmp\Microsoft Visual Studio 12.0\VC\include\stdio.h(304) : 参见“sscanf”的声明
+     1>initialize.c(554): warning C4996: 'sscanf': This function or variable may be unsafe. Consider using sscanf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+                 D:\2_tmp\Microsoft Visual Studio 12.0\VC\include\stdio.h(304) : 参见“sscanf”的声明
+     1>initialize.c(556): warning C4996: 'sscanf': This function or variable may be unsafe. Consider using sscanf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+                 D:\2_tmp\Microsoft Visual Studio 12.0\VC\include\stdio.h(304) : 参见“sscanf”的声明
+     1>initialize.c(558): warning C4996: 'sscanf': This function or variable may be unsafe. Consider using sscanf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+                 D:\2_tmp\Microsoft Visual Studio 12.0\VC\include\stdio.h(304) : 参见“sscanf”的声明
+     1>initialize.c(560): warning C4996: 'sscanf': This function or variable may be unsafe. Consider using sscanf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+                 D:\2_tmp\Microsoft Visual Studio 12.0\VC\include\stdio.h(304) : 参见“sscanf”的声明
+     1>initialize.c(562): warning C4996: 'sscanf': This function or variable may be unsafe. Consider using sscanf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+                 D:\2_tmp\Microsoft Visual Studio 12.0\VC\include\stdio.h(304) : 参见“sscanf”的声明
+     1>initialize.c(564): warning C4996: 'sscanf': This function or variable may be unsafe. Consider using sscanf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+                 D:\2_tmp\Microsoft Visual Studio 12.0\VC\include\stdio.h(304) : 参见“sscanf”的声明
+     1>initialize.c(566): warning C4996: 'sscanf': This function or variable may be unsafe. Consider using sscanf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+                 D:\2_tmp\Microsoft Visual Studio 12.0\VC\include\stdio.h(304) : 参见“sscanf”的声明
+     1>initialize.c(568): warning C4996: 'sscanf': This function or variable may be unsafe. Consider using sscanf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+                 D:\2_tmp\Microsoft Visual Studio 12.0\VC\include\stdio.h(304) : 参见“sscanf”的声明
+     1>initialize.c(570): warning C4996: 'sscanf': This function or variable may be unsafe. Consider using sscanf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+                 D:\2_tmp\Microsoft Visual Studio 12.0\VC\include\stdio.h(304) : 参见“sscanf”的声明
+     1>initialize.c(572): warning C4996: 'sscanf': This function or variable may be unsafe. Consider using sscanf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+                 D:\2_tmp\Microsoft Visual Studio 12.0\VC\include\stdio.h(304) : 参见“sscanf”的声明
+     1>initialize.c(574): warning C4996: 'sscanf': This function or variable may be unsafe. Consider using sscanf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+                 D:\2_tmp\Microsoft Visual Studio 12.0\VC\include\stdio.h(304) : 参见“sscanf”的声明
+     1>initialize.c(576): warning C4996: 'sscanf': This function or variable may be unsafe. Consider using sscanf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+                 D:\2_tmp\Microsoft Visual Studio 12.0\VC\include\stdio.h(304) : 参见“sscanf”的声明
+     1>initialize.c(578): warning C4996: 'sscanf': This function or variable may be unsafe. Consider using sscanf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+                 D:\2_tmp\Microsoft Visual Studio 12.0\VC\include\stdio.h(304) : 参见“sscanf”的声明
+     1>initialize.c(580): warning C4996: 'sscanf': This function or variable may be unsafe. Consider using sscanf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+                 D:\2_tmp\Microsoft Visual Studio 12.0\VC\include\stdio.h(304) : 参见“sscanf”的声明
+     1>initialize.c(582): warning C4996: 'sscanf': This function or variable may be unsafe. Consider using sscanf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+                 D:\2_tmp\Microsoft Visual Studio 12.0\VC\include\stdio.h(304) : 参见“sscanf”的声明
+     1>initialize.c(584): warning C4996: 'sscanf': This function or variable may be unsafe. Consider using sscanf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+                 D:\2_tmp\Microsoft Visual Studio 12.0\VC\include\stdio.h(304) : 参见“sscanf”的声明
+     1>initialize.c(586): warning C4996: 'sscanf': This function or variable may be unsafe. Consider using sscanf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+                 D:\2_tmp\Microsoft Visual Studio 12.0\VC\include\stdio.h(304) : 参见“sscanf”的声明
+     1>initialize.c(588): warning C4996: 'sscanf': This function or variable may be unsafe. Consider using sscanf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+                 D:\2_tmp\Microsoft Visual Studio 12.0\VC\include\stdio.h(304) : 参见“sscanf”的声明
+     1>initialize.c(590): warning C4996: 'sscanf': This function or variable may be unsafe. Consider using sscanf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+                 D:\2_tmp\Microsoft Visual Studio 12.0\VC\include\stdio.h(304) : 参见“sscanf”的声明
+     1>initialize.c(592): warning C4996: 'sscanf': This function or variable may be unsafe. Consider using sscanf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+                 D:\2_tmp\Microsoft Visual Studio 12.0\VC\include\stdio.h(304) : 参见“sscanf”的声明
+     1>initialize.c(595): warning C4996: 'sscanf': This function or variable may be unsafe. Consider using sscanf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+                 D:\2_tmp\Microsoft Visual Studio 12.0\VC\include\stdio.h(304) : 参见“sscanf”的声明
+     1>initialize.c(596): warning C4996: 'sscanf': This function or variable may be unsafe. Consider using sscanf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+                 D:\2_tmp\Microsoft Visual Studio 12.0\VC\include\stdio.h(304) : 参见“sscanf”的声明
+         正在生成代码...
        Link:
          D:\2_tmp\Microsoft Visual Studio 12.0\VC\bin\link.exe /ERRORREPORT:PROMPT /OUT:"C:\Users\lz\Desktop\3D_SSDsim\3D_SSDsim_v1\3D_SSDsim\Debug\ssdsim.exe" /INCREMENTAL /NOLOGO kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /MANIFEST /MANIFESTUAC:"level='asInvoker' uiAccess='false'" /manifest:embed /DEBUG /PDB:"C:\Users\lz\Desktop\3D_SSDsim\3D_SSDsim_v1\3D_SSDsim\Debug\ssdsim.pdb" /SUBSYSTEM:CONSOLE /TLBID:1 /DYNAMICBASE /NXCOMPAT /IMPLIB:"C:\Users\lz\Desktop\3D_SSDsim\3D_SSDsim_v1\3D_SSDsim\Debug\ssdsim.lib" /MACHINE:X86 Debug\avlTree.obj
          Debug\buffer.obj
@@ -17,4 +156,4 @@
 
 生成成功。
 
-已用时间 00:00:00.28
+已用时间 00:00:00.31
