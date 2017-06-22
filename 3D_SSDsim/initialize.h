@@ -6,16 +6,17 @@ This is a project on 3D_SSDsim, based on ssdsim under the framework of the compl
 4.4-layer structure
 
 FileName£º initialize.h
-Author: Zuo Lu 		Version: 1.3	Date:2017/06/16
+Author: Zuo Lu 		Version: 1.4	Date:2017/06/22
 Description:
 Initialization layer: complete ssd organizational data structure, request queue creation and memory space initialization
 
 History:
-<contributor>     <time>        <version>       <desc>									<e-mail>
-Zuo Lu	        2017/04/06	      1.0		    Creat 3D_SSDsim							617376665@qq.com
-Zuo Lu			2017/05/12		  1.1			Support advanced commands:mutli plane   617376665@qq.com
-Zuo Lu			2017/06/12		  1.2			Support advanced commands:half page read   617376665@qq.com
-Zuo Lu			2017/06/16		  1.3			Support advanced commands:one shot program   617376665@qq.com
+<contributor>     <time>        <version>       <desc>										<e-mail>
+Zuo Lu	        2017/04/06	      1.0		    Creat 3D_SSDsim								617376665@qq.com
+Zuo Lu			2017/05/12		  1.1			Support advanced commands:mutli plane		617376665@qq.com
+Zuo Lu			2017/06/12		  1.2			Support advanced commands:half page read	617376665@qq.com
+Zuo Lu			2017/06/16		  1.3			Support advanced commands:one shot program  617376665@qq.com
+Zuo Lu			2017/06/22		  1.4			Support advanced commands:one shot read	    617376665@qq.com
 *****************************************************************************************************************************/
 
 #include <stdio.h>
@@ -45,11 +46,14 @@ Zuo Lu			2017/06/16		  1.3			Support advanced commands:one shot program   617376
 #define HALF_PAGE 2
 #define ONE_SHOT 3
 #define ONE_SHOT_MUTLI_PLANE 4
+#define ONE_SHOT_READ 5
+#define ONE_SHOT_READ_MUTLI_PLANE 6
 
 //advanced command
 #define AD_MUTLIPLANE  1  //mutli plane 
 #define AD_HALFPAGE_READ 2  //half page read ,only used in single plane read operation
 #define AD_ONESHOT_PROGRAM 4  //one shot program ,used in mutli plane and single plane program operation
+#define AD_ONESHOT_READ 8
 
 #define READ 1
 #define WRITE 0
@@ -189,6 +193,8 @@ struct ssd_info{
 	unsigned long update_read_count;      //Record the number of updates read
 	unsigned long gc_read_count;		  //Record gc caused by the read operation
 	unsigned long half_page_read_count;   //Recond the number of half page read operation
+	unsigned long one_shot_read_count;	  //Recond the number of one shot read operation
+	unsigned long one_shot_mutli_plane_count;//Record the number of one shot mutli plane read operation
 
 	unsigned long program_count;
 	unsigned long pre_all_write;		 //Record preprocessing write operation
@@ -437,9 +443,10 @@ struct sub_request{
 	struct sub_request *update;       //Update the write request, mount this pointer on
 	struct request *total_request;
 
-	unsigned int update_read_flag;   //Update the read flag
+	unsigned int update_read_flag;    //Update the read flag
 	unsigned int mutliplane_flag;
-
+	unsigned int oneshot_flag;
+	unsigned int oneshot_mutliplane_flag;
 };
 
 

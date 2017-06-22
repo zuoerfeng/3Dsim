@@ -6,16 +6,17 @@ This is a project on 3D_SSDsim, based on ssdsim under the framework of the compl
 4.4-layer structure
 
 FileName： ftl.c
-Author: Zuo Lu 		Version: 1.2	Date:2017/06/16
+Author: Zuo Lu 		Version: 1.4	Date:2017/06/22
 Description: 
 ftl layer: can not interrupt the global gc operation, gc operation to migrate valid pages using ordinary read and write operations, remove support copyback operation;
 
 History:
-<contributor>     <time>        <version>       <desc>									<e-mail>
-Zuo Lu	        2017/04/06	      1.0		    Creat 3D_SSDsim							617376665@qq.com
-Zuo Lu			2017/05/12		  1.1			Support advanced commands:mutli plane   617376665@qq.com
-Zuo Lu			2017/06/12		  1.2			Support advanced commands:half page read   617376665@qq.com
-Zuo Lu			2017/06/16		  1.3			Support advanced commands:one shot program   617376665@qq.com
+<contributor>     <time>        <version>       <desc>										<e-mail>
+Zuo Lu	        2017/04/06	      1.0		    Creat 3D_SSDsim								617376665@qq.com
+Zuo Lu			2017/05/12		  1.1			Support advanced commands:mutli plane		617376665@qq.com
+Zuo Lu			2017/06/12		  1.2			Support advanced commands:half page read	617376665@qq.com
+Zuo Lu			2017/06/16		  1.3			Support advanced commands:one shot program  617376665@qq.com
+Zuo Lu			2017/06/22		  1.4			Support advanced commands:one shot read	    617376665@qq.com
 *****************************************************************************************************************************/
 
 #define _CRTDBG_MAP_ALLOC
@@ -519,7 +520,43 @@ Status get_ppn_for_advanced_commands(struct ssd_info *ssd, unsigned int channel,
 
 	struct sub_request ** mutli_subs = NULL;
 	mutli_subs = (struct sub_request **)malloc(ssd->parameter->plane_die * sizeof(struct sub_request *));
-    
+
+	
+	if (command == ONE_SHOT_MUTLI_PLANE)
+	{
+		die = ssd->channel_head[channel].chip_head[chip].token;
+		for (i = 0; i < PAGE_INDEX; i++)
+		{
+			k = 0;
+			for (j = 0; j < ssd->parameter->plane_die; j++)
+			{
+				if (i + k > subs_count)
+				{
+					printf("subs_count distribute error\n");
+					getchar();
+				}
+				mutli_subs[j] = subs[i + k];
+				k = k + PAGE_INDEX;
+			}
+			//进行mutli plane的操作
+			find_level_page(ssd, channel, chip, die, mutli_subs, ssd->parameter->plane_die);
+		}
+		valid_subs_count = subs_count;
+		ssd->channel_head[channel].chip_head[chip].token = (die + 1) % ssd->parameter->die_chip;
+
+		compute_serve_time(ssd, channel, chip, die, subs, valid_subs_count, ONE_SHOT_MUTLI_PLANE);
+		printf("lz:mutli plane one shot\n");
+
+		//free mutli_subs
+		for (i = 0; i < ssd->parameter->plane_die; i++)
+			mutli_subs[i] = NULL;
+		free(mutli_subs);
+		mutli_subs = NULL;
+		return SUCCESS;
+	}
+	
+
+	/*
 	if (command == ONE_SHOT_MUTLI_PLANE)
 	{
 		die = ssd->channel_head[channel].chip_head[chip].token;
@@ -546,7 +583,7 @@ Status get_ppn_for_advanced_commands(struct ssd_info *ssd, unsigned int channel,
 		free(mutli_subs);
 		mutli_subs = NULL;
 		return SUCCESS;
-	}
+	}*/
 	else if (command == MUTLI_PLANE)
 	{
 		die = ssd->channel_head[channel].chip_head[chip].token;

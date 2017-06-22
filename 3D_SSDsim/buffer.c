@@ -6,16 +6,17 @@ This is a project on 3D_SSDsim, based on ssdsim under the framework of the compl
 4.4-layer structure
 
 FileName： buffer.c
-Author: Zuo Lu 		Version: 1.3	Date:2017/06/16
+Author: Zuo Lu 		Version: 1.4	Date:2017/06/22
 Description: 
 buff layer: only contains data cache (minimum processing size for the sector, that is, unit = 512B), mapping table (page-level);
 
 History:
-<contributor>     <time>        <version>       <desc>									<e-mail>
-Zuo Lu	        2017/04/06	      1.0		    Creat 3D_SSDsim							617376665@qq.com
-Zuo Lu			2017/05/12		  1.1			Support advanced commands:mutli plane   617376665@qq.com
-Zuo Lu			2017/06/12		  1.2			Support advanced commands:half page read   617376665@qq.com
-Zuo Lu			2017/06/16		  1.3			Support advanced commands:one shot program   617376665@qq.com
+<contributor>     <time>        <version>       <desc>										<e-mail>
+Zuo Lu	        2017/04/06	      1.0		    Creat 3D_SSDsim								617376665@qq.com
+Zuo Lu			2017/05/12		  1.1			Support advanced commands:mutli plane		617376665@qq.com
+Zuo Lu			2017/06/12		  1.2			Support advanced commands:half page read	617376665@qq.com
+Zuo Lu			2017/06/16		  1.3			Support advanced commands:one shot program  617376665@qq.com
+Zuo Lu			2017/06/22		  1.4			Support advanced commands:one shot read	    617376665@qq.com
 *****************************************************************************************************************************/
 #define _CRTDBG_MAP_ALLOC
 
@@ -691,6 +692,7 @@ struct sub_request * creat_sub_request(struct ssd_info * ssd, unsigned int lpn, 
 		sub->state = state;
 		sub_r = ssd->channel_head[loc->channel].subs_r_head;
 
+		
 		flag = 0;
 		while (sub_r != NULL)
 		{
@@ -771,8 +773,8 @@ struct sub_request * creat_sub_request(struct ssd_info * ssd, unsigned int lpn, 
 ***************************************/
 Status allocate_location(struct ssd_info * ssd, struct sub_request *sub_req)
 {
-	struct sub_request * update = NULL;
-	unsigned int channel_num = 0, chip_num = 0, die_num = 0, plane_num = 0;
+	struct sub_request * update = NULL, *sub_r = NULL;
+	unsigned int channel_num = 0, chip_num = 0, die_num = 0, plane_num = 0 ,flag;
 	struct local *location = NULL;
 
 	channel_num = ssd->parameter->channel_number;
@@ -821,15 +823,38 @@ Status allocate_location(struct ssd_info * ssd, struct sub_request *sub_req)
 				update->operation = READ;
 				update->update_read_flag = 1;
 
-				if (ssd->channel_head[location->channel].subs_r_tail != NULL)            /*产生新的读请求，并且挂到channel的subs_r_tail队列尾*/
+				sub_r = ssd->channel_head[location->channel].subs_r_head;
+				flag = 0;
+				while (sub_r != NULL)
 				{
-					ssd->channel_head[location->channel].subs_r_tail->next_node = update;
-					ssd->channel_head[location->channel].subs_r_tail = update;
+					if (sub_r->ppn == update->ppn)
+					{
+						flag = 1;
+						break;
+					}
+					sub_r = sub_r->next_node;
+				}
+
+				if (flag == 0)
+				{
+					if (ssd->channel_head[location->channel].subs_r_tail != NULL)            /*产生新的读请求，并且挂到channel的subs_r_tail队列尾*/
+					{
+						ssd->channel_head[location->channel].subs_r_tail->next_node = update;
+						ssd->channel_head[location->channel].subs_r_tail = update;
+					}
+					else
+					{
+						ssd->channel_head[location->channel].subs_r_tail = update;
+						ssd->channel_head[location->channel].subs_r_head = update;
+					}
 				}
 				else
 				{
-					ssd->channel_head[location->channel].subs_r_tail = update;
-					ssd->channel_head[location->channel].subs_r_head = update;
+					update->current_state = SR_R_DATA_TRANSFER;
+					update->current_time = ssd->current_time;
+					update->next_state = SR_COMPLETE;
+					update->next_state_predict_time = ssd->current_time + 1000;
+					update->complete_time = ssd->current_time + 1000;
 				}
 			}
 		}

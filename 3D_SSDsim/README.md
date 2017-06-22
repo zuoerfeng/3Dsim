@@ -28,9 +28,13 @@
 
 > 9.支持高级命令half page read ,此高级命令只用于single plane的模式下
 
-> 10.支持高级命令one shot program,次高级命令可以用于single/mutli plane的模式下
+> 10.支持高级命令one shot program,此高级命令可以用于single/mutli plane的模式下
 
 > 11.增加用于拼凑高级的命令的二级缓存command_buffer
+
+> 12.增加高级命令one shot read,此高级命令可以用于single/mutli plane的模式下
+
+> 13.对于读请求队列采用的FCFS，先来先服务的调度策略
 
 .......
 

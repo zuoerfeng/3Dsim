@@ -6,16 +6,17 @@ This is a project on 3D_SSDsim, based on ssdsim under the framework of the compl
 4.4-layer structure
 
 FileName£º ssd.c
-Author: Zuo Lu 		Version: 1.3	Date:2017/06/16
+Author: Zuo Lu 		Version: 1.4	Date:2017/06/22
 Description: System main function c file, Contains the basic flow of simulation.
 Mainly includes: initialization, make_aged, pre_process_page three parts
 
 History:
-<contributor>     <time>        <version>       <desc>									<e-mail>
-Zuo Lu	        2017/04/06	      1.0		    Creat 3D_SSDsim							617376665@qq.com
-Zuo Lu			2017/05/12		  1.1			Support advanced commands:mutli plane   617376665@qq.com
-Zuo Lu			2017/06/12		  1.2			Support advanced commands:half page read   617376665@qq.com
-Zuo Lu			2017/06/16		  1.3			Support advanced commands:one shot program   617376665@qq.com
+<contributor>     <time>        <version>       <desc>										<e-mail>
+Zuo Lu	        2017/04/06	      1.0		    Creat 3D_SSDsim								617376665@qq.com
+Zuo Lu			2017/05/12		  1.1			Support advanced commands:mutli plane		617376665@qq.com
+Zuo Lu			2017/06/12		  1.2			Support advanced commands:half page read	617376665@qq.com
+Zuo Lu			2017/06/16		  1.3			Support advanced commands:one shot program  617376665@qq.com
+Zuo Lu			2017/06/22		  1.4			Support advanced commands:one shot read	    617376665@qq.com
 *****************************************************************************************************************************/
 
 #define _CRTDBG_MAP_ALLOC
@@ -264,8 +265,8 @@ struct ssd_info *process(struct ssd_info *ssd)
 	services_2_r_read(ssd);
 	services_2_r_complete(ssd);
 
-	random_num = ssd->program_count%ssd->parameter->channel_number;                      /*Generate a random number, to ensure that each time from a different channel query*/
-	//random_num = ssd->token;
+	//random_num = ssd->program_count%ssd->parameter->channel_number;                      /*Generate a random number, to ensure that each time from a different channel query*/
+	random_num = ssd->token;
 	for (chan = 0; chan<ssd->parameter->channel_number; chan++)
 	{
 		i = (random_num + chan) % ssd->parameter->channel_number;
@@ -710,7 +711,9 @@ void statistic_output(struct ssd_info *ssd)
 
 	fprintf(ssd->statisticfile, "update sub request count : %13d\n", ssd->update_sub_request);
 	fprintf(ssd->statisticfile, "half page read count : %13d\n", ssd->half_page_read_count);
-	fprintf(ssd->statisticfile, "mutli plane one shot count : %13d\n", ssd->mutliplane_oneshot_prog_count);
+	fprintf(ssd->statisticfile, "mutli plane one shot program count : %13d\n", ssd->mutliplane_oneshot_prog_count);
+	fprintf(ssd->statisticfile, "one shot read count : %13d\n", ssd->one_shot_read_count);
+	fprintf(ssd->statisticfile, "mutli plane one shot read count : %13d\n", ssd->one_shot_mutli_plane_count);
 
 	fprintf(ssd->statisticfile, "\n");
 	fflush(ssd->statisticfile);
@@ -767,6 +770,8 @@ void free_all_node(struct ssd_info *ssd)
 
 	avlTreeDestroy( ssd->dram->buffer);
 	ssd->dram->buffer=NULL;
+	avlTreeDestroy(ssd->dram->command_buffer);
+	ssd->dram->command_buffer = NULL;
 	
 	free(ssd->dram->map->map_entry);
 	ssd->dram->map->map_entry=NULL;
