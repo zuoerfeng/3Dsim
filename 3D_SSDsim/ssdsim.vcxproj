@@ -13,6 +13,7 @@
   <PropertyGroup Label="Globals">
     <ProjectGuid>{DE4D514D-405A-4B5E-BB22-E71F567B710C}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>
+    <ProjectName>3Dsim</ProjectName>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">

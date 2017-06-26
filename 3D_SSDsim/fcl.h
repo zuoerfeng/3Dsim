@@ -25,15 +25,15 @@ struct ssd_info *compute_serve_time(struct ssd_info *ssd, unsigned int channel, 
 
 unsigned int find_mutliplane_sub_request(struct ssd_info * ssd, unsigned int channel, unsigned int chip, struct sub_request ** sub_mutliplane_place, unsigned int command);
 unsigned int find_read_sub_request(struct ssd_info * ssd, unsigned int channel, unsigned int chip, unsigned int die, struct sub_request **subs, unsigned int state, unsigned int command);
-unsigned int find_r_wait_sub_request(struct ssd_info * ssd, unsigned int channel, unsigned int chip, struct sub_request ** sub_place, unsigned int command);
+unsigned int find_r_wait_sub_request(struct ssd_info * ssd, unsigned int channel, unsigned int chip, struct sub_request ** sub_place, unsigned int type, unsigned int command);
 
 Status find_level_page(struct ssd_info *ssd, unsigned int channel, unsigned int chip, unsigned int die, struct sub_request **sub, unsigned int subs_count);
 Status go_one_step(struct ssd_info * ssd, struct sub_request **subs, unsigned int subs_count, unsigned int aim_state, unsigned int command);
 
 Status services_2_r_read(struct ssd_info * ssd);
-Status services_2_r_wait(struct ssd_info * ssd, unsigned int channel, unsigned int * channel_busy_flag, unsigned int * change_current_time_flag);
-Status services_2_r_data_trans(struct ssd_info * ssd, unsigned int channel, unsigned int * channel_busy_flag, unsigned int * change_current_time_flag);
+Status services_2_r_wait(struct ssd_info * ssd, unsigned int channel, unsigned int type);
+Status services_2_r_data_trans(struct ssd_info * ssd, unsigned int channel);
 Status services_2_r_complete(struct ssd_info * ssd);
 
-int services_2_write(struct ssd_info * ssd, unsigned int channel, unsigned int * channel_busy_flag, unsigned int * change_current_time_flag);
+int services_2_write(struct ssd_info * ssd, unsigned int channel);
 Status service_advance_command(struct ssd_info *ssd, unsigned int channel, unsigned int chip, struct sub_request ** subs, unsigned int subs_count, unsigned int aim_subs_count, unsigned int command);

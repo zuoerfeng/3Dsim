@@ -36,8 +36,9 @@ int  find_active_block(struct ssd_info *ssd, unsigned int channel, unsigned int 
 int gc_direct_erase(struct ssd_info *ssd, unsigned int channel, unsigned int chip, unsigned int die);
 int uninterrupt_gc(struct ssd_info *ssd, unsigned int channel, unsigned int chip, unsigned int die);
 int get_ppn_for_advanced_commands(struct ssd_info *ssd, unsigned int channel, unsigned int chip, struct sub_request * * subs, unsigned int subs_count, unsigned int command);
-
-
+int suspend_erase_operation(struct ssd_info * ssd, unsigned int channel, unsigned int chip, unsigned int die, unsigned int * erase_block);
+int resume_erase_operation(struct ssd_info * ssd, unsigned int channel);
+struct ssd_info *delete_suspend_command(struct ssd_info *ssd, unsigned int channel, struct suspend_spot * suspend_command);
 
 
 

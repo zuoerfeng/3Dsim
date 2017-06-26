@@ -117,13 +117,6 @@ struct ssd_info *initiation(struct ssd_info *ssd)
 	secno_num_per_page = ssd->parameter->page_capacity / SECTOR;
 	secno_num_sub_page = ssd->parameter->subpage_capacity / SECTOR;
 
-	//Initializes the global variable for ssd_info
-	ssd->make_age_free_page = 0;
-	ssd->buffer_full_flag = 0;
-	ssd->request_lz_count = 0;
-	ssd->trace_over_flag = 0;
-	ssd->update_sub_request = 0;
-
 	//Initialize the statistical parameters
 	initialize_statistic(ssd);
 
@@ -221,6 +214,15 @@ void initialize_statistic(struct ssd_info * ssd)
 	ssd->read_request_count = 0;
 	ssd->ave_read_size = 0.0;
 	ssd->ave_write_size = 0.0;
+
+	//Initializes the global variable for ssd_info
+	ssd->make_age_free_page = 0;
+	ssd->buffer_full_flag = 0;
+	ssd->request_lz_count = 0;
+	ssd->trace_over_flag = 0;
+	ssd->update_sub_request = 0;
+	ssd->gc_signal = SIG_NORMAL;
+	ssd->resume_count = 0;
 }
 
 
@@ -398,6 +400,7 @@ struct ssd_info * initialize_channels(struct ssd_info * ssd )
 	// set the parameter of each channel
 	for (i = 0; i< ssd->parameter->channel_number; i++)
 	{
+		ssd->channel_head[i].channel_busy_flag = 0;
 		ssd->channel_head[i].channel_read_count = 0;
 		ssd->channel_head[i].channel_program_count = 0;
 		ssd->channel_head[i].channel_erase_count = 0;

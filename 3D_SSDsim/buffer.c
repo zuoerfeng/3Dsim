@@ -685,6 +685,7 @@ struct sub_request * creat_sub_request(struct ssd_info * ssd, unsigned int lpn, 
 		sub->lpn = lpn;
 		sub->size = size;                                                               /*需要计算出该子请求的请求大小*/
 		sub->update_read_flag = 0;
+		sub->suspend_req_flag = 0;
 
 		p_ch = &ssd->channel_head[loc->channel];
 		sub->ppn = ssd->dram->map->map_entry[lpn].pn;
@@ -822,6 +823,7 @@ Status allocate_location(struct ssd_info * ssd, struct sub_request *sub_req)
 				update->ppn = ssd->dram->map->map_entry[sub_req->lpn].pn;
 				update->operation = READ;
 				update->update_read_flag = 1;
+				update->suspend_req_flag = 0;
 
 				sub_r = ssd->channel_head[location->channel].subs_r_head;
 				flag = 0;

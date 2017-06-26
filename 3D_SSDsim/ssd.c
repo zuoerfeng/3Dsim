@@ -270,13 +270,29 @@ struct ssd_info *process(struct ssd_info *ssd)
 	for (chan = 0; chan<ssd->parameter->channel_number; chan++)
 	{
 		i = (random_num + chan) % ssd->parameter->channel_number;
-		flag = 0;
 		flag_gc = 0;																		
+		ssd->channel_head[i].channel_busy_flag = 0;
 
 		if ((ssd->channel_head[i].current_state == CHANNEL_IDLE) || (ssd->channel_head[i].next_state == CHANNEL_IDLE&&ssd->channel_head[i].next_state_predict_time <= ssd->current_time))
 		{
-			//passive gc, every time dealing with a channel
-			if (ssd->gc_request>0)                                                       
+			//先处理是否有挂起的gc擦除操作，再处理普通的gc操作
+
+			if (ssd->gc_signal == SIG_RESUME)
+			{
+				//由于resume操作，针对的只是擦除操作，继而对channel的时间线不会有变动,进而channal上的请求是可以被执行的
+				if (ssd->channel_head[i].erase_suspend_command != NULL)
+				{
+					flag_gc = resume_erase_operation(ssd, i);
+					if (flag_gc == 1)
+						ssd->resume_count++;
+				}
+				else
+				{
+					printf("Error!,cannot find resume erase command\n");
+					getchar();
+				}
+			}
+			if (ssd->gc_request>0)
 			{
 				if (ssd->channel_head[i].gc_command != NULL)
 				{
@@ -293,13 +309,13 @@ struct ssd_info *process(struct ssd_info *ssd)
 			*2.followed by the state of the read flash
 			*3.end by processing write sub_request
 			**********************************************************/
-			services_2_r_wait(ssd, i, &flag, &chg_cur_time_flag);							  //flag=1,channel is busy，else idle....                  
-			if ((flag == 0) && (ssd->channel_head[i].subs_r_head != NULL))					  //chg_cur_time_flag=1,current_time has changed，chg_cur_time_flag=0,current_time has not changed  			
-				services_2_r_data_trans(ssd, i, &flag, &chg_cur_time_flag);
+			services_2_r_wait(ssd, i, NORMAL_TYPE);							  //flag=1,channel is busy，else idle....                  
+			if ((ssd->channel_head[i].channel_busy_flag == 0) && (ssd->channel_head[i].subs_r_head != NULL))					  //chg_cur_time_flag=1,current_time has changed，chg_cur_time_flag=0,current_time has not changed  			
+				services_2_r_data_trans(ssd, i);
 
 			//Write request state jump
-			if (flag == 0)                                                                 
-				services_2_write(ssd, i, &flag, &chg_cur_time_flag); 
+			if (ssd->channel_head[i].channel_busy_flag == 0)
+				services_2_write(ssd, i); 
 		}
 
 		/*This section is used to see if the offset addresses in the plane are the same, thus verifying the validity of our code*/
