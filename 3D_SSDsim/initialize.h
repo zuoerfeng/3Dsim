@@ -138,7 +138,8 @@ struct ac_time_characteristics{
 	int tPROG;     //program time
 	int tDBSY;     //bummy busy time for two-plane program
 	int tBERS;     //block erase time
-	int tPROGO;   //one shot program time
+	int tPROGO;    //one shot program time
+	int tERSL;	   //the trans time of suspend / resume operation
 	int tCLS;      //CLE setup time
 	int tCLH;      //CLE hold time
 	int tCS;       //CE setup time
@@ -181,7 +182,6 @@ struct ssd_info{
 	__int64 request_lz_count;			 //trace request count
 	unsigned int update_sub_request;
 	unsigned int gc_signal;
-	unsigned int resume_count;
 	
 	__int64 current_time;                //Record system time
 	__int64 next_request_time;
@@ -193,6 +193,7 @@ struct ssd_info{
 
 	unsigned int token;                  //In the dynamic allocation, in order to prevent each assignment in the first channel need to maintain a token, each time from the token refers to the location of the distribution
 	unsigned int gc_request;             //Recorded in the SSD, the current moment how many gc operation request
+	unsigned int gc_suspend_request;     //record the number of suspend erase operation
 
 	__int64 write_avg;                   //Record the time to calculate the average response time for the write request
 	__int64 read_avg;                    //Record the time to calculate the average response time for the read request
@@ -206,6 +207,8 @@ struct ssd_info{
 	unsigned long half_page_read_count;   //Recond the number of half page read operation
 	unsigned long one_shot_read_count;	  //Recond the number of one shot read operation
 	unsigned long one_shot_mutli_plane_count;//Record the number of one shot mutli plane read operation
+	unsigned long resume_count;
+	unsigned long suspend_count;
 
 	unsigned long program_count;
 	unsigned long pre_all_write;		 //Record preprocessing write operation
@@ -218,7 +221,7 @@ struct ssd_info{
 	//Advanced command read and write erase statistics
 	unsigned long m_plane_read_count;
 	unsigned long m_plane_prog_count;
-	unsigned long mplane_erase_conut;
+	unsigned long mplane_erase_count;
 
 	unsigned long ontshot_prog_count;
 	unsigned long mutliplane_oneshot_prog_count;

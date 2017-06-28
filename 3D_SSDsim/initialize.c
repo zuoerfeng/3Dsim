@@ -498,6 +498,8 @@ struct parameter_value *load_parameters(char parameter_file[30])
 			sscanf(buf + next_eql,"%d",&p->time_characteristics.tBERS); // erases the time of a block
 		}else if((res_eql=strcmp(buf,"t_PROGO"))== 0){
 			sscanf(buf + next_eql, "%d", &p->time_characteristics.tPROGO);  //one shot program time
+		}else if ((res_eql = strcmp(buf, "t_ERSL")) == 0){
+			sscanf(buf + next_eql, "%d", &p->time_characteristics.tERSL);  //the trans time of suspend/resume operation
 		}else if((res_eql=strcmp(buf,"t_CLS")) ==0){
 			sscanf(buf + next_eql,"%d",&p->time_characteristics.tCLS); 
 		}else if((res_eql=strcmp(buf,"t_CLH")) ==0){

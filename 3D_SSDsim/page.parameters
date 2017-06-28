@@ -32,6 +32,7 @@ t_PROG = 200000;             #the unit is ns
 t_DBSY = 50;
 t_BERS = 1500000;
 t_PROGO = 200000;            #one shot program time
+t_ERSL = 500000;             #the trans time of suspend/resume operation
 t_CLS = 12;
 t_CLH = 5;
 t_CS = 20;

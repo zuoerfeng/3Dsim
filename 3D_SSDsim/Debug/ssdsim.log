@@ -1,4 +1,4 @@
-﻿生成启动时间为 2017/6/26 22:14:26。
+﻿生成启动时间为 2017/6/28 20:54:35。
      1>项目“C:\Users\lz\Desktop\3D_SSDsim\3D_SSDsim_v1\3D_SSDsim\ssdsim.vcxproj”在节点 2 上(Rebuild 个目标)。
      1>C:\Program Files (x86)\MSBuild\Microsoft.Cpp\v4.0\V120\Microsoft.CppBuild.targets(388,5): warning MSB8028: The intermediate directory (Debug\) contains files shared from another project (ssdsim.vcxproj).  This can lead to incorrect clean and rebuild behavior.
      1>ClCompile:
@@ -146,18 +146,18 @@
                  D:\2_tmp\Microsoft Visual Studio 12.0\VC\include\stdio.h(304) : 参见“sscanf”的声明
      1>initialize.c(596): warning C4996: 'sscanf': This function or variable may be unsafe. Consider using sscanf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
                  D:\2_tmp\Microsoft Visual Studio 12.0\VC\include\stdio.h(304) : 参见“sscanf”的声明
-     1>initialize.c(599): warning C4996: 'sscanf': This function or variable may be unsafe. Consider using sscanf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+     1>initialize.c(598): warning C4996: 'sscanf': This function or variable may be unsafe. Consider using sscanf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
                  D:\2_tmp\Microsoft Visual Studio 12.0\VC\include\stdio.h(304) : 参见“sscanf”的声明
-     1>initialize.c(600): warning C4996: 'sscanf': This function or variable may be unsafe. Consider using sscanf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+     1>initialize.c(601): warning C4996: 'sscanf': This function or variable may be unsafe. Consider using sscanf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+                 D:\2_tmp\Microsoft Visual Studio 12.0\VC\include\stdio.h(304) : 参见“sscanf”的声明
+     1>initialize.c(602): warning C4996: 'sscanf': This function or variable may be unsafe. Consider using sscanf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
                  D:\2_tmp\Microsoft Visual Studio 12.0\VC\include\stdio.h(304) : 参见“sscanf”的声明
          ftl.c
-     1>ftl.c(716): warning C4101: “planeA”: 未引用的局部变量
      1>ftl.c(712): warning C4101: “plane”: 未引用的局部变量
-     1>ftl.c(716): warning C4101: “planeB”: 未引用的局部变量
-     1>ftl.c(823): warning C4101: “active_block1”: 未引用的局部变量
-     1>ftl.c(823): warning C4101: “active_block2”: 未引用的局部变量
-     1>ftl.c(826): warning C4101: “block2”: 未引用的局部变量
-     1>ftl.c(826): warning C4101: “block1”: 未引用的局部变量
+     1>ftl.c(855): warning C4101: “active_block1”: 未引用的局部变量
+     1>ftl.c(855): warning C4101: “active_block2”: 未引用的局部变量
+     1>ftl.c(858): warning C4101: “block2”: 未引用的局部变量
+     1>ftl.c(858): warning C4101: “block1”: 未引用的局部变量
          flash.c
          fcl.c
      1>fcl.c(53): warning C4018: “<”: 有符号/无符号不匹配
@@ -171,9 +171,10 @@
          buffer.c
          avlTree.c
          正在生成代码...
+     1>c:\users\lz\desktop\3d_ssdsim\3d_ssdsim_v1\3d_ssdsim\fcl.c(1437): warning C4700: 使用了未初始化的局部变量“direct_erase_node”
      1>c:\users\lz\desktop\3d_ssdsim\3d_ssdsim_v1\3d_ssdsim\ftl.c(499): warning C4715: “get_ppn_for_normal_command”: 不是所有的控件路径都返回值
      1>c:\users\lz\desktop\3d_ssdsim\3d_ssdsim_v1\3d_ssdsim\ftl.c(703): warning C4715: “gc”: 不是所有的控件路径都返回值
-     1>c:\users\lz\desktop\3d_ssdsim\3d_ssdsim_v1\3d_ssdsim\ftl.c(767): warning C4715: “gc_for_channel”: 不是所有的控件路径都返回值
+     1>c:\users\lz\desktop\3d_ssdsim\3d_ssdsim_v1\3d_ssdsim\ftl.c(778): warning C4715: “gc_for_channel”: 不是所有的控件路径都返回值
        Link:
          D:\2_tmp\Microsoft Visual Studio 12.0\VC\bin\link.exe /ERRORREPORT:PROMPT /OUT:"C:\Users\lz\Desktop\3D_SSDsim\3D_SSDsim_v1\3D_SSDsim\Debug\3Dsim.exe" /INCREMENTAL /NOLOGO kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /MANIFEST /MANIFESTUAC:"level='asInvoker' uiAccess='false'" /manifest:embed /DEBUG /PDB:"C:\Users\lz\Desktop\3D_SSDsim\3D_SSDsim_v1\3D_SSDsim\Debug\3Dsim.pdb" /SUBSYSTEM:CONSOLE /TLBID:1 /DYNAMICBASE /NXCOMPAT /IMPLIB:"C:\Users\lz\Desktop\3D_SSDsim\3D_SSDsim_v1\3D_SSDsim\Debug\3Dsim.lib" /MACHINE:X86 Debug\avlTree.obj
          Debug\buffer.obj
@@ -188,4 +189,4 @@
 
 生成成功。
 
-已用时间 00:00:00.95
+已用时间 00:00:00.82

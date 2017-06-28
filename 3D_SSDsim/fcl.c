@@ -1434,6 +1434,8 @@ struct ssd_info *make_same_level(struct ssd_info *ssd, unsigned int channel, uns
 		alloc_assert(new_direct_erase, "new_direct_erase");
 		memset(new_direct_erase, 0, sizeof(struct direct_erase));
 
+		direct_erase_node->block = block;
+		direct_erase_node->next_node = NULL;
 		direct_erase_node = ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[plane].erase_node;
 		if (direct_erase_node == NULL)
 		{
