@@ -993,9 +993,9 @@ Status go_one_step(struct ssd_info * ssd, struct sub_request ** subs, unsigned i
 						subs[i]->update_read_flag = 0;
 
 					//ÅÐ¶ÏÊÇ·ñÓÐsuspend read
-					if (sub->suspend_req_flag == 1)
+					if (subs[i]->suspend_req_flag == 1)
 					{
-						sub->suspend_req_flag = 0;
+						subs[i]->suspend_req_flag = 0;
 						ssd->gc_signal = SIG_RESUME;
 					}
 				}

@@ -763,7 +763,7 @@ Status gc_for_channel(struct ssd_info *ssd, unsigned int channel)
 		flag_direct_erase = gc_direct_erase(ssd, channel, chip, die);
 		if (flag_direct_erase != SUCCESS)
 		{       
-			flag_gc = uninterrupt_gc(ssd, channel, chip, die);							 /*When a complete gc operation is completed, return 1, the corresponding channel gc operation request node to delete*/
+			flag_gc = greedy_gc(ssd, channel, chip, die);							 /*When a complete gc operation is completed, return 1, the corresponding channel gc operation request node to delete*/
 			if (flag_gc == SUCCESS)
 			{
 				delete_gc_node(ssd, channel, gc_node);
