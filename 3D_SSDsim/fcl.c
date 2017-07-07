@@ -6,17 +6,18 @@ This is a project on 3D_SSDsim, based on ssdsim under the framework of the compl
 4.4-layer structure
 
 FileName： fcl.c
-Author: Zuo Lu 		Version: 1.4	Date:2017/06/22
+Author: Zuo Lu 		Version: 1.5	Date:2017/07/07
 Description:
 fcl layer: remove other high-level commands, leaving only mutli plane;
 
 History:
-<contributor>     <time>        <version>       <desc>										<e-mail>
-Zuo Lu	        2017/04/06	      1.0		    Creat 3D_SSDsim								617376665@qq.com
-Zuo Lu			2017/05/12		  1.1			Support advanced commands:mutli plane		617376665@qq.com
-Zuo Lu			2017/06/12		  1.2			Support advanced commands:half page read	617376665@qq.com
-Zuo Lu			2017/06/16		  1.3			Support advanced commands:one shot program  617376665@qq.com
-Zuo Lu			2017/06/22		  1.4			Support advanced commands:one shot read	    617376665@qq.com
+<contributor>     <time>        <version>       <desc>											<e-mail>
+Zuo Lu	        2017/04/06	      1.0		    Creat 3D_SSDsim									617376665@qq.com
+Zuo Lu			2017/05/12		  1.1			Support advanced commands:mutli plane			617376665@qq.com
+Zuo Lu			2017/06/12		  1.2			Support advanced commands:half page read		617376665@qq.com
+Zuo Lu			2017/06/16		  1.3			Support advanced commands:one shot program		617376665@qq.com
+Zuo Lu			2017/06/22		  1.4			Support advanced commands:one shot read			617376665@qq.com
+Zuo Lu			2017/07/07		  1.5			Support advanced commands:erase suspend/resume  617376665@qq.com
 *****************************************************************************************************************************/
 
 #define _CRTDBG_MAP_ALLOC
@@ -50,7 +51,7 @@ Status services_2_r_data_trans(struct ssd_info * ssd, unsigned int channel)
 	for (i = 0; i < (ssd->parameter->plane_die * PAGE_INDEX); i++)
 		sub_r_request[i] = NULL;
 
-	for (chip = 0; chip<ssd->channel_head[channel].chip; chip++)
+	for (chip = 0; chip < ssd->channel_head[channel].chip; chip++)
 	{
 		if ((ssd->channel_head[channel].chip_head[chip].current_state == CHIP_DATA_TRANSFER) ||
 			((ssd->channel_head[channel].chip_head[chip].next_state == CHIP_DATA_TRANSFER) &&
@@ -367,20 +368,55 @@ Status services_2_r_complete(struct ssd_info * ssd)
 /*****************************************************************************************
 *This function is also a service that only reads the child request, and is in a wait state
 ******************************************************************************************/
-Status services_2_r_wait(struct ssd_info * ssd, unsigned int channel, unsigned type)
+Status services_2_r_wait(struct ssd_info * ssd, unsigned int channel)
 {
 	struct sub_request ** sub_place = NULL;
 	unsigned int sub_r_req_count, i ,chip;
 
 	sub_place = (struct sub_request **)malloc(ssd->parameter->plane_die * PAGE_INDEX * sizeof(struct sub_request *));
 	alloc_assert(sub_place, "sub_place");
-
+	sub_r_req_count = 0;
 	for (chip = 0; chip < ssd->parameter->chip_channel[channel]; chip++)
 	{
+		/*************************************************************************************************************************************/
+		//判断收到的gc信号，如果是resume的信号，则进行恢复擦除操作
+		if (ssd->channel_head[channel].chip_head[chip].gc_signal != SIG_NORMAL)
+		{
+			if ((ssd->channel_head[channel].chip_head[chip].current_state == CHIP_IDLE) || ((ssd->channel_head[channel].chip_head[chip].next_state == CHIP_IDLE) &&
+				(ssd->channel_head[channel].chip_head[chip].next_state_predict_time <= ssd->current_time)))
+			{
+				if (ssd->current_time >= ssd->channel_head[channel].chip_head[chip].erase_cmplt_time)
+				{
+					if (ssd->channel_head[channel].chip_head[chip].gc_signal == SIG_ERASE_SUSPEND)
+					{
+						//将剩余的擦除请求，推动chip的时间线
+						ssd->channel_head[channel].chip_head[chip].current_state = CHIP_ERASE_BUSY;
+						ssd->channel_head[channel].chip_head[chip].next_state = CHIP_IDLE;
+						ssd->channel_head[channel].chip_head[chip].next_state_predict_time += ssd->channel_head[channel].chip_head[chip].erase_rest_time;
+
+						resume_erase_operation(ssd, channel, chip);
+						
+						ssd->resume_count++;
+						ssd->channel_head[channel].channel_busy_flag = 1;
+						ssd->channel_head[channel].chip_head[chip].gc_signal = SIG_NORMAL;
+						continue;
+					}
+					else
+					{
+						resume_erase_operation(ssd, channel, chip);
+						ssd->channel_head[channel].channel_busy_flag = 0;
+						ssd->channel_head[channel].chip_head[chip].gc_signal = SIG_NORMAL;
+					}
+				}
+			}
+		}
+		/***************************************************************************************************************************************/
+
+
 		//首先判断是否可以用高级命令oneshot_mutliplane_read
 		if ((ssd->parameter->advanced_commands&AD_ONESHOT_READ) == AD_ONESHOT_READ && (ssd->parameter->advanced_commands&AD_MUTLIPLANE) == AD_MUTLIPLANE)
 		{
-			sub_r_req_count = find_r_wait_sub_request(ssd, channel, chip, sub_place, type, ONE_SHOT_READ_MUTLI_PLANE);
+			sub_r_req_count = find_r_wait_sub_request(ssd, channel, chip, sub_place, ONE_SHOT_READ_MUTLI_PLANE);
 			if (sub_r_req_count == (PAGE_INDEX*ssd->parameter->plane_die))
 			{
 				go_one_step(ssd, sub_place, sub_r_req_count, SR_R_C_A_TRANSFER, ONE_SHOT_READ_MUTLI_PLANE);
@@ -391,7 +427,7 @@ Status services_2_r_wait(struct ssd_info * ssd, unsigned int channel, unsigned t
 		//若不能，则考虑能否用one shot read高级命令完成
 		if ((ssd->parameter->advanced_commands&AD_ONESHOT_READ) == AD_ONESHOT_READ)
 		{
-			sub_r_req_count = find_r_wait_sub_request(ssd, channel, chip, sub_place, type, ONE_SHOT_READ);
+			sub_r_req_count = find_r_wait_sub_request(ssd, channel, chip, sub_place, ONE_SHOT_READ);
 			if (sub_r_req_count == PAGE_INDEX)
 			{
 				
@@ -407,7 +443,7 @@ Status services_2_r_wait(struct ssd_info * ssd, unsigned int channel, unsigned t
 		//若不能，则去考虑能否用mutli plane高级命令完成
 		if ((ssd->parameter->advanced_commands&AD_MUTLIPLANE) == AD_MUTLIPLANE)
 		{
-			sub_r_req_count = find_r_wait_sub_request(ssd, channel, chip, sub_place, type, MUTLI_PLANE);
+			sub_r_req_count = find_r_wait_sub_request(ssd, channel, chip, sub_place, MUTLI_PLANE);
 			if ( (sub_r_req_count >1) && (sub_r_req_count <= ssd->parameter->plane_die))
 			{
 				for (i = sub_r_req_count; i < (ssd->parameter->plane_die * PAGE_INDEX); i++)
@@ -420,7 +456,7 @@ Status services_2_r_wait(struct ssd_info * ssd, unsigned int channel, unsigned t
 		}
 
 		//若不能，表示所有的高级命令都不可行，则去执行普通的读请求,若普通的读请求未找到，则返回，本chip无有效读请求执行
-		sub_r_req_count = find_r_wait_sub_request(ssd, channel, chip, sub_place, type, NORMAL);
+		sub_r_req_count = find_r_wait_sub_request(ssd, channel, chip, sub_place, NORMAL);
 		if (sub_r_req_count == 1)
 		{
 			for (i = sub_r_req_count; i < (ssd->parameter->plane_die * PAGE_INDEX); i++)
@@ -433,6 +469,24 @@ Status services_2_r_wait(struct ssd_info * ssd, unsigned int channel, unsigned t
 		{
 			ssd->channel_head[channel].channel_busy_flag = 0;
 		}
+
+		/***************************************************************************************************************************************/
+		//判断是否有suspend挂起引起来的读请求，如果是，将这些请求挂载在对应channel的请求上
+		if (ssd->channel_head[channel].chip_head[chip].gc_signal != SIG_NORMAL)
+		{
+			if (sub_r_req_count != 0)
+			{
+				if (ssd->channel_head[channel].chip_head[chip].gc_signal == SIG_ERASE_WAIT)
+				{
+					ssd->channel_head[channel].chip_head[chip].erase_rest_time = ssd->channel_head[channel].chip_head[chip].erase_cmplt_time - ssd->current_time;
+					ssd->suspend_count++;
+				}
+				ssd->channel_head[channel].chip_head[chip].gc_signal = SIG_ERASE_SUSPEND;
+				ssd->suspend_read_count += sub_r_req_count;
+			}
+		}
+		/***************************************************************************************************************************************/
+
 	}
 
 	for (i = 0; i < (ssd->parameter->plane_die * PAGE_INDEX); i++)
@@ -443,9 +497,26 @@ Status services_2_r_wait(struct ssd_info * ssd, unsigned int channel, unsigned t
 	return SUCCESS;
 }
 
+//判断请求是不是suspend的block
+Status check_req_in_suspend(struct ssd_info * ssd, unsigned int channel, unsigned int chip, struct sub_request * sub_plane_request)
+{
+	unsigned  int i;
+	struct suspend_location * loc = NULL;
+
+	loc = ssd->channel_head[channel].chip_head[chip].suspend_location;
+	if (sub_plane_request->location->die == loc->die)
+	{
+		for (i = 0; i < ssd->parameter->plane_die; i++)
+		{
+			if ((sub_plane_request->location->plane == i) && (sub_plane_request->location->block == loc->block[i]))
+				return FAILURE;
+		}
+	}
+	return SUCCESS;
+}
 
 //寻找能one shot read的请求个数
-unsigned int find_r_wait_sub_request(struct ssd_info * ssd, unsigned int channel, unsigned int chip, struct sub_request ** sub_place, unsigned int type, unsigned int command)
+unsigned int find_r_wait_sub_request(struct ssd_info * ssd, unsigned int channel, unsigned int chip, struct sub_request ** sub_place, unsigned int command)
 {
 	unsigned int i,j,k,flag;
 	unsigned int aim_die, aim_plane, aim_block, aim_group;
@@ -462,173 +533,157 @@ unsigned int find_r_wait_sub_request(struct ssd_info * ssd, unsigned int channel
 	sub_plane_request = ssd->channel_head[channel].subs_r_head;
 	while (sub_plane_request != NULL)
 	{
-		if ((sub_plane_request->current_state == SR_WAIT) && (sub_plane_request->suspend_req_flag == type))
+		if (sub_plane_request->current_state == SR_WAIT && sub_plane_request->location->chip == chip)
 		{
-			if (sub_plane_request->location->chip == chip)
+			/*************************************************************************************/
+			if (ssd->channel_head[channel].chip_head[chip].gc_signal != SIG_NORMAL)
 			{
-				if (command == ONE_SHOT_READ_MUTLI_PLANE)
+				if (check_req_in_suspend(ssd, channel, chip, sub_plane_request) == FAILURE)
 				{
-					if (sub_count % PAGE_INDEX == 0)  
-					{
-						if (((ssd->channel_head[sub_plane_request->location->channel].chip_head[sub_plane_request->location->chip].current_state == CHIP_IDLE) ||
-							((ssd->channel_head[sub_plane_request->location->channel].chip_head[sub_plane_request->location->chip].next_state == CHIP_IDLE) &&
-							(ssd->channel_head[sub_plane_request->location->channel].chip_head[sub_plane_request->location->chip].next_state_predict_time <= ssd->current_time))))
-						{
-							if (sub_count == 0)
-							{
-								aim_die = sub_plane_request->location->die;
-								aim_plane = sub_plane_request->location->plane;
-								aim_block = sub_plane_request->location->block;
-								aim_group = sub_plane_request->location->page / PAGE_INDEX;
-								i = 0;
-								flag = 1;
-							}
-							else   //当第一个plane已经寻找完了，下面开始寻找第二个的目标aimplane\aim_block
-							{
-								if (ssd->parameter->scheduling_algorithm == FCFS)
-								{
-									if (sub_plane_request->location->plane != aim_plane)
-									{
-										aim_plane = sub_plane_request->location->plane;
-										aim_block = sub_plane_request->location->block;
-										i++;
-										flag = 1;
-									}
-								}
-							}
-						}
-					}
-					if (flag == 1)
-					{
-						if (sub_plane_request->location->die == aim_die && sub_plane_request->location->plane == aim_plane && sub_plane_request->location->block == aim_block)
-						{
-							for (j = 0; j < PAGE_INDEX; j++)
-							{
-								if (sub_plane_request->location->page == (j + aim_group*PAGE_INDEX))
-								{
-									if (sub_place[j + (i*PAGE_INDEX)] != NULL)
-									{
-										printf("read the same page!\n");
-										getchar();
-									}
-									sub_place[j + (i*PAGE_INDEX)] = sub_plane_request;
-
-									if (type == SUSPEND_TYPE)
-									{
-										sub_plane_request->next_suspend_sub = ssd->channel_head[channel].erase_suspend_command->suspend_sub_req;
-										ssd->channel_head[channel].erase_suspend_command->suspend_sub_req = sub_plane_request;
-									}
-
-									sub_count++;
-									break;
-								}
-
-							}
-						}
-					}
+					sub_plane_request = sub_plane_request->next_node;
+					continue;
 				}
-				else if (command == ONE_SHOT_READ)
+			}
+			/*************************************************************************************/
+
+		    if (command == ONE_SHOT_READ_MUTLI_PLANE)
+			{
+				if (sub_count % PAGE_INDEX == 0)
 				{
-					if (flag == 0)
+					if (((ssd->channel_head[sub_plane_request->location->channel].chip_head[sub_plane_request->location->chip].current_state == CHIP_IDLE) ||
+						((ssd->channel_head[sub_plane_request->location->channel].chip_head[sub_plane_request->location->chip].next_state == CHIP_IDLE) &&
+						(ssd->channel_head[sub_plane_request->location->channel].chip_head[sub_plane_request->location->chip].next_state_predict_time <= ssd->current_time))))
 					{
-						if (((ssd->channel_head[sub_plane_request->location->channel].chip_head[sub_plane_request->location->chip].current_state == CHIP_IDLE) ||
-							((ssd->channel_head[sub_plane_request->location->channel].chip_head[sub_plane_request->location->chip].next_state == CHIP_IDLE) &&
-							(ssd->channel_head[sub_plane_request->location->channel].chip_head[sub_plane_request->location->chip].next_state_predict_time <= ssd->current_time))))
+						if (sub_count == 0)
 						{
 							aim_die = sub_plane_request->location->die;
 							aim_plane = sub_plane_request->location->plane;
 							aim_block = sub_plane_request->location->block;
 							aim_group = sub_plane_request->location->page / PAGE_INDEX;
+							i = 0;
 							flag = 1;
 						}
-					}
-					if (flag == 1)
-					{
-						if (sub_plane_request->location->die == aim_die && sub_plane_request->location->plane == aim_plane && sub_plane_request->location->block == aim_block)
+						else   //当第一个plane已经寻找完了，下面开始寻找第二个的目标aimplane\aim_block
 						{
-							for (j = 0; j < PAGE_INDEX; j++)
+							if (ssd->parameter->scheduling_algorithm == FCFS)
 							{
-								if (sub_plane_request->location->page == (j + aim_group*PAGE_INDEX))
+								if ((sub_plane_request->location->plane != aim_plane) && (sub_place[i*PAGE_INDEX] != NULL))
 								{
-									if (sub_place[j] != NULL)
-									{
-										printf("read the same page!\n");
-										getchar();
-									}
-									sub_place[j] = sub_plane_request;
-
-									if (type == SUSPEND_TYPE)
-									{
-										sub_plane_request->next_suspend_sub = ssd->channel_head[channel].erase_suspend_command->suspend_sub_req;
-										ssd->channel_head[channel].erase_suspend_command->suspend_sub_req = sub_plane_request;
-									}
-
-									sub_count++;
-									break;
+									aim_plane = sub_plane_request->location->plane;
+									aim_block = sub_plane_request->location->block;
+									i++;
+									flag = 1;
 								}
-
 							}
 						}
 					}
 				}
-				else if (command == MUTLI_PLANE)
+				if (flag == 1)
 				{
-					if (i == 0)
+					if (sub_plane_request->location->die == aim_die && sub_plane_request->location->plane == aim_plane && sub_plane_request->location->block == aim_block)
 					{
-						if (((ssd->channel_head[sub_plane_request->location->channel].chip_head[sub_plane_request->location->chip].current_state == CHIP_IDLE) ||
-							((ssd->channel_head[sub_plane_request->location->channel].chip_head[sub_plane_request->location->chip].next_state == CHIP_IDLE) &&
-							(ssd->channel_head[sub_plane_request->location->channel].chip_head[sub_plane_request->location->chip].next_state_predict_time <= ssd->current_time))))
+						for (j = 0; j < PAGE_INDEX; j++)
 						{
-							sub_place[0] = sub_plane_request;
-							i++;
-							sub_count++;
-						}
-					}
-					else
-					{
-						if ((sub_place[0]->location->chip == sub_plane_request->location->chip) &&
-							(sub_place[0]->location->die == sub_plane_request->location->die) &&
-							(sub_place[0]->location->page == sub_plane_request->location->page))
-						{
-							plane_flag = 0;
-							for (j = 0; j < i; j++)
+							if (sub_plane_request->location->page == (j + aim_group*PAGE_INDEX))
 							{
-								if (sub_place[j]->location->plane == sub_plane_request->location->plane)
-									plane_flag = 1;
-							}
-							if (plane_flag == 0)
-							{
-								sub_place[i] = sub_plane_request;
-								i++;
+								if (sub_place[j + (i*PAGE_INDEX)] != NULL)
+								{
+									printf("read the same page!\n");
+									getchar();
+								}
+								sub_place[j + (i*PAGE_INDEX)] = sub_plane_request;
 								sub_count++;
+								break;
 							}
+
 						}
 					}
-					if (type == SUSPEND_TYPE)
-					{
-						sub_plane_request->next_suspend_sub = ssd->channel_head[channel].erase_suspend_command->suspend_sub_req;
-						ssd->channel_head[channel].erase_suspend_command->suspend_sub_req = sub_plane_request;
-					}
-
-					if (i == ssd->parameter->plane_die)
+					if (sub_count == (ssd->parameter->plane_die * PAGE_INDEX))
 						break;
 				}
-				else if (command == NORMAL)
+			}
+			else if (command == ONE_SHOT_READ)
+			{
+				if (flag == 0)
+				{
+					if (((ssd->channel_head[sub_plane_request->location->channel].chip_head[sub_plane_request->location->chip].current_state == CHIP_IDLE) ||
+						((ssd->channel_head[sub_plane_request->location->channel].chip_head[sub_plane_request->location->chip].next_state == CHIP_IDLE) &&
+						(ssd->channel_head[sub_plane_request->location->channel].chip_head[sub_plane_request->location->chip].next_state_predict_time <= ssd->current_time))))
+					{
+						aim_die = sub_plane_request->location->die;
+						aim_plane = sub_plane_request->location->plane;
+						aim_block = sub_plane_request->location->block;
+						aim_group = sub_plane_request->location->page / PAGE_INDEX;
+						flag = 1;
+					}
+				}
+				if (flag == 1)
+				{
+					if (sub_plane_request->location->die == aim_die && sub_plane_request->location->plane == aim_plane && sub_plane_request->location->block == aim_block)
+					{
+						for (j = 0; j < PAGE_INDEX; j++)
+						{
+							if (sub_plane_request->location->page == (j + aim_group*PAGE_INDEX))
+							{
+								if (sub_place[j] != NULL)
+								{
+									printf("read the same page!\n");
+									getchar();
+								}
+								sub_place[j] = sub_plane_request;
+								sub_count++;
+								break;
+							}
+
+						}
+					}
+				}
+			}
+			else if (command == MUTLI_PLANE)
+			{
+				if (i == 0)
 				{
 					if (((ssd->channel_head[sub_plane_request->location->channel].chip_head[sub_plane_request->location->chip].current_state == CHIP_IDLE) ||
 						((ssd->channel_head[sub_plane_request->location->channel].chip_head[sub_plane_request->location->chip].next_state == CHIP_IDLE) &&
 						(ssd->channel_head[sub_plane_request->location->channel].chip_head[sub_plane_request->location->chip].next_state_predict_time <= ssd->current_time))))
 					{
 						sub_place[0] = sub_plane_request;
-						if (type == SUSPEND_TYPE)
-						{
-							sub_plane_request->next_suspend_sub = ssd->channel_head[channel].erase_suspend_command->suspend_sub_req;
-							ssd->channel_head[channel].erase_suspend_command->suspend_sub_req = sub_plane_request;
-						}
-
-						sub_count = 1;
-						break;
+						i++;
+						sub_count++;
 					}
+				}
+				else
+				{
+					if ((sub_place[0]->location->chip == sub_plane_request->location->chip) &&
+						(sub_place[0]->location->die == sub_plane_request->location->die) &&
+						(sub_place[0]->location->page == sub_plane_request->location->page))
+					{
+						plane_flag = 0;
+						for (j = 0; j < i; j++)
+						{
+							if (sub_place[j]->location->plane == sub_plane_request->location->plane)
+								plane_flag = 1;
+						}
+						if (plane_flag == 0)
+						{
+							sub_place[i] = sub_plane_request;
+							i++;
+							sub_count++;
+						}
+					}
+				}
+				if (i == ssd->parameter->plane_die)
+					break;
+			}
+			else if (command == NORMAL)
+			{
+				if (((ssd->channel_head[sub_plane_request->location->channel].chip_head[sub_plane_request->location->chip].current_state == CHIP_IDLE) ||
+					((ssd->channel_head[sub_plane_request->location->channel].chip_head[sub_plane_request->location->chip].next_state == CHIP_IDLE) &&
+					(ssd->channel_head[sub_plane_request->location->channel].chip_head[sub_plane_request->location->chip].next_state_predict_time <= ssd->current_time))))
+				{
+					sub_place[0] = sub_plane_request;
+					sub_count = 1;
+					break;
 				}
 			}
 		}
@@ -640,82 +695,10 @@ unsigned int find_r_wait_sub_request(struct ssd_info * ssd, unsigned int channel
 		printf("error,beyong plane_die * PAGE_INDEX\n");
 		getchar();
 	}
-
 	return sub_count;
 }
 
-/*
-unsigned int find_mutliplane_sub_request(struct ssd_info * ssd, unsigned int channel, unsigned int chip, struct sub_request ** sub_mutliplane_place, unsigned int command)
-{
-	unsigned int i = 0, j = 0, plane_flag;
-	struct sub_request * sub_plane_request = NULL;
 
-	i = 0;
-	sub_plane_request = ssd->channel_head[channel].subs_r_head;
-	while (sub_plane_request != NULL)
-	{
-		if (sub_plane_request->current_state == SR_WAIT)
-		{
-			if (sub_plane_request->location->chip == chip)
-			{
-				if (i == 0)
-				{
-					if (((ssd->channel_head[sub_plane_request->location->channel].chip_head[sub_plane_request->location->chip].current_state == CHIP_IDLE) ||
-						((ssd->channel_head[sub_plane_request->location->channel].chip_head[sub_plane_request->location->chip].next_state == CHIP_IDLE) &&
-						(ssd->channel_head[sub_plane_request->location->channel].chip_head[sub_plane_request->location->chip].next_state_predict_time <= ssd->current_time))))
-					{
-						sub_mutliplane_place[0] = sub_plane_request;
-						i++;
-					}
-				}
-				else
-				{
-					if ((sub_mutliplane_place[0]->location->chip == sub_plane_request->location->chip) &&
-						(sub_mutliplane_place[0]->location->die == sub_plane_request->location->die) &&
-						(sub_mutliplane_place[0]->location->page == sub_plane_request->location->page))
-					{
-						plane_flag = 0;
-						for (j = 0; j < i; j++)
-						{
-							if (sub_mutliplane_place[j]->location->plane == sub_plane_request->location->plane)
-								plane_flag = 1;
-						}
-						if (plane_flag == 0)
-						{
-							sub_mutliplane_place[i] = sub_plane_request;
-							i++;
-						}
-
-
-					}
-				}
-				if (command == MUTLI_PLANE)
-				{
-					if (i == ssd->parameter->plane_die)
-					{
-						break;
-					}
-				}
-				else
-				{
-					if (i == 1)
-						break;
-				}
-			}
-		}
-
-		sub_plane_request = sub_plane_request->next_node;
-	}
-
-	if (i > ssd->parameter->plane_die)
-	{
-		printf("error,beyong plane_die\n");
-		getchar();
-	}
-
-	return i;
-}
-*/
 
 
 /***********************************************************************************************************
@@ -822,14 +805,6 @@ Status go_one_step(struct ssd_info * ssd, struct sub_request ** subs, unsigned i
 			if (sub->update_read_flag == 1)
 				sub->update_read_flag = 0;
 
-			//判断是否有suspend read
-			if (sub->suspend_req_flag == 1)
-			{
-				sub->suspend_req_flag = 0;
-				ssd->gc_signal = SIG_RESUME;
-			}
-
-
 			ssd->channel_head[location->channel].current_state = CHANNEL_DATA_TRANSFER;
 			ssd->channel_head[location->channel].current_time = ssd->current_time;
 			ssd->channel_head[location->channel].next_state = CHANNEL_IDLE;
@@ -840,6 +815,17 @@ Status go_one_step(struct ssd_info * ssd, struct sub_request ** subs, unsigned i
 			ssd->channel_head[location->channel].chip_head[location->chip].next_state = CHIP_IDLE;
 			ssd->channel_head[location->channel].chip_head[location->chip].next_state_predict_time = sub->next_state_predict_time;
 
+			/*
+			//判断是否有suspend read
+			if (sub->suspend_req_flag == SUSPEND_TYPE && ssd->channel_head[location->channel].chip_head[location->chip].gc_signal == SIG_ERASE_SUSPEND)
+			{
+				sub->suspend_req_flag = NORMAL_TYPE;
+				if (ssd->channel_head[location->channel].chip_head[location->chip].next_state_predict_time >= ssd->channel_head[location->channel].chip_head[location->chip].erase_cmplt_time)
+				{
+					ssd->channel_head[location->channel].chip_head[location->chip].gc_signal = SIG_ERASE_RESUME;
+				}
+			}
+			*/
 			break;
 		}
 		case SR_W_TRANSFER:
@@ -992,12 +978,17 @@ Status go_one_step(struct ssd_info * ssd, struct sub_request ** subs, unsigned i
 					if (subs[i]->update_read_flag == 1)
 						subs[i]->update_read_flag = 0;
 
+					/*
 					//判断是否有suspend read
-					if (subs[i]->suspend_req_flag == 1)
+					if (subs[i]->suspend_req_flag == SUSPEND_TYPE && ssd->channel_head[location->channel].chip_head[location->chip].gc_signal == SIG_ERASE_SUSPEND)
 					{
-						subs[i]->suspend_req_flag = 0;
-						ssd->gc_signal = SIG_RESUME;
+						subs[i]->suspend_req_flag = NORMAL_TYPE;
+						if (ssd->channel_head[location->channel].chip_head[location->chip].next_state_predict_time >= ssd->channel_head[location->channel].chip_head[location->chip].erase_cmplt_time)
+						{
+							ssd->channel_head[location->channel].chip_head[location->chip].gc_signal = SIG_ERASE_RESUME;
+						}
 					}
+					*/
 				}
 				i--;
 				//更新channel/chip的时间线
@@ -1406,7 +1397,7 @@ Status find_level_page(struct ssd_info *ssd, unsigned int channel, unsigned int 
 struct ssd_info *make_same_level(struct ssd_info *ssd, unsigned int channel, unsigned int chip, unsigned int die, unsigned int plane, unsigned int block, unsigned int aim_page)
 {
 	int i = 0, step, page;
-	struct direct_erase *new_direct_erase, *direct_erase_node;
+	struct direct_erase *new_direct_erase, *direct_erase_node = NULL;
 
 	page = ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[plane].blk_head[block].last_write_page + 1;                  /*The page number of the current block that needs to be adjusted*/
 	step = aim_page - page;
@@ -1480,6 +1471,7 @@ struct ssd_info *compute_serve_time(struct ssd_info *ssd, unsigned int channel, 
 			subs[i]->current_time = last_sub->complete_time + ssd->parameter->time_characteristics.tDBSY;
 		}
 
+		subs[i]->update_read_flag = 0;
 		subs[i]->next_state = SR_COMPLETE;
 		subs[i]->next_state_predict_time = subs[i]->current_time + 7 * ssd->parameter->time_characteristics.tWC + (subs[i]->size*ssd->parameter->subpage_capacity)*ssd->parameter->time_characteristics.tWC;
 		subs[i]->complete_time = subs[i]->next_state_predict_time;

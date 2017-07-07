@@ -6,17 +6,18 @@ This is a project on 3D_SSDsim, based on ssdsim under the framework of the compl
 4.4-layer structure
 
 FileName： ssd.c
-Author: Zuo Lu 		Version: 1.4	Date:2017/06/22
+Author: Zuo Lu 		Version: 1.5	Date:2017/07/07
 Description: System main function c file, Contains the basic flow of simulation.
 Mainly includes: initialization, make_aged, pre_process_page three parts
 
 History:
-<contributor>     <time>        <version>       <desc>										<e-mail>
-Zuo Lu	        2017/04/06	      1.0		    Creat 3D_SSDsim								617376665@qq.com
-Zuo Lu			2017/05/12		  1.1			Support advanced commands:mutli plane		617376665@qq.com
-Zuo Lu			2017/06/12		  1.2			Support advanced commands:half page read	617376665@qq.com
-Zuo Lu			2017/06/16		  1.3			Support advanced commands:one shot program  617376665@qq.com
-Zuo Lu			2017/06/22		  1.4			Support advanced commands:one shot read	    617376665@qq.com
+<contributor>     <time>        <version>       <desc>											<e-mail>
+Zuo Lu	        2017/04/06	      1.0		    Creat 3D_SSDsim									617376665@qq.com
+Zuo Lu			2017/05/12		  1.1			Support advanced commands:mutli plane			617376665@qq.com
+Zuo Lu			2017/06/12		  1.2			Support advanced commands:half page read		617376665@qq.com
+Zuo Lu			2017/06/16		  1.3			Support advanced commands:one shot program		617376665@qq.com
+Zuo Lu			2017/06/22		  1.4			Support advanced commands:one shot read			617376665@qq.com
+Zuo Lu			2017/07/07		  1.5			Support advanced commands:erase suspend/resume  617376665@qq.com
 *****************************************************************************************************************************/
 
 #define _CRTDBG_MAP_ALLOC
@@ -265,33 +266,15 @@ struct ssd_info *process(struct ssd_info *ssd)
 	services_2_r_read(ssd);
 	services_2_r_complete(ssd);
 
-	//random_num = ssd->program_count%ssd->parameter->channel_number;                      /*Generate a random number, to ensure that each time from a different channel query*/
 	random_num = ssd->token;
 	for (chan = 0; chan<ssd->parameter->channel_number; chan++)
 	{
 		i = (random_num + chan) % ssd->parameter->channel_number;
 		flag_gc = 0;																		
-		ssd->channel_head[i].channel_busy_flag = 0;
-
+		ssd->channel_head[i].channel_busy_flag = 0;		
 		if ((ssd->channel_head[i].current_state == CHANNEL_IDLE) || (ssd->channel_head[i].next_state == CHANNEL_IDLE&&ssd->channel_head[i].next_state_predict_time <= ssd->current_time))
 		{
 			//先处理是否有挂起的gc擦除操作，再处理普通的gc操作
-
-			if (ssd->gc_signal == SIG_RESUME)
-			{
-				//由于resume操作，针对的只是擦除操作，继而对channel的时间线不会有变动,进而channal上的请求是可以被执行的
-				if (ssd->channel_head[i].erase_suspend_command != NULL)
-				{
-					flag_gc = resume_erase_operation(ssd, i);
-					if (flag_gc == 1)
-						ssd->resume_count++;
-				}
-				else
-				{
-					printf("Error!,cannot find resume erase command\n");
-					getchar();
-				}
-			}
 			if (ssd->gc_request>0)
 			{
 				if (ssd->channel_head[i].gc_command != NULL)
@@ -309,7 +292,7 @@ struct ssd_info *process(struct ssd_info *ssd)
 			*2.followed by the state of the read flash
 			*3.end by processing write sub_request
 			**********************************************************/
-			services_2_r_wait(ssd, i, NORMAL_TYPE);							  //flag=1,channel is busy，else idle....                  
+			services_2_r_wait(ssd, i);							  //flag=1,channel is busy，else idle....                  
 			if ((ssd->channel_head[i].channel_busy_flag == 0) && (ssd->channel_head[i].subs_r_head != NULL))					  //chg_cur_time_flag=1,current_time has changed，chg_cur_time_flag=0,current_time has not changed  			
 				services_2_r_data_trans(ssd, i);
 
@@ -647,7 +630,8 @@ void statistic_output(struct ssd_info *ssd)
 	fprintf(ssd->outputfile, "\n");
 	fprintf(ssd->outputfile,"erase count: %13d\n",ssd->erase_count);
 	fprintf(ssd->outputfile,"direct erase count: %13d\n",ssd->direct_erase_count);
-	//fprintf(ssd->outputfile,"copy back count: %13d\n",ssd->copy_back_count);
+
+	fprintf(ssd->outputfile,"mutli-plane erase count: %13d\n",ssd->mplane_erase_count);
 	fprintf(ssd->outputfile,"multi-plane program count: %13d\n",ssd->m_plane_prog_count);
 	fprintf(ssd->outputfile,"multi-plane read count: %13d\n",ssd->m_plane_read_count);
 	//fprintf(ssd->outputfile,"interleave write count: %13d\n",ssd->interleave_count);
@@ -730,6 +714,9 @@ void statistic_output(struct ssd_info *ssd)
 	fprintf(ssd->statisticfile, "mutli plane one shot program count : %13d\n", ssd->mutliplane_oneshot_prog_count);
 	fprintf(ssd->statisticfile, "one shot read count : %13d\n", ssd->one_shot_read_count);
 	fprintf(ssd->statisticfile, "mutli plane one shot read count : %13d\n", ssd->one_shot_mutli_plane_count);
+	fprintf(ssd->statisticfile, "erase suspend count : %13d\n", ssd->suspend_count);
+	fprintf(ssd->statisticfile, "erase resume  count : %13d\n", ssd->resume_count);
+	fprintf(ssd->statisticfile, "suspend read  count : %13d\n", ssd->suspend_read_count);
 
 	fprintf(ssd->statisticfile, "\n");
 	fflush(ssd->statisticfile);

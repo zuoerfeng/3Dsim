@@ -1,8 +1,8 @@
 parameter file: page.parameters
-trace file: 16G_16KB_random_RandW.ascii
+trace file: f2_512MB.ascii
 -----------------------parameter file----------------------
 #parameter file
-dram capacity = 8388608;     #the unit is B
+dram capacity = 524288;     #the unit is B
 chip number[0] = 1;
 chip number[1] = 1;
 chip number[2] = 0;
@@ -29,8 +29,8 @@ plane number = 2;
 block number = 1024;
 page number = 64;
 subpage page = 4; 						#can not beyond 32
-page capacity = 16384;					#16kb
-subpage capacity = 4096;			
+page capacity = 2048;					#16kb
+subpage capacity = 512;			
 t_PROG = 200000;             #the unit is ns
 t_DBSY = 50;
 t_BERS = 1500000;
@@ -79,58 +79,61 @@ gc hard threshold=0.10;          #gcÓ²ãÐÖµ´óÐ¡£¬µ±planeÄÚÎÞÐ§Ò³¸öÊý³¬¹ý´ËãÐÖµÊ±£
 allocation=0;                    #·ÖÅä·½Ê½£¬0£º¶¯Ì¬·ÖÅä£¬1£º¾²Ì¬·ÖÅä
 dynamic_allocation=0;            #¶¯Ì¬·ÖÅä·½Ê½ÀàÐÍ£¬0:È«¶¯Ì¬£¬1:channel¾²Ì¬,chip£¬die£¬plane¶¯Ì¬£¬2:channel£¬package£¬die¾²Ì¬,plane¶¯Ì¬
 dynamic_allocation_priority=1;	 #¶¯Ì¬·ÖÅä·½Ê½ÓÅÏÈ¼¶£¬0£ºchannel>chip>die>plane,1£ºplane>channel>chip>die
-advanced command=15;             #¸ß¼¶ÃüÁîÖ§³Ö£¬ÓÃ¶þ½øÖÆ±íÊ¾£¬ÎÞ(00000)¡¢mutli plane(00001), half-page-read(00010), one shot program(00100),one shot read(01000),erase suspend/resume(10000)
+advanced command=31;             #¸ß¼¶ÃüÁîÖ§³Ö£¬ÓÃ¶þ½øÖÆ±íÊ¾£¬ÎÞ(00000)¡¢mutli plane(00001), half-page-read(00010), one shot program(00100),one shot read(01000),erase suspend/resume(10000)
 greed MPW command=1;             #multi-planeÌ°ÐÄËã·¨£¬0£º·ÇÌ°ÐÄ£¬1£ºÌ°ÐÄ
 aged=0;                          #¾É»¯´¦Àí£¬0£ºnon-aged£¬1£ºaged
 aged ratio=0.5;                	 #¾É»¯ÂÊ
 flash mode=1;					 #flashÖ§³ÖÄ£Ê½£¬0£ºslc,1£ºtlc
 -----------------------simulation output----------------------
-the 0 channel, 0 chip, 0 die, 0 plane has :   0 erase operations,13893 read operations,13674 write operations,129 pre_process write operations
-the 0 channel, 0 chip, 0 die, 1 plane has :   0 erase operations,13714 read operations,13674 write operations,129 pre_process write operations
-the 0 channel, 0 chip, 1 die, 0 plane has :   0 erase operations,13823 read operations,13671 write operations,129 pre_process write operations
-the 0 channel, 0 chip, 1 die, 1 plane has :   0 erase operations,14060 read operations,13672 write operations,128 pre_process write operations
-the 1 channel, 0 chip, 0 die, 0 plane has :   0 erase operations,13962 read operations,13740 write operations,129 pre_process write operations
-the 1 channel, 0 chip, 0 die, 1 plane has :   0 erase operations,14025 read operations,13740 write operations,129 pre_process write operations
-the 1 channel, 0 chip, 1 die, 0 plane has :   0 erase operations,13944 read operations,13740 write operations,128 pre_process write operations
-the 1 channel, 0 chip, 1 die, 1 plane has :   0 erase operations,13830 read operations,13740 write operations,128 pre_process write operations
+the 0 channel, 0 chip, 0 die, 0 plane has : 1710 erase operations,773374 read operations,142012 write operations,26865 pre_process write operations
+the 0 channel, 0 chip, 0 die, 1 plane has : 1710 erase operations,730636 read operations,141116 write operations,26865 pre_process write operations
+the 0 channel, 0 chip, 1 die, 0 plane has : 1691 erase operations,754538 read operations,140917 write operations,26865 pre_process write operations
+the 0 channel, 0 chip, 1 die, 1 plane has : 1691 erase operations,749664 read operations,140149 write operations,26865 pre_process write operations
+the 1 channel, 0 chip, 0 die, 0 plane has : 1694 erase operations,777285 read operations,141157 write operations,26865 pre_process write operations
+the 1 channel, 0 chip, 0 die, 1 plane has : 1694 erase operations,720288 read operations,140261 write operations,26865 pre_process write operations
+the 1 channel, 0 chip, 1 die, 0 plane has : 1709 erase operations,777522 read operations,141760 write operations,26865 pre_process write operations
+the 1 channel, 0 chip, 1 die, 1 plane has : 1709 erase operations,743975 read operations,141057 write operations,26864 pre_process write operations
 
 
 ---------------------------statistic data---------------------------
 min lsn:             0
-max lsn:         32767
-read count:        111251
-the read operation leaded by un-covered update count:         22233
-the read operation leaded by gc read count:             0
+max lsn:       1047450
+read count:       5834467
+the read operation leaded by un-covered update count:        330952
+the read operation leaded by gc read count:        192815
 
-program count:        109650
-the write operation leaded by pre_process write count:          1029
-the write operation leaded by un-covered update count:         22233
-the write operation leaded by gc read count:             0
+program count:       1122785
+the write operation leaded by pre_process write count:        214919
+the write operation leaded by un-covered update count:        330952
+the write operation leaded by gc read count:        192815
 
-erase count:             0
-direct erase count:             0
+erase count:         13608
+direct erase count:            16
 
-multi-plane program count:         54825
-multi-plane read count:          1049
+multi-plane program count:        464985
+multi-plane read count:        420845
 
-write flash count:        110679
+write flash count:       1337704
 
-read request count:         40093
-write request count:         59906
+read request count:       3045784
+write request count:        653079
 
-read request average size:     96.005463
-write request average size:     95.886948
+read request average size:      4.555957
+write request average size:      5.835236
 
-read request average response time:           642276
-write request average response time:           537256
+read request average response time:            85700
+write request average response time:            89139
 
-buffer read hits:         70107
-buffer read miss:         89050
-buffer write hits:        237511
-buffer write miss:        109651
-update sub request count :            10
-half page read count :         20668
-mutli plane one shot program count :         18275
-one shot read count :          1024
-mutli plane one shot read count :             1
+buffer read hits:        262901
+buffer read miss:       5506968
+buffer write hits:       1421187
+buffer write miss:        929975
+update sub request count :            34
+half page read count :       1087618
+mutli plane one shot program count :        154995
+one shot read count :         43084
+mutli plane one shot read count :          2486
+erase suspend count :          2067
+erase resume  count :          2067
+suspend read  count :          3725
 

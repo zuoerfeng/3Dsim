@@ -1,18 +1,24 @@
-﻿生成启动时间为 2017/6/29 10:57:47。
+﻿生成启动时间为 2017/7/7 16:49:58。
      1>项目“C:\Users\lz\Desktop\3D_SSDsim\3D_SSDsim_v1\3D_SSDsim\ssdsim.vcxproj”在节点 2 上(Build 个目标)。
      1>C:\Program Files (x86)\MSBuild\Microsoft.Cpp\v4.0\V120\Microsoft.CppBuild.targets(388,5): warning MSB8028: The intermediate directory (Debug\) contains files shared from another project (ssdsim.vcxproj).  This can lead to incorrect clean and rebuild behavior.
      1>ClCompile:
-         D:\2_tmp\Microsoft Visual Studio 12.0\VC\bin\CL.exe /c /Zi /nologo /W3 /WX- /Od /Oy- /D WIN32 /D _DEBUG /D _CONSOLE /Gm /EHsc /RTC1 /MDd /GS /fp:precise /Zc:wchar_t /Zc:forScope /Fo"Debug\\" /Fd"Debug\vc120.pdb" /Gd /TC /analyze- /errorReport:prompt fcl.c
+         D:\2_tmp\Microsoft Visual Studio 12.0\VC\bin\CL.exe /c /Zi /nologo /W3 /WX- /Od /Oy- /D WIN32 /D _DEBUG /D _CONSOLE /Gm /EHsc /RTC1 /MDd /GS /fp:precise /Zc:wchar_t /Zc:forScope /Fo"Debug\\" /Fd"Debug\vc120.pdb" /Gd /TC /analyze- /errorReport:prompt fcl.c ftl.c
+         ftl.c
+     1>ftl.c(702): warning C4101: “plane”: 未引用的局部变量
+     1>ftl.c(839): warning C4101: “active_block1”: 未引用的局部变量
+     1>ftl.c(839): warning C4101: “active_block2”: 未引用的局部变量
+     1>ftl.c(842): warning C4101: “block2”: 未引用的局部变量
+     1>ftl.c(842): warning C4101: “block1”: 未引用的局部变量
          fcl.c
      1>fcl.c(53): warning C4018: “<”: 有符号/无符号不匹配
      1>fcl.c(213): warning C4101: “add_reg”: 未引用的局部变量
-     1>fcl.c(450): warning C4101: “k”: 未引用的局部变量
-     1>fcl.c(940): warning C4244: “=”: 从“double”转换到“__int64”，可能丢失数据
-     1>fcl.c(944): warning C4244: “=”: 从“double”转换到“__int64”，可能丢失数据
-     1>fcl.c(948): warning C4244: “=”: 从“double”转换到“__int64”，可能丢失数据
-     1>fcl.c(1175): warning C4018: “>”: 有符号/无符号不匹配
-     1>fcl.c(1313): warning C4101: “plane”: 未引用的局部变量
-     1>c:\users\lz\desktop\3d_ssdsim\3d_ssdsim_v1\3d_ssdsim\fcl.c(1437): warning C4700: 使用了未初始化的局部变量“direct_erase_node”
+     1>fcl.c(520): warning C4101: “k”: 未引用的局部变量
+     1>fcl.c(925): warning C4244: “=”: 从“double”转换到“__int64”，可能丢失数据
+     1>fcl.c(929): warning C4244: “=”: 从“double”转换到“__int64”，可能丢失数据
+     1>fcl.c(933): warning C4244: “=”: 从“double”转换到“__int64”，可能丢失数据
+     1>fcl.c(1165): warning C4018: “>”: 有符号/无符号不匹配
+     1>fcl.c(1303): warning C4101: “plane”: 未引用的局部变量
+         正在生成代码...
        Link:
          D:\2_tmp\Microsoft Visual Studio 12.0\VC\bin\link.exe /ERRORREPORT:PROMPT /OUT:"C:\Users\lz\Desktop\3D_SSDsim\3D_SSDsim_v1\3D_SSDsim\Debug\3Dsim.exe" /INCREMENTAL /NOLOGO kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /MANIFEST /MANIFESTUAC:"level='asInvoker' uiAccess='false'" /manifest:embed /DEBUG /PDB:"C:\Users\lz\Desktop\3D_SSDsim\3D_SSDsim_v1\3D_SSDsim\Debug\3Dsim.pdb" /SUBSYSTEM:CONSOLE /TLBID:1 /DYNAMICBASE /NXCOMPAT /IMPLIB:"C:\Users\lz\Desktop\3D_SSDsim\3D_SSDsim_v1\3D_SSDsim\Debug\3Dsim.lib" /MACHINE:X86 Debug\avlTree.obj
          Debug\buffer.obj
@@ -27,4 +33,4 @@
 
 生成成功。
 
-已用时间 00:00:00.28
+已用时间 00:00:00.84

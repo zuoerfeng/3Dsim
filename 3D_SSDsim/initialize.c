@@ -6,17 +6,18 @@ This is a project on 3D_SSDsim, based on ssdsim under the framework of the compl
 4.4-layer structure
 
 FileName£º initialize.c
-Author: Zuo Lu 		Version: 1.4	Date:2017/06/22
+Author: Zuo Lu 		Version: 1.5	Date:2017/07/07
 Description: 
 Initialization layer: complete ssd organizational data structure, request queue creation and memory space initialization
 
 History:
-<contributor>     <time>        <version>       <desc>										<e-mail>
-Zuo Lu	        2017/04/06	      1.0		    Creat 3D_SSDsim								617376665@qq.com
-Zuo Lu			2017/05/12		  1.1			Support advanced commands:mutli plane		617376665@qq.com
-Zuo Lu			2017/06/12		  1.2			Support advanced commands:half page read	617376665@qq.com
-Zuo Lu			2017/06/16		  1.3			Support advanced commands:one shot program  617376665@qq.com
-Zuo Lu			2017/06/22		  1.4			Support advanced commands:one shot read	    617376665@qq.com
+<contributor>     <time>        <version>       <desc>											<e-mail>
+Zuo Lu	        2017/04/06	      1.0		    Creat 3D_SSDsim									617376665@qq.com
+Zuo Lu			2017/05/12		  1.1			Support advanced commands:mutli plane			617376665@qq.com
+Zuo Lu			2017/06/12		  1.2			Support advanced commands:half page read		617376665@qq.com
+Zuo Lu			2017/06/16		  1.3			Support advanced commands:one shot program		617376665@qq.com
+Zuo Lu			2017/06/22		  1.4			Support advanced commands:one shot read			617376665@qq.com
+Zuo Lu			2017/07/07		  1.5			Support advanced commands:erase suspend/resume  617376665@qq.com
 *****************************************************************************************************************************/
 
 #define _CRTDBG_MAP_ALLOC
@@ -89,9 +90,9 @@ struct ssd_info *initiation(struct ssd_info *ssd)
 //	printf("\ninput trace file name:");
 //	gets(ssd->tracefilename);
 //	strcpy_s(ssd->tracefilename, 50, "16M_2KB_sequence_RandW.ascii");
-//	strcpy_s(ssd->tracefilename, 25, "f2_512MB.ascii");
+	strcpy_s(ssd->tracefilename, 25, "f2_512MB.ascii");
 //	strcpy_s(ssd->tracefilename, 25, "example.ascii");
-	strcpy_s(ssd->tracefilename, 50, "16G_16KB_random_RandW.ascii");
+//	strcpy_s(ssd->tracefilename, 50, "ts0_16GB.ascii");
 //	strcpy_s(ssd->tracefilename, 50, "512M_4KB_random_RandW.ascii");
 
 //	printf("\ninput output file name:");
@@ -221,7 +222,6 @@ void initialize_statistic(struct ssd_info * ssd)
 	ssd->request_lz_count = 0;
 	ssd->trace_over_flag = 0;
 	ssd->update_sub_request = 0;
-	ssd->gc_signal = SIG_NORMAL;
 	ssd->resume_count = 0;
 }
 
@@ -362,10 +362,16 @@ struct chip_info * initialize_chip(struct chip_info * p_chip,struct parameter_va
 	unsigned int i;
 	struct die_info *p_die;
 	
+	p_chip->gc_signal = SIG_NORMAL;
+	p_chip->erase_begin_time = 0;
+	p_chip->erase_cmplt_time = 0;
+	p_chip->erase_rest_time = 0;
+
 	p_chip->current_state = CHIP_IDLE;
 	p_chip->next_state = CHIP_IDLE;
 	p_chip->current_time = current_time;
-	p_chip->next_state_predict_time = 0;			
+	p_chip->next_state_predict_time = 0;
+
 	p_chip->die_num = parameter->die_chip;
 	p_chip->plane_num_die = parameter->plane_die;
 	p_chip->block_num_plane = parameter->block_plane;

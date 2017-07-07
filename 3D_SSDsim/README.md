@@ -5,7 +5,7 @@
 	
     在修改后，增添pre_process_write()函数将上述大量空闲页置无效
 	
-> 2.：代码中所有的chip~plane均采用的chip~plane[0]，即默认只用1个chip
+> 2.代码中所有的chip~plane均采用的chip~plane[0]，即默认只用1个chip
 	修改配置文件配置指定plane
 	
 > 3.通过跑financial2 trace，观察结果中mutli read结果一直为0
@@ -35,6 +35,8 @@
 > 12.增加高级命令one shot read,此高级命令可以用于single/mutli plane的模式下
 
 > 13.对于读请求队列采用的FCFS，先来先服务的调度策略
+
+> 14.增加高级命令Erase suspend/resume，此高级命令主要服务于gc操作中的erase
 
 .......
 

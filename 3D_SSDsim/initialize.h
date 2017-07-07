@@ -6,17 +6,18 @@ This is a project on 3D_SSDsim, based on ssdsim under the framework of the compl
 4.4-layer structure
 
 FileName£º initialize.h
-Author: Zuo Lu 		Version: 1.4	Date:2017/06/22
+Author: Zuo Lu 		Version: 1.5	Date:2017/07/07
 Description:
 Initialization layer: complete ssd organizational data structure, request queue creation and memory space initialization
 
 History:
-<contributor>     <time>        <version>       <desc>										<e-mail>
-Zuo Lu	        2017/04/06	      1.0		    Creat 3D_SSDsim								617376665@qq.com
-Zuo Lu			2017/05/12		  1.1			Support advanced commands:mutli plane		617376665@qq.com
-Zuo Lu			2017/06/12		  1.2			Support advanced commands:half page read	617376665@qq.com
-Zuo Lu			2017/06/16		  1.3			Support advanced commands:one shot program  617376665@qq.com
-Zuo Lu			2017/06/22		  1.4			Support advanced commands:one shot read	    617376665@qq.com
+<contributor>     <time>        <version>       <desc>											<e-mail>
+Zuo Lu	        2017/04/06	      1.0		    Creat 3D_SSDsim									617376665@qq.com
+Zuo Lu			2017/05/12		  1.1			Support advanced commands:mutli plane			617376665@qq.com
+Zuo Lu			2017/06/12		  1.2			Support advanced commands:half page read		617376665@qq.com
+Zuo Lu			2017/06/16		  1.3			Support advanced commands:one shot program		617376665@qq.com
+Zuo Lu			2017/06/22		  1.4			Support advanced commands:one shot read			617376665@qq.com
+Zuo Lu			2017/07/07		  1.5			Support advanced commands:erase suspend/resume  617376665@qq.com
 *****************************************************************************************************************************/
 
 #include <stdio.h>
@@ -62,9 +63,10 @@ Zuo Lu			2017/06/22		  1.4			Support advanced commands:one shot read	    6173766
 
 #define FCFS 1
 
-#define SIG_NORMAL 0
-#define SIG_SUSPEND 1
-#define SIG_RESUME 2
+#define SIG_NORMAL 11
+#define SIG_ERASE_WAIT 12
+#define SIG_ERASE_SUSPEND 13
+#define SIG_ERASE_RESUME 14
 
 #define NORMAL_TYPE 0
 #define SUSPEND_TYPE 1
@@ -89,8 +91,6 @@ Zuo Lu			2017/06/22		  1.4			Support advanced commands:one shot read	    6173766
 #define CHIP_DATA_TRANSFER 107
 #define CHIP_WAIT 108
 #define CHIP_ERASE_BUSY 109
-#define CHIP_ERASE_SUSPEND_BUSY 110
-#define UNKNOWN 111
 
 #define SR_WAIT 200                 
 #define SR_R_C_A_TRANSFER 201
@@ -181,7 +181,6 @@ struct ssd_info{
 	int trace_over_flag;				 //the end of trace flag:0-- not ending ,1--ending
 	__int64 request_lz_count;			 //trace request count
 	unsigned int update_sub_request;
-	unsigned int gc_signal;
 	
 	__int64 current_time;                //Record system time
 	__int64 next_request_time;
@@ -193,7 +192,6 @@ struct ssd_info{
 
 	unsigned int token;                  //In the dynamic allocation, in order to prevent each assignment in the first channel need to maintain a token, each time from the token refers to the location of the distribution
 	unsigned int gc_request;             //Recorded in the SSD, the current moment how many gc operation request
-	unsigned int gc_suspend_request;     //record the number of suspend erase operation
 
 	__int64 write_avg;                   //Record the time to calculate the average response time for the write request
 	__int64 read_avg;                    //Record the time to calculate the average response time for the read request
@@ -209,6 +207,7 @@ struct ssd_info{
 	unsigned long one_shot_mutli_plane_count;//Record the number of one shot mutli plane read operation
 	unsigned long resume_count;
 	unsigned long suspend_count;
+	unsigned long suspend_read_count;
 
 	unsigned long program_count;
 	unsigned long pre_all_write;		 //Record preprocessing write operation
@@ -266,7 +265,7 @@ struct channel_info{
 	int chip;                            //Indicates how many particles are on the bus
 	unsigned int token;                  //In the dynamic allocation, in order to prevent each assignment in the first chip need to maintain a token, each time from the token referred to the location of the distribution
 
-	int current_state;                   //channel has serveral states, including idle, command/address transfer,data transfer,unknown
+	int current_state;                   //channel has serveral states, including idle, command/address transfer,data transfer
 	int next_state;
 	__int64 current_time;                //Record the current time of the channel
 	__int64 next_state_predict_time;     //the predict time of next state, used to decide the sate at the moment
@@ -277,8 +276,7 @@ struct channel_info{
 	struct sub_request *subs_w_head;     //The write request on the channel queue header, the first service in the queue header request
 	struct sub_request *subs_w_tail;     //The write request queue on the channel, the new incoming request is added to the end of the queue
 	struct gc_operation *gc_command;     //Record the need to generate gc position
-	struct suspend_spot *erase_suspend_command;
-	
+
 	unsigned int channel_busy_flag;
 	unsigned long channel_read_count;	 //Record the number of read and write wipes within the channel
 	unsigned long channel_program_count;
@@ -298,10 +296,15 @@ struct chip_info{
 	unsigned int token;                 //In the dynamic allocation, in order to prevent each assignment in the first die need to maintain a token, each time from the token referred to the location of the distribution
 	
 	int current_state;                  //chip has serveral states, including idle, command/address transfer,data transfer,unknown
-	int next_state;
+	int next_state;            
 	__int64 current_time;               //Record the current time of the chip
 	__int64 next_state_predict_time;    //the predict time of next state, used to decide the sate at the moment
-	__int64 erase_suspend_time;			//record the time of read begin time in erase suspend operation 
+	
+	int gc_signal;
+	__int64 erase_begin_time;            
+	__int64 erase_cmplt_time;
+	__int64 erase_rest_time;
+	struct suspend_location *suspend_location;
 
 	unsigned long chip_read_count;      //Record the number of read/program/erase in the chip
 	unsigned long chip_program_count;
@@ -604,18 +607,10 @@ struct suspend_location{
 	unsigned int channel;
 	unsigned int chip;
 	unsigned int die;
-	unsigned int plane[4];
-	unsigned int block[4];
+	unsigned int plane[2];
+	unsigned int block[2];
 };
 
-struct suspend_spot{
-	struct suspend_location *location;
-	struct sub_request *suspend_sub_req;
-	long long erase_suspend_time;
-	long long erase_resume_time;
-
-	struct suspend_spot *next_node;
-};
 
 
 

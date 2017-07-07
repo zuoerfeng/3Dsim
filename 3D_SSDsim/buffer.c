@@ -6,17 +6,18 @@ This is a project on 3D_SSDsim, based on ssdsim under the framework of the compl
 4.4-layer structure
 
 FileName： buffer.c
-Author: Zuo Lu 		Version: 1.4	Date:2017/06/22
+Author: Zuo Lu 		Version: 1.5	Date:2017/07/07
 Description: 
 buff layer: only contains data cache (minimum processing size for the sector, that is, unit = 512B), mapping table (page-level);
 
 History:
-<contributor>     <time>        <version>       <desc>										<e-mail>
-Zuo Lu	        2017/04/06	      1.0		    Creat 3D_SSDsim								617376665@qq.com
-Zuo Lu			2017/05/12		  1.1			Support advanced commands:mutli plane		617376665@qq.com
-Zuo Lu			2017/06/12		  1.2			Support advanced commands:half page read	617376665@qq.com
-Zuo Lu			2017/06/16		  1.3			Support advanced commands:one shot program  617376665@qq.com
-Zuo Lu			2017/06/22		  1.4			Support advanced commands:one shot read	    617376665@qq.com
+<contributor>     <time>        <version>       <desc>											<e-mail>
+Zuo Lu	        2017/04/06	      1.0		    Creat 3D_SSDsim									617376665@qq.com
+Zuo Lu			2017/05/12		  1.1			Support advanced commands:mutli plane			617376665@qq.com
+Zuo Lu			2017/06/12		  1.2			Support advanced commands:half page read		617376665@qq.com
+Zuo Lu			2017/06/16		  1.3			Support advanced commands:one shot program		617376665@qq.com
+Zuo Lu			2017/06/22		  1.4			Support advanced commands:one shot read			617376665@qq.com
+Zuo Lu			2017/07/07		  1.5			Support advanced commands:erase suspend/resume  617376665@qq.com
 *****************************************************************************************************************************/
 #define _CRTDBG_MAP_ALLOC
 
@@ -685,7 +686,7 @@ struct sub_request * creat_sub_request(struct ssd_info * ssd, unsigned int lpn, 
 		sub->lpn = lpn;
 		sub->size = size;                                                               /*需要计算出该子请求的请求大小*/
 		sub->update_read_flag = 0;
-		sub->suspend_req_flag = 0;
+		sub->suspend_req_flag = NORMAL_TYPE;
 
 		p_ch = &ssd->channel_head[loc->channel];
 		sub->ppn = ssd->dram->map->map_entry[lpn].pn;
@@ -823,7 +824,7 @@ Status allocate_location(struct ssd_info * ssd, struct sub_request *sub_req)
 				update->ppn = ssd->dram->map->map_entry[sub_req->lpn].pn;
 				update->operation = READ;
 				update->update_read_flag = 1;
-				update->suspend_req_flag = 0;
+				update->suspend_req_flag = NORMAL_TYPE;
 
 				sub_r = ssd->channel_head[location->channel].subs_r_head;
 				flag = 0;
