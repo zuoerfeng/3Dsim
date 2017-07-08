@@ -90,8 +90,8 @@ struct ssd_info *initiation(struct ssd_info *ssd)
 //	printf("\ninput trace file name:");
 //	gets(ssd->tracefilename);
 //	strcpy_s(ssd->tracefilename, 50, "16M_2KB_sequence_RandW.ascii");
-	strcpy_s(ssd->tracefilename, 25, "f2_512MB.ascii");
-//	strcpy_s(ssd->tracefilename, 25, "example.ascii");
+//	strcpy_s(ssd->tracefilename, 25, "f2_512MB.ascii");
+	strcpy_s(ssd->tracefilename, 25, "example.ascii");
 //	strcpy_s(ssd->tracefilename, 50, "ts0_16GB.ascii");
 //	strcpy_s(ssd->tracefilename, 50, "512M_4KB_random_RandW.ascii");
 
@@ -499,13 +499,19 @@ struct parameter_value *load_parameters(char parameter_file[30])
 		}else if((res_eql=strcmp(buf,"t_PROG")) ==0){
 			sscanf(buf + next_eql,"%d",&p->time_characteristics.tPROG); //Write time to write flash
 		}else if((res_eql=strcmp(buf,"t_DBSY")) ==0){
-			sscanf(buf + next_eql,"%d",&p->time_characteristics.tDBSY); 
+			sscanf(buf + next_eql,"%d",&p->time_characteristics.tDBSY);  //data busy time
 		}else if((res_eql=strcmp(buf,"t_BERS")) ==0){
 			sscanf(buf + next_eql,"%d",&p->time_characteristics.tBERS); // erases the time of a block
 		}else if((res_eql=strcmp(buf,"t_PROGO"))== 0){
 			sscanf(buf + next_eql, "%d", &p->time_characteristics.tPROGO);  //one shot program time
 		}else if ((res_eql = strcmp(buf, "t_ERSL")) == 0){
 			sscanf(buf + next_eql, "%d", &p->time_characteristics.tERSL);  //the trans time of suspend/resume operation
+		}else if ((res_eql = strcmp(buf, "t_R")) == 0){
+			sscanf(buf + next_eql, "%d", &p->time_characteristics.tR); //The time to read flash
+		}else if ((res_eql = strcmp(buf, "t_WC")) == 0){
+			sscanf(buf + next_eql, "%d", &p->time_characteristics.tWC); //Transfer address One byte of time
+		}else if ((res_eql = strcmp(buf, "t_RC")) == 0){
+			sscanf(buf + next_eql, "%d", &p->time_characteristics.tRC); //The time it takes to transfer data one byte
 		}else if((res_eql=strcmp(buf,"t_CLS")) ==0){
 			sscanf(buf + next_eql,"%d",&p->time_characteristics.tCLS); 
 		}else if((res_eql=strcmp(buf,"t_CLH")) ==0){
@@ -524,14 +530,10 @@ struct parameter_value *load_parameters(char parameter_file[30])
 			sscanf(buf + next_eql,"%d",&p->time_characteristics.tDS); 
 		}else if((res_eql=strcmp(buf,"t_DH")) ==0){
 			sscanf(buf + next_eql,"%d",&p->time_characteristics.tDH); 
-		}else if((res_eql=strcmp(buf,"t_WC")) ==0){
-			sscanf(buf + next_eql,"%d",&p->time_characteristics.tWC); //Transfer address One byte of time
 		}else if((res_eql=strcmp(buf,"t_WH")) ==0){
 			sscanf(buf + next_eql,"%d",&p->time_characteristics.tWH); 
 		}else if((res_eql=strcmp(buf,"t_ADL")) ==0){
 			sscanf(buf + next_eql,"%d",&p->time_characteristics.tADL); 
-		}else if((res_eql=strcmp(buf,"t_R")) ==0){
-			sscanf(buf + next_eql,"%d",&p->time_characteristics.tR); //The time to read flash
 		}else if((res_eql=strcmp(buf,"t_AR")) ==0){
 			sscanf(buf + next_eql,"%d",&p->time_characteristics.tAR); 
 		}else if((res_eql=strcmp(buf,"t_CLR")) ==0){
@@ -542,8 +544,6 @@ struct parameter_value *load_parameters(char parameter_file[30])
 			sscanf(buf + next_eql,"%d",&p->time_characteristics.tRP); 
 		}else if((res_eql=strcmp(buf,"t_WB")) ==0){
 			sscanf(buf + next_eql,"%d",&p->time_characteristics.tWB); 
-		}else if((res_eql=strcmp(buf,"t_RC")) ==0){
-			sscanf(buf + next_eql,"%d",&p->time_characteristics.tRC); //The time it takes to transfer data one byte
 		}else if((res_eql=strcmp(buf,"t_REA")) ==0){
 			sscanf(buf + next_eql,"%d",&p->time_characteristics.tREA); 
 		}else if((res_eql=strcmp(buf,"t_CEA")) ==0){

@@ -25,7 +25,7 @@ struct local *find_location(struct ssd_info *ssd, unsigned int ppn);
 struct ssd_info *get_ppn(struct ssd_info *ssd, unsigned int channel, unsigned int chip, unsigned int die, unsigned int plane, struct sub_request *sub);
 
 unsigned int gc(struct ssd_info *ssd, unsigned int channel, unsigned int flag);
-unsigned int get_ppn_for_pre_process(struct ssd_info *ssd, unsigned int lsn);
+unsigned int get_ppn_for_pre_process(struct ssd_info *ssd, unsigned int lpn);
 unsigned int get_ppn_for_gc(struct ssd_info *ssd, unsigned int channel, unsigned int chip, unsigned int die, unsigned int plane);
 unsigned int find_ppn(struct ssd_info * ssd, unsigned int channel, unsigned int chip, unsigned int die, unsigned int plane, unsigned int block, unsigned int page);
 

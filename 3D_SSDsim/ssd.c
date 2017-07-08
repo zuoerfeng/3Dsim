@@ -127,7 +127,7 @@ the buff layer processing, resulting in read and write sub_requests,linked to ss
 **************************************************************************************************/
 struct ssd_info *simulate(struct ssd_info *ssd)
 {
-	int flag=1,flag1=0;
+	int flag=1;
 	double output_step=0;
 	unsigned int a=0,b=0;
 	errno_t err;
@@ -634,16 +634,10 @@ void statistic_output(struct ssd_info *ssd)
 	fprintf(ssd->outputfile,"mutli-plane erase count: %13d\n",ssd->mplane_erase_count);
 	fprintf(ssd->outputfile,"multi-plane program count: %13d\n",ssd->m_plane_prog_count);
 	fprintf(ssd->outputfile,"multi-plane read count: %13d\n",ssd->m_plane_read_count);
-	//fprintf(ssd->outputfile,"interleave write count: %13d\n",ssd->interleave_count);
-	//fprintf(ssd->outputfile,"interleave read count: %13d\n",ssd->interleave_read_count);
-	//fprintf(ssd->outputfile,"interleave two plane and one program count: %13d\n",ssd->inter_mplane_prog_count);
-	//fprintf(ssd->outputfile,"interleave two plane count: %13d\n",ssd->inter_mplane_count);
-	//fprintf(ssd->outputfile,"gc copy back count: %13d\n",ssd->gc_copy_back);
+	
 	fprintf(ssd->outputfile,"write flash count: %13d\n",ssd->write_flash_count);
 	fprintf(ssd->outputfile, "\n");
-	//fprintf(ssd->outputfile,"interleave erase count: %13d\n",ssd->interleave_erase_count);
-	//fprintf(ssd->outputfile,"multiple plane erase count: %13d\n",ssd->mplane_erase_conut);
-	//fprintf(ssd->outputfile,"interleave multiple plane erase count: %13d\n",ssd->interleave_mplane_erase_count);
+	
 	fprintf(ssd->outputfile,"read request count: %13d\n",ssd->read_request_count);
 	fprintf(ssd->outputfile,"write request count: %13d\n",ssd->write_request_count);
 	fprintf(ssd->outputfile, "\n");
@@ -657,6 +651,16 @@ void statistic_output(struct ssd_info *ssd)
 	fprintf(ssd->outputfile,"buffer read miss: %13d\n",ssd->dram->buffer->read_miss_hit);
 	fprintf(ssd->outputfile,"buffer write hits: %13d\n",ssd->dram->buffer->write_hit);
 	fprintf(ssd->outputfile,"buffer write miss: %13d\n",ssd->dram->buffer->write_miss_hit);
+	
+	fprintf(ssd->outputfile, "update sub request count : %13d\n", ssd->update_sub_request);
+	fprintf(ssd->outputfile, "half page read count : %13d\n", ssd->half_page_read_count);
+	fprintf(ssd->outputfile, "mutli plane one shot program count : %13d\n", ssd->mutliplane_oneshot_prog_count);
+	fprintf(ssd->outputfile, "one shot read count : %13d\n", ssd->one_shot_read_count);
+	fprintf(ssd->outputfile, "mutli plane one shot read count : %13d\n", ssd->one_shot_mutli_plane_count);
+	fprintf(ssd->outputfile, "erase suspend count : %13d\n", ssd->suspend_count);
+	fprintf(ssd->outputfile, "erase resume  count : %13d\n", ssd->resume_count);
+	fprintf(ssd->outputfile, "suspend read  count : %13d\n", ssd->suspend_read_count);
+
 	fprintf(ssd->outputfile, "\n");
 	fflush(ssd->outputfile);
 
@@ -680,21 +684,14 @@ void statistic_output(struct ssd_info *ssd)
 	fprintf(ssd->statisticfile,"erase count: %13d\n",ssd->erase_count);	  
 	fprintf(ssd->statisticfile,"direct erase count: %13d\n",ssd->direct_erase_count);
 	fprintf(ssd->statisticfile, "\n");
-	//fprintf(ssd->statisticfile,"copy back count: %13d\n",ssd->copy_back_count);
+
 	fprintf(ssd->statisticfile,"multi-plane program count: %13d\n",ssd->m_plane_prog_count);
 	fprintf(ssd->statisticfile,"multi-plane read count: %13d\n",ssd->m_plane_read_count);
 	fprintf(ssd->statisticfile, "\n");
-	//fprintf(ssd->statisticfile,"interleave count: %13d\n",ssd->interleave_count);
-	//fprintf(ssd->statisticfile,"interleave read count: %13d\n",ssd->interleave_read_count);
-	//fprintf(ssd->statisticfile,"interleave two plane and one program count: %13d\n",ssd->inter_mplane_prog_count);
-	//fprintf(ssd->statisticfile,"interleave two plane count: %13d\n",ssd->inter_mplane_count);
-	//fprintf(ssd->statisticfile,"gc copy back count: %13d\n",ssd->gc_copy_back);
+
 	fprintf(ssd->statisticfile,"write flash count: %13d\n",ssd->write_flash_count);
 	fprintf(ssd->statisticfile, "\n");
-	//fprintf(ssd->statisticfile,"waste page count: %13d\n",ssd->waste_page_count);
-	//fprintf(ssd->statisticfile,"interleave erase count: %13d\n",ssd->interleave_erase_count);
-	//fprintf(ssd->statisticfile,"multiple plane erase count: %13d\n",ssd->mplane_erase_conut);
-	//fprintf(ssd->statisticfile,"interleave multiple plane erase count: %13d\n",ssd->interleave_mplane_erase_count);
+	
 	fprintf(ssd->statisticfile,"read request count: %13d\n",ssd->read_request_count);
 	fprintf(ssd->statisticfile, "write request count: %13d\n", ssd->write_request_count);
 	fprintf(ssd->statisticfile, "\n");

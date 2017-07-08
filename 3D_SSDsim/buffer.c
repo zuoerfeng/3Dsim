@@ -453,7 +453,7 @@ struct ssd_info * getout2buffer(struct ssd_info *ssd, struct sub_request *sub, s
 struct ssd_info *no_buffer_distribute(struct ssd_info *ssd)
 {
 	unsigned int lsn, lpn, last_lpn, first_lpn, complete_flag = 0, state;
-	unsigned int flag = 0, flag1 = 1, active_region_flag = 0;           //to indicate the lsn is hitted or not
+	unsigned int flag = 0, active_region_flag = 0;           //to indicate the lsn is hitted or not
 	struct request *req = NULL;
 	struct sub_request *sub = NULL, *sub_r = NULL, *update = NULL;
 	struct local *loc = NULL;

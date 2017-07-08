@@ -1,5 +1,5 @@
 parameter file: page.parameters
-trace file: f2_512MB.ascii
+trace file: example.ascii
 -----------------------parameter file----------------------
 #parameter file
 dram capacity = 524288;     #the unit is B
@@ -31,11 +31,14 @@ page number = 64;
 subpage page = 4; 						#can not beyond 32
 page capacity = 2048;					#16kb
 subpage capacity = 512;			
-t_PROG = 200000;             #the unit is ns
-t_DBSY = 50;
-t_BERS = 1500000;
-t_PROGO = 200000;            #one shot program time
+t_PROG = 1100000;             #the unit is ns
+t_DBSY = 500;
+t_BERS = 10000000;
+t_PROGO = 1100000;            #one shot program time
 t_ERSL = 500000;             #the trans time of suspend/resume operation
+t_R = 90000;
+t_WC = 5;
+t_RC = 5;
 t_CLS = 12;
 t_CLH = 5;
 t_CS = 20;
@@ -45,16 +48,13 @@ t_ALS = 12;
 t_ALH = 5;
 t_DS = 12;
 t_DH = 5;
-t_WC = 25;
 t_WH = 10;
 t_ADL = 70;
-t_R = 20000;
 t_AR = 10;
 t_CLR = 10;
 t_RR = 20;
 t_RP = 12;
 t_WB = 100;
-t_RC = 25;
 t_REA = 30;
 t_CEA = 45;
 t_RHZ = 100;
@@ -79,61 +79,61 @@ gc hard threshold=0.10;          #gcÓ²ãĞÖµ´óĞ¡£¬µ±planeÄÚÎŞĞ§Ò³¸öÊı³¬¹ı´ËãĞÖµÊ±£
 allocation=0;                    #·ÖÅä·½Ê½£¬0£º¶¯Ì¬·ÖÅä£¬1£º¾²Ì¬·ÖÅä
 dynamic_allocation=0;            #¶¯Ì¬·ÖÅä·½Ê½ÀàĞÍ£¬0:È«¶¯Ì¬£¬1:channel¾²Ì¬,chip£¬die£¬plane¶¯Ì¬£¬2:channel£¬package£¬die¾²Ì¬,plane¶¯Ì¬
 dynamic_allocation_priority=1;	 #¶¯Ì¬·ÖÅä·½Ê½ÓÅÏÈ¼¶£¬0£ºchannel>chip>die>plane,1£ºplane>channel>chip>die
-advanced command=31;             #¸ß¼¶ÃüÁîÖ§³Ö£¬ÓÃ¶ş½øÖÆ±íÊ¾£¬ÎŞ(00000)¡¢mutli plane(00001), half-page-read(00010), one shot program(00100),one shot read(01000),erase suspend/resume(10000)
+advanced command=0;             #¸ß¼¶ÃüÁîÖ§³Ö£¬ÓÃ¶ş½øÖÆ±íÊ¾£¬ÎŞ(00000)¡¢mutli plane(00001), half-page-read(00010), one shot program(00100),one shot read(01000),erase suspend/resume(10000)
 greed MPW command=1;             #multi-planeÌ°ĞÄËã·¨£¬0£º·ÇÌ°ĞÄ£¬1£ºÌ°ĞÄ
 aged=0;                          #¾É»¯´¦Àí£¬0£ºnon-aged£¬1£ºaged
 aged ratio=0.5;                	 #¾É»¯ÂÊ
-flash mode=1;					 #flashÖ§³ÖÄ£Ê½£¬0£ºslc,1£ºtlc
+flash mode=0;					 #flashÖ§³ÖÄ£Ê½£¬0£ºslc,1£ºtlc
 -----------------------simulation output----------------------
-the 0 channel, 0 chip, 0 die, 0 plane has : 1710 erase operations,773374 read operations,142012 write operations,26865 pre_process write operations
-the 0 channel, 0 chip, 0 die, 1 plane has : 1710 erase operations,730636 read operations,141116 write operations,26865 pre_process write operations
-the 0 channel, 0 chip, 1 die, 0 plane has : 1691 erase operations,754538 read operations,140917 write operations,26865 pre_process write operations
-the 0 channel, 0 chip, 1 die, 1 plane has : 1691 erase operations,749664 read operations,140149 write operations,26865 pre_process write operations
-the 1 channel, 0 chip, 0 die, 0 plane has : 1694 erase operations,777285 read operations,141157 write operations,26865 pre_process write operations
-the 1 channel, 0 chip, 0 die, 1 plane has : 1694 erase operations,720288 read operations,140261 write operations,26865 pre_process write operations
-the 1 channel, 0 chip, 1 die, 0 plane has : 1709 erase operations,777522 read operations,141760 write operations,26865 pre_process write operations
-the 1 channel, 0 chip, 1 die, 1 plane has : 1709 erase operations,743975 read operations,141057 write operations,26864 pre_process write operations
+the 0 channel, 0 chip, 0 die, 0 plane has :   0 erase operations,1691 read operations,1289 write operations,935 pre_process write operations
+the 0 channel, 0 chip, 0 die, 1 plane has :   0 erase operations,1606 read operations,1288 write operations,935 pre_process write operations
+the 0 channel, 0 chip, 1 die, 0 plane has :   0 erase operations,1743 read operations,1288 write operations,935 pre_process write operations
+the 0 channel, 0 chip, 1 die, 1 plane has :   0 erase operations,1965 read operations,1288 write operations,934 pre_process write operations
+the 1 channel, 0 chip, 0 die, 0 plane has :   0 erase operations,1473 read operations,1297 write operations,935 pre_process write operations
+the 1 channel, 0 chip, 0 die, 1 plane has :   0 erase operations,1597 read operations,1296 write operations,935 pre_process write operations
+the 1 channel, 0 chip, 1 die, 0 plane has :   0 erase operations,1788 read operations,1296 write operations,934 pre_process write operations
+the 1 channel, 0 chip, 1 die, 1 plane has :   0 erase operations,1767 read operations,1296 write operations,934 pre_process write operations
 
 
 ---------------------------statistic data---------------------------
-min lsn:             0
-max lsn:       1047450
-read count:       5834467
-the read operation leaded by un-covered update count:        330952
-the read operation leaded by gc read count:        192815
+min lsn:           132
+max lsn:       1002411
+read count:         13630
+the read operation leaded by un-covered update count:           242
+the read operation leaded by gc read count:             0
 
-program count:       1122785
-the write operation leaded by pre_process write count:        214919
-the write operation leaded by un-covered update count:        330952
-the write operation leaded by gc read count:        192815
+program count:         10338
+the write operation leaded by pre_process write count:          7477
+the write operation leaded by un-covered update count:           242
+the write operation leaded by gc read count:             0
 
-erase count:         13608
-direct erase count:            16
+erase count:             0
+direct erase count:             0
 
-multi-plane program count:        464985
-multi-plane read count:        420845
+multi-plane program count:             0
+multi-plane read count:             0
 
-write flash count:       1337704
+write flash count:         17815
 
-read request count:       3045784
-write request count:        653079
+read request count:          4077
+write request count:          5922
 
-read request average size:      4.555957
-write request average size:      5.835236
+read request average size:     12.187196
+write request average size:      9.841900
 
-read request average response time:            85700
-write request average response time:            89139
+read request average response time:           264460
+write request average response time:          1330595
 
-buffer read hits:        262901
-buffer read miss:       5506968
-buffer write hits:       1421187
-buffer write miss:        929975
-update sub request count :            34
-half page read count :       1087618
-mutli plane one shot program count :        154995
-one shot read count :         43084
-mutli plane one shot read count :          2486
-erase suspend count :          2067
-erase resume  count :          2067
-suspend read  count :          3725
+buffer read hits:           550
+buffer read miss:         13388
+buffer write hits:         19228
+buffer write miss:         10338
+update sub request count :             4
+half page read count :             0
+mutli plane one shot program count :             0
+one shot read count :             0
+mutli plane one shot read count :             0
+erase suspend count :             0
+erase resume  count :             0
+suspend read  count :             0
 

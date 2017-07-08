@@ -59,31 +59,33 @@ Status services_2_r_data_trans(struct ssd_info * ssd, unsigned int channel)
 		{
 			for (aim_die = 0; aim_die < ssd->parameter->die_chip; aim_die++)
 			{
-				//首先判断是否有高级命令oneshot_mulitplane_read的高级命令可执行
-				if ((ssd->parameter->advanced_commands&AD_MUTLIPLANE) == AD_MUTLIPLANE && (ssd->parameter->advanced_commands&AD_ONESHOT_READ) == AD_ONESHOT_READ)
+				if (ssd->parameter->flash_mode == TLC_MODE)
 				{
-					sub_r_count = find_read_sub_request(ssd, channel, chip, aim_die, sub_r_request, SR_R_DATA_TRANSFER, ONE_SHOT_READ_MUTLI_PLANE);
-					if (sub_r_count == (ssd->parameter->plane_die * PAGE_INDEX))
+					//首先判断是否有高级命令oneshot_mulitplane_read的高级命令可执行
+					if ((ssd->parameter->advanced_commands&AD_MUTLIPLANE) == AD_MUTLIPLANE && (ssd->parameter->advanced_commands&AD_ONESHOT_READ) == AD_ONESHOT_READ)
 					{
-						go_one_step(ssd, sub_r_request, sub_r_count, SR_R_DATA_TRANSFER, ONE_SHOT_READ_MUTLI_PLANE);
-						ssd->channel_head[channel].channel_busy_flag = 1;
-						break;
+						sub_r_count = find_read_sub_request(ssd, channel, chip, aim_die, sub_r_request, SR_R_DATA_TRANSFER, ONE_SHOT_READ_MUTLI_PLANE);
+						if (sub_r_count == (ssd->parameter->plane_die * PAGE_INDEX))
+						{
+							go_one_step(ssd, sub_r_request, sub_r_count, SR_R_DATA_TRANSFER, ONE_SHOT_READ_MUTLI_PLANE);
+							ssd->channel_head[channel].channel_busy_flag = 1;
+							break;
+						}
+					}
+
+					//若不能，则判断能否有one shot read的高级命令去读
+					if ((ssd->parameter->advanced_commands&AD_ONESHOT_READ) == AD_ONESHOT_READ)
+					{
+						sub_r_count = find_read_sub_request(ssd, channel, chip, aim_die, sub_r_request, SR_R_DATA_TRANSFER, ONE_SHOT_READ);
+						if (sub_r_count == PAGE_INDEX)
+						{
+							ssd->one_shot_read_count++;
+							go_one_step(ssd, sub_r_request, sub_r_count, SR_R_DATA_TRANSFER, ONE_SHOT_READ);
+							ssd->channel_head[channel].channel_busy_flag = 1;
+							break;
+						}
 					}
 				}
-
-				//若不能，则判断能否有one shot read的高级命令去读
-				if ((ssd->parameter->advanced_commands&AD_ONESHOT_READ) == AD_ONESHOT_READ)
-				{
-					sub_r_count = find_read_sub_request(ssd, channel, chip, aim_die, sub_r_request, SR_R_DATA_TRANSFER, ONE_SHOT_READ);
-					if (sub_r_count == PAGE_INDEX)
-					{
-						ssd->one_shot_read_count++;
-						go_one_step(ssd, sub_r_request, sub_r_count, SR_R_DATA_TRANSFER, ONE_SHOT_READ);
-						ssd->channel_head[channel].channel_busy_flag = 1;
-						break;
-					}
-				}
-
 				//若不能，则判断能否有mutli plane的高级命令去读
 				if ((ssd->parameter->advanced_commands&AD_MUTLIPLANE) == AD_MUTLIPLANE)
 				{
@@ -141,29 +143,31 @@ Status services_2_r_read(struct ssd_info * ssd)
 			{
 				for (aim_die = 0; aim_die < ssd->parameter->die_chip; aim_die++)
 				{					
-					//首先判断是否有高级命令oneshot_mulitplane_read的高级命令可执行
-					if ((ssd->parameter->advanced_commands&AD_MUTLIPLANE) == AD_MUTLIPLANE && (ssd->parameter->advanced_commands&AD_ONESHOT_READ) == AD_ONESHOT_READ)
+					if (ssd->parameter->flash_mode == TLC_MODE)
 					{
-						subs_count = find_read_sub_request(ssd, i, j, aim_die, subs, SR_R_READ, ONE_SHOT_READ_MUTLI_PLANE);
-						if (subs_count == (ssd->parameter->plane_die * PAGE_INDEX))
+						//首先判断是否有高级命令oneshot_mulitplane_read的高级命令可执行
+						if ((ssd->parameter->advanced_commands&AD_MUTLIPLANE) == AD_MUTLIPLANE && (ssd->parameter->advanced_commands&AD_ONESHOT_READ) == AD_ONESHOT_READ)
 						{
-							go_one_step(ssd, subs, subs_count, SR_R_READ, ONE_SHOT_READ_MUTLI_PLANE);
-							break;
+							subs_count = find_read_sub_request(ssd, i, j, aim_die, subs, SR_R_READ, ONE_SHOT_READ_MUTLI_PLANE);
+							if (subs_count == (ssd->parameter->plane_die * PAGE_INDEX))
+							{
+								go_one_step(ssd, subs, subs_count, SR_R_READ, ONE_SHOT_READ_MUTLI_PLANE);
+								break;
+							}
 						}
-					}
 
-					//若不能，则判断能否有one shot read的高级命令去读
-					if ((ssd->parameter->advanced_commands&AD_ONESHOT_READ) == AD_ONESHOT_READ)
-					{
-						subs_count = find_read_sub_request(ssd, i, j, aim_die, subs, SR_R_READ, ONE_SHOT_READ);
-						if (subs_count == PAGE_INDEX)
+						//若不能，则判断能否有one shot read的高级命令去读
+						if ((ssd->parameter->advanced_commands&AD_ONESHOT_READ) == AD_ONESHOT_READ)
 						{
-							
-							go_one_step(ssd, subs, subs_count, SR_R_READ, ONE_SHOT_READ);
-							break;
+							subs_count = find_read_sub_request(ssd, i, j, aim_die, subs, SR_R_READ, ONE_SHOT_READ);
+							if (subs_count == PAGE_INDEX)
+							{
+
+								go_one_step(ssd, subs, subs_count, SR_R_READ, ONE_SHOT_READ);
+								break;
+							}
 						}
 					}
-					
 					//若不能，则判断能否有mutli plane的高级命令去读
 					if ((ssd->parameter->advanced_commands&AD_MUTLIPLANE) == AD_MUTLIPLANE)
 					{
@@ -411,40 +415,40 @@ Status services_2_r_wait(struct ssd_info * ssd, unsigned int channel)
 			}
 		}
 		/***************************************************************************************************************************************/
-
-
-		//首先判断是否可以用高级命令oneshot_mutliplane_read
-		if ((ssd->parameter->advanced_commands&AD_ONESHOT_READ) == AD_ONESHOT_READ && (ssd->parameter->advanced_commands&AD_MUTLIPLANE) == AD_MUTLIPLANE)
+		if (ssd->parameter->flash_mode == TLC_MODE)							 //只有在tlc mode 下才能进行one shot mutli plane read/one shot read
 		{
-			sub_r_req_count = find_r_wait_sub_request(ssd, channel, chip, sub_place, ONE_SHOT_READ_MUTLI_PLANE);
-			if (sub_r_req_count == (PAGE_INDEX*ssd->parameter->plane_die))
+			//判断是否可以用高级命令oneshot_mutliplane_read
+			if ((ssd->parameter->advanced_commands&AD_ONESHOT_READ) == AD_ONESHOT_READ && (ssd->parameter->advanced_commands&AD_MUTLIPLANE) == AD_MUTLIPLANE)
 			{
-				go_one_step(ssd, sub_place, sub_r_req_count, SR_R_C_A_TRANSFER, ONE_SHOT_READ_MUTLI_PLANE);
-				ssd->channel_head[channel].channel_busy_flag = 1;
-				continue;
+				sub_r_req_count = find_r_wait_sub_request(ssd, channel, chip, sub_place, ONE_SHOT_READ_MUTLI_PLANE);
+				if (sub_r_req_count == (PAGE_INDEX*ssd->parameter->plane_die))
+				{
+					go_one_step(ssd, sub_place, sub_r_req_count, SR_R_C_A_TRANSFER, ONE_SHOT_READ_MUTLI_PLANE);
+					ssd->channel_head[channel].channel_busy_flag = 1;
+					continue;
+				}
+			}
+			//判断能否用one shot read高级命令完成
+			if ((ssd->parameter->advanced_commands&AD_ONESHOT_READ) == AD_ONESHOT_READ)
+			{
+				sub_r_req_count = find_r_wait_sub_request(ssd, channel, chip, sub_place, ONE_SHOT_READ);
+				if (sub_r_req_count == PAGE_INDEX)
+				{
+
+					for (i = sub_r_req_count; i < (ssd->parameter->plane_die * PAGE_INDEX); i++)
+						sub_place[i] = NULL;
+
+					go_one_step(ssd, sub_place, sub_r_req_count, SR_R_C_A_TRANSFER, ONE_SHOT_READ);
+					ssd->channel_head[channel].channel_busy_flag = 1;
+					continue;
+				}
 			}
 		}
-		//若不能，则考虑能否用one shot read高级命令完成
-		if ((ssd->parameter->advanced_commands&AD_ONESHOT_READ) == AD_ONESHOT_READ)
-		{
-			sub_r_req_count = find_r_wait_sub_request(ssd, channel, chip, sub_place, ONE_SHOT_READ);
-			if (sub_r_req_count == PAGE_INDEX)
-			{
-				
-				for (i = sub_r_req_count; i < (ssd->parameter->plane_die * PAGE_INDEX); i++)
-					sub_place[i] = NULL;
-
-				go_one_step(ssd, sub_place, sub_r_req_count, SR_R_C_A_TRANSFER, ONE_SHOT_READ);
-				ssd->channel_head[channel].channel_busy_flag = 1;
-				continue;
-			}
-		}
-
-		//若不能，则去考虑能否用mutli plane高级命令完成
+		//判断能否用mutli plane高级命令完成
 		if ((ssd->parameter->advanced_commands&AD_MUTLIPLANE) == AD_MUTLIPLANE)
 		{
 			sub_r_req_count = find_r_wait_sub_request(ssd, channel, chip, sub_place, MUTLI_PLANE);
-			if ( (sub_r_req_count >1) && (sub_r_req_count <= ssd->parameter->plane_die))
+			if ((sub_r_req_count >1) && (sub_r_req_count <= ssd->parameter->plane_die))
 			{
 				for (i = sub_r_req_count; i < (ssd->parameter->plane_die * PAGE_INDEX); i++)
 					sub_place[i] = NULL;
@@ -469,7 +473,7 @@ Status services_2_r_wait(struct ssd_info * ssd, unsigned int channel)
 		{
 			ssd->channel_head[channel].channel_busy_flag = 0;
 		}
-
+		
 		/***************************************************************************************************************************************/
 		//判断是否有suspend挂起引起来的读请求，如果是，将这些请求挂载在对应channel的请求上
 		if (ssd->channel_head[channel].chip_head[chip].gc_signal != SIG_NORMAL)
@@ -1078,9 +1082,8 @@ Status services_2_write(struct ssd_info * ssd, unsigned int channel)
 					if ((ssd->channel_head[channel].chip_head[chip_token].current_state == CHIP_IDLE) || ((ssd->channel_head[channel].chip_head[chip_token].next_state == CHIP_IDLE) && (ssd->channel_head[channel].chip_head[chip_token].next_state_predict_time <= ssd->current_time)))
 					{
 						if ((ssd->channel_head[channel].subs_w_head == NULL) && (ssd->subs_w_head == NULL))
-						{
 							break;
-						}
+
 						if (dynamic_advanced_process(ssd, channel, chip_token) == NULL)
 						{
 							ssd->channel_head[channel].channel_busy_flag = 0;
@@ -1179,7 +1182,7 @@ struct ssd_info *dynamic_advanced_process(struct ssd_info *ssd, unsigned int cha
 				aim_subs_count = ssd->parameter->plane_die;
 				service_advance_command(ssd, channel, chip, subs, subs_count, aim_subs_count, MUTLI_PLANE);
 			}
-			else
+			else   //当不支持高级命令的时候，使用one page  program
 			{
 				for (i = 1; i<subs_count; i++)
 				{
@@ -1188,7 +1191,7 @@ struct ssd_info *dynamic_advanced_process(struct ssd_info *ssd, unsigned int cha
 				subs_count = 1;
 				get_ppn_for_normal_command(ssd, channel, chip, subs[0]);
 				printf("lz:normal program\n");
-				getchar();
+				//getchar();
 			}
 		}
 		else if (ssd->parameter->flash_mode == TLC_MODE)
@@ -1232,14 +1235,15 @@ Status service_advance_command(struct ssd_info *ssd, unsigned int channel, unsig
 
 	max_sub_num = (ssd->parameter->die_chip)*(ssd->parameter->plane_die)*PAGE_INDEX;
 
-	
+	//当最后读完了，只剩下了单个请求，这个时候可以使用普通的one page program去写完
 	if (ssd->trace_over_flag == 1 && ssd->request_work == NULL)
 	{
 		for (i = 0; i <= subs_count;i++)
 			get_ppn_for_normal_command(ssd, channel, chip, subs[i]);
+
+		return SUCCESS;
 	}
 	
-
 	if (subs_count >= aim_subs_count)
 	{
 		for (i = aim_subs_count; i < subs_count; i++)
