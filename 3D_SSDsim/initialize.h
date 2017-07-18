@@ -339,6 +339,11 @@ struct plane_info{
 	unsigned long plane_program_count;
 	unsigned long plane_erase_count;
 	unsigned long pre_plane_write_count;
+	
+	struct sub_request *subs_r_head;
+	struct sub_request *subs_r_tail;
+	struct sub_request *subs_w_head;
+	struct sub_request *subs_w_tail;
 
 	struct direct_erase *erase_node;    //Used to record can be directly deleted block number, access to the new ppn, whenever the invalid_page_num == 64, it will be added to the pointer, for the GC operation directly delete
 	struct blk_info *blk_head;

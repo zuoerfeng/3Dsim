@@ -522,7 +522,7 @@ Status check_req_in_suspend(struct ssd_info * ssd, unsigned int channel, unsigne
 //寻找能one shot read的请求个数
 unsigned int find_r_wait_sub_request(struct ssd_info * ssd, unsigned int channel, unsigned int chip, struct sub_request ** sub_place, unsigned int command)
 {
-	unsigned int i,j,k,flag;
+	unsigned int i,j,flag;
 	unsigned int aim_die, aim_plane, aim_block, aim_group;
 	unsigned int sub_count, plane_flag;
 	struct sub_request * sub_plane_request = NULL;
@@ -1060,12 +1060,11 @@ Status services_2_write(struct ssd_info * ssd, unsigned int channel)
 {
 	int j = 0;
 	unsigned int chip_token = 0;
-	long long time = 0;
 
 	/************************************************************************************************************************
 	*Because it is dynamic allocation, all write requests hanging in ssd-> subs_w_head, that is, do not know which allocation before writing on the channel
 	*************************************************************************************************************************/
-	if (ssd->subs_w_head != NULL)
+	if (ssd->subs_w_head != NULL || ssd->channel_head[channel].subs_w_head != NULL)
 	{
 		if (ssd->parameter->allocation_scheme == DYNAMIC_ALLOCATION)
 		{
@@ -1081,9 +1080,6 @@ Status services_2_write(struct ssd_info * ssd, unsigned int channel)
 				{
 					if ((ssd->channel_head[channel].chip_head[chip_token].current_state == CHIP_IDLE) || ((ssd->channel_head[channel].chip_head[chip_token].next_state == CHIP_IDLE) && (ssd->channel_head[channel].chip_head[chip_token].next_state_predict_time <= ssd->current_time)))
 					{
-						if ((ssd->channel_head[channel].subs_w_head == NULL) && (ssd->subs_w_head == NULL))
-							break;
-
 						if (dynamic_advanced_process(ssd, channel, chip_token) == NULL)
 						{
 							ssd->channel_head[channel].channel_busy_flag = 0;
@@ -1099,9 +1095,29 @@ Status services_2_write(struct ssd_info * ssd, unsigned int channel)
 				}
 			}
 		}
+		else if (ssd->parameter->allocation_scheme == STATIC_ALLOCATION)
+		{
+			for (j = 0; j < ssd->channel_head[channel].chip; j++)
+			{
+				if (ssd->channel_head[channel].subs_w_head == NULL)
+					continue;
+
+				if (ssd->channel_head[channel].channel_busy_flag == 0)
+				{
+					if ((ssd->channel_head[channel].chip_head[j].current_state == CHIP_IDLE) || ((ssd->channel_head[channel].chip_head[j].next_state == CHIP_IDLE) && (ssd->channel_head[channel].chip_head[j].next_state_predict_time <= ssd->current_time)))
+					{
+						if (dynamic_advanced_process(ssd, channel, chip_token) == NULL)
+							ssd->channel_head[channel].channel_busy_flag = 0;
+						else
+							ssd->channel_head[channel].channel_busy_flag = 1;
+					}
+				}
+			}
+		}
 	}
 	else
 	{
+		ssd->channel_head[channel].channel_busy_flag = 0;
 		//printf("there is no write sub_request\n");
 	}
 	return SUCCESS;
@@ -1115,34 +1131,30 @@ Status services_2_write(struct ssd_info * ssd, unsigned int channel)
 struct ssd_info *dynamic_advanced_process(struct ssd_info *ssd, unsigned int channel, unsigned int chip)
 {
 	unsigned int subs_count = 0;
-	unsigned int update_count = 0;
-	unsigned int plane_count = 0;                                                                                                                       /*record which plane has sub request in static allocation*/
+	unsigned int update_count = 0;                                                                                                                     /*record which plane has sub request in static allocation*/
 	struct sub_request *sub = NULL, *p = NULL;
 	struct sub_request ** subs = NULL;
-	unsigned int max_sub_num = 0;
+	unsigned int max_sub_num = 0, aim_subs_count;
 	unsigned int die_token = 0, plane_token = 0;
 
 	unsigned int mask = 0x00000001;
-	unsigned int i = 0, j = 0;
-	unsigned int aim_subs_count = 0;
+	unsigned int i = 0, j = 0, k = 0;
+	unsigned int *test = NULL;
 
-	plane_count = ssd->parameter->plane_die;
-	max_sub_num = (ssd->parameter->die_chip)*(ssd->parameter->plane_die)*PAGE_INDEX;    
+	max_sub_num = (ssd->parameter->die_chip)*(ssd->parameter->plane_die)*PAGE_INDEX;
+
 	subs = (struct sub_request **)malloc(max_sub_num*sizeof(struct sub_request *));
 	alloc_assert(subs, "sub_request");
-
-	for (i = 0; i < max_sub_num; i++)
-	{
-		subs[i] = NULL;  //executable request array
-	}
 	update_count = 0;
-
+	for (i = 0; i < max_sub_num; i++)
+		subs[i] = NULL;  
+	
+	
+	//动静态分配的请求挂载点不一样
 	if ((ssd->parameter->allocation_scheme == DYNAMIC_ALLOCATION))                                           /*Full dynamic allocation, you need to select the wait-to-service sub-request from ssd-> subs_w_head*/
 	{
 		if (ssd->parameter->dynamic_allocation == FULL_ALLOCATION)
 			sub = ssd->subs_w_head;
-		else
-			sub = ssd->channel_head[channel].subs_w_head;
 
 		subs_count = 0;
 		while ((sub != NULL) && (subs_count < max_sub_num))
@@ -1159,12 +1171,22 @@ struct ssd_info *dynamic_advanced_process(struct ssd_info *ssd, unsigned int cha
 			if (sub->update_read_flag == 1)
 				update_count++;
 
-			p = sub;
 			sub = sub->next_node;
 		}
 
+		if (subs_count == 0)
+		{
+			for (i = 0; i < max_sub_num; i++)
+				subs[i] = NULL;
+			free(subs);
+			subs = NULL;
+			return NULL;
+		}
+
+		/*********************************更新请求队列的管理**************************************************************/
 		if (update_count > ssd->update_sub_request)
 			ssd->update_sub_request = update_count;
+
 		//超过更新队列深度，将trace文件读取阻塞
 		if (update_count > ssd->parameter->update_reqeust_max)
 		{
@@ -1174,7 +1196,7 @@ struct ssd_info *dynamic_advanced_process(struct ssd_info *ssd, unsigned int cha
 		else
 			ssd->buffer_full_flag = 0;
 
-/*********************************支持不同的模式高级命令********************************************************/
+		/*********************************支持不同的模式高级命令********************************************************/
 		if (ssd->parameter->flash_mode == SLC_MODE)
 		{
 			if ((ssd->parameter->advanced_commands&AD_MUTLIPLANE) == AD_MUTLIPLANE)
@@ -1215,18 +1237,234 @@ struct ssd_info *dynamic_advanced_process(struct ssd_info *ssd, unsigned int cha
 				getchar();
 			}
 		}
-	}
-	for (i = 0; i < max_sub_num; i++)
-	{
-		subs[i] = NULL;
-	}
-	free(subs);
-	subs = NULL;
-	return ssd;
+		for (i = 0; i < max_sub_num; i++)
+		{
+			subs[i] = NULL;
+		}
+		free(subs);
+		subs = NULL;
+		return ssd;
 
+	}
+	else if (ssd->parameter->allocation_scheme == STATIC_ALLOCATION)
+	{
+		if (ssd->parameter->flash_mode == TLC_MODE)
+		{
+			//首先去遍历die plane，看能不能找到这样的请求数目
+			if ((ssd->parameter->advanced_commands&AD_MUTLIPLANE) == AD_MUTLIPLANE && (ssd->parameter->advanced_commands&AD_ONESHOT_PROGRAM) == AD_ONESHOT_PROGRAM)
+			{
+				subs_count = find_static_write_sub_request(ssd, channel, chip, subs, ONE_SHOT_MUTLI_PLANE);
+				if (subs_count == PAGE_INDEX * ssd->parameter->plane_die)
+				{
+					get_ppn_for_advanced_commands(ssd, channel, chip, subs, subs_count, ONE_SHOT_MUTLI_PLANE);
+					
+					for (i = 0; i < max_sub_num; i++)
+						subs[i] = NULL;
+					free(subs);
+					subs = NULL;
+					return ssd;
+				}
+			}
+
+			//当mutli plane遍历失败的时候去，去遍历是否有ones shot program的请求数目
+			if ((ssd->parameter->advanced_commands&AD_ONESHOT_PROGRAM) == AD_ONESHOT_PROGRAM)
+			{
+				subs_count = find_static_write_sub_request(ssd, channel, chip, subs, ONE_SHOT);
+				if (subs_count == PAGE_INDEX)
+				{
+					get_ppn_for_advanced_commands(ssd, channel, chip, subs, subs_count, ONE_SHOT);
+				}
+			}
+			for (i = 0; i < max_sub_num; i++)
+				subs[i] = NULL;
+			free(subs);
+			subs = NULL;
+			return ssd;
+		}
+		else if (ssd->parameter->flash_mode == SLC_MODE)
+		{
+			if ((ssd->parameter->advanced_commands&AD_MUTLIPLANE) == AD_MUTLIPLANE)
+			{
+				subs_count = find_static_write_sub_request(ssd, channel, chip, subs, MUTLI_PLANE);
+				if (subs_count == PAGE_INDEX * ssd->parameter->plane_die)
+				{
+					get_ppn_for_advanced_commands(ssd, channel, chip, subs, subs_count, MUTLI_PLANE);
+					for (i = 0; i < max_sub_num; i++)
+						subs[i] = NULL;
+					free(subs);
+					subs = NULL;
+					return ssd;
+				}
+			}
+
+			//当mutli plane执行失败时，此时执行普通的写
+			subs_count = find_static_write_sub_request(ssd, channel, chip, subs, NORMAL);
+			if (subs_count == 1)
+			{				
+				get_ppn_for_normal_command(ssd, channel, chip, subs[0]);
+				printf("lz:normal program\n");
+				for (i = 0; i < max_sub_num; i++)
+					subs[i] = NULL;
+
+				free(subs);
+				subs = NULL;
+				return ssd;
+			}
+			else
+			{
+				for (i = 0; i < max_sub_num; i++)
+					subs[i] = NULL;
+				free(subs);
+				subs = NULL;
+				return NULL;
+			}
+
+		}
+	}
 }
 
-//根据不同的高级命令去服务写请求
+//为静态分配找有效的写子请求
+//暂时先不考虑update的问题
+unsigned int find_static_write_sub_request(struct ssd_info *ssd, unsigned int channel, unsigned int chip, struct sub_request ** subs, unsigned int command)
+{
+	unsigned int i, j, k;
+	unsigned int subs_count, max_sub_num, aim_count, plane_sub_count;
+	
+	//遍历临时变量
+	unsigned int tmp_subs_count;
+	struct sub_request ** tmp_subs = NULL;
+	struct sub_request * sub = NULL;
+
+	max_sub_num = ssd->parameter->die_chip * ssd->parameter->plane_die * PAGE_INDEX;
+	tmp_subs = (struct sub_request **)malloc(max_sub_num*sizeof(struct sub_request *));
+
+	for (k = 0; k < max_sub_num; k++)
+		tmp_subs[k] = NULL;
+
+	subs_count = 0;
+
+	if (command == ONE_SHOT || command == NORMAL)
+	{
+		if (command == ONE_SHOT)
+			aim_count = PAGE_INDEX;
+		else if (command == NORMAL)
+			aim_count = 1;
+		
+		for (i = 0; i < ssd->parameter->die_chip; i++)
+		{
+			for (j = 0; j < ssd->parameter->plane_die; j++)
+			{
+				//每次循环都要将临时变量清空
+				for (k = 0; k < max_sub_num; k++)
+					tmp_subs[k] = NULL;
+				tmp_subs_count = 0;
+
+				//sub = ssd->channel_head[channel].chip_head[chip].die_head[i].plane_head[j].subs_w_head;
+				sub = ssd->channel_head[channel].subs_w_head;
+				while ((sub != NULL) && (tmp_subs_count < max_sub_num))
+				{
+					if (sub->current_state == SR_WAIT)
+					{
+						if ((sub->location->chip == chip) && (sub->location->die == i) && (sub->location->plane == j))
+						{
+							if ((sub->update == NULL) || ((sub->update != NULL) && ((sub->update->current_state == SR_COMPLETE) || ((sub->update->next_state == SR_COMPLETE) && (sub->update->next_state_predict_time <= ssd->current_time)))))    //没有需要提前读出的页
+							{
+								tmp_subs[tmp_subs_count] = sub;
+								tmp_subs_count++;
+							}
+						}
+					}
+					sub = sub->next_node;
+				}
+
+				if (tmp_subs_count >= aim_count)   //若找到目标请求数目
+				{
+					for (k = 0; k < aim_count; k++)
+						subs[k] = tmp_subs[k];
+
+					free(tmp_subs);
+					return aim_count;
+				}
+			}
+		}
+	}
+	else if (command == ONE_SHOT_MUTLI_PLANE || command == MUTLI_PLANE)
+	{
+		if (command == ONE_SHOT_MUTLI_PLANE)
+		{
+			aim_count = PAGE_INDEX * ssd->parameter->plane_die;
+			plane_sub_count = PAGE_INDEX;
+		}
+		else if (command == MUTLI_PLANE)
+		{
+			aim_count = ssd->parameter->plane_die;
+			plane_sub_count = 1;
+		}
+
+		//遍历需要从die开始，die内plane上挂载请求数目是否可以
+		for (i = 0; i < ssd->parameter->die_chip; i++)
+		{
+			for (j = 0; j < ssd->parameter->plane_die; j++)
+			{
+				//每次循环都要将临时变量清空
+				for (k = 0; k < max_sub_num; k++)
+					tmp_subs[k] = NULL;
+				tmp_subs_count = 0;
+				
+				//sub = ssd->channel_head[channel].chip_head[chip].die_head[i].plane_head[j].subs_w_head;
+				sub = ssd->channel_head[channel].subs_w_head;
+				while ((sub != NULL) && (tmp_subs_count < max_sub_num))
+				{
+					if (sub->current_state == SR_WAIT)
+					{
+						if ((sub->location->chip == chip) && (sub->location->die == i) && (sub->location->plane == j))
+						{
+							if ((sub->update == NULL) || ((sub->update != NULL) && ((sub->update->current_state == SR_COMPLETE) || ((sub->update->next_state == SR_COMPLETE) && (sub->update->next_state_predict_time <= ssd->current_time)))))    //没有需要提前读出的页
+							{
+								tmp_subs[tmp_subs_count] = sub;
+								tmp_subs_count++;
+							}
+						}
+					}
+					sub = sub->next_node;
+				}
+
+				if (tmp_subs_count >= plane_sub_count)
+				{
+					for (k = 0; k < plane_sub_count; k++)
+						subs[k + (j*plane_sub_count)] = tmp_subs[k];
+					
+					subs_count += plane_sub_count;
+				}
+				else   //本plane不能组成one shot,则直接跳过这个die
+					break;
+			}
+			
+			if (subs_count >= aim_count)
+			{
+				for (k = aim_count; k < max_sub_num; k++)
+					subs[k] = NULL;
+
+				free(tmp_subs);
+				return aim_count;
+			}
+			else
+			{
+				for (k = 0; k < max_sub_num; k++)
+					subs[k] = NULL;
+				subs_count = 0;
+			}
+		}
+	}
+	//printf("cannnot find sub_request of aim command!\n");
+	free(tmp_subs);
+	return 0;
+}
+
+
+
+//根据不同的高级命令去凑足请求的个数
+//动态分配如果请求数目不够，可以从buff中拿，动态分配则不行
 Status service_advance_command(struct ssd_info *ssd, unsigned int channel, unsigned int chip, struct sub_request ** subs, unsigned int subs_count, unsigned int aim_subs_count, unsigned int command)
 {
 	unsigned int i = 0;
@@ -1283,7 +1521,6 @@ Status service_advance_command(struct ssd_info *ssd, unsigned int channel, unsig
 		if (subs_count == aim_subs_count)
 			get_ppn_for_advanced_commands(ssd, channel, chip, subs, subs_count, command);	
 
-		
 	}
 	else
 	{
@@ -1301,7 +1538,7 @@ Status service_advance_command(struct ssd_info *ssd, unsigned int channel, unsig
 *******************************************************************************************************/
 Status find_level_page(struct ssd_info *ssd, unsigned int channel, unsigned int chip, unsigned int die, struct sub_request **sub, unsigned int subs_count)
 {
-	unsigned int i, aim_page = 0, old_plane;
+	unsigned int i,j, aim_page = 0, old_plane;
 	struct gc_operation *gc_node;
 	unsigned int gc_add;
 
@@ -1310,7 +1547,15 @@ Status find_level_page(struct ssd_info *ssd, unsigned int channel, unsigned int 
 
 	page_place = (unsigned int *)malloc(ssd->parameter->plane_die*sizeof(page_place));
 	old_plane = ssd->channel_head[channel].chip_head[chip].die_head[die].token;
-	
+
+	//验证请求sub的有效性
+	if (subs_count != ssd->parameter->plane_die)
+	{
+		printf("find level failed\n");
+		getchar();
+		return ERROR;
+	}
+
 	for (i = 0; i < ssd->parameter->plane_die; i++)
 	{
 		find_active_block(ssd, channel, chip, die, i);
@@ -1328,21 +1573,35 @@ Status find_level_page(struct ssd_info *ssd, unsigned int channel, unsigned int 
 			break;
 		}
 	}
-	
+
 	//判断所有的page是否相等，如果相等，执行mutli plane，如果不相等，贪婪的使用，将所有的page向最大的page靠近
 	if (equal_flag == 1)	//page偏移地址一致
 	{
 		for (i = 0; i < ssd->parameter->plane_die; i++)
 		{
 			active_block = ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[i].active_block;
-			flash_page_state_modify(ssd, sub[i], channel, chip, die, i, active_block, page_place[i]);
+			if (ssd->parameter->allocation_scheme == DYNAMIC_ALLOCATION)
+			{
+				flash_page_state_modify(ssd, sub[i], channel, chip, die, i, active_block, page_place[i]);
+			}
+			else if (ssd->parameter->allocation_scheme == STATIC_ALLOCATION)
+			{
+				for (j = 0; j < subs_count; j++)
+				{
+					if (sub[j]->location->plane == i)
+					{
+						flash_page_state_modify(ssd, sub[j], channel, chip, die, i, active_block, page_place[i]);
+						break;
+					}
+				}
+			}
 		}
 	}
 	else				    //page偏移地址不一致
 	{
-		if (ssd->parameter->greed_MPW_ad == 1)                                             /*greedily use advanced commands*/
+		if (ssd->parameter->greed_MPW_ad == 1)                                          
 		{
-			for (i = 0; i < ssd->parameter->plane_die ; i++)
+			for (i = 0; i < ssd->parameter->plane_die; i++)
 			{
 				if (page_place[i] > aim_page)
 					aim_page = page_place[i];
@@ -1353,11 +1612,26 @@ Status find_level_page(struct ssd_info *ssd, unsigned int channel, unsigned int 
 				active_block = ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[i].active_block;
 				if (page_place[i] != aim_page)
 					make_same_level(ssd, channel, chip, die, i, active_block, aim_page);
-				flash_page_state_modify(ssd, sub[i], channel, chip, die, i, active_block, aim_page);
+
+				if (ssd->parameter->allocation_scheme == DYNAMIC_ALLOCATION)
+				{
+					flash_page_state_modify(ssd, sub[i], channel, chip, die, i, active_block, aim_page);
+				}
+				else if (ssd->parameter->allocation_scheme == STATIC_ALLOCATION)
+				{
+					for (j = 0; j < subs_count; j++)
+					{
+						if (sub[j]->location->plane == i)
+						{
+							flash_page_state_modify(ssd, sub[j], channel, chip, die, i, active_block, aim_page);
+							break;
+						}
+					}
+				}
 			}
 			ssd->channel_head[channel].chip_head[chip].die_head[die].token = old_plane;
 		}
-		else                                                                             /*can not greedy the use of advanced orders*/
+		else                                                                            
 		{
 			ssd->channel_head[channel].chip_head[chip].die_head[die].token = old_plane;
 			for (i = 0; i < subs_count; i++)
@@ -1367,7 +1641,7 @@ Status find_level_page(struct ssd_info *ssd, unsigned int channel, unsigned int 
 		}
 	}
 	gc_add = 1;
-	for ( i = 0; i < ssd->parameter->plane_die; i++)
+	for (i = 0; i < ssd->parameter->plane_die; i++)
 	{
 		if (ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[i].free_page >= (ssd->parameter->page_block*ssd->parameter->block_plane*ssd->parameter->gc_hard_threshold))
 			gc_add = 0;
@@ -1443,7 +1717,7 @@ struct ssd_info *make_same_level(struct ssd_info *ssd, unsigned int channel, uns
 		}
 	}
 
-	if (ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[plane].blk_head[block].last_write_page>63)
+	if (ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[plane].blk_head[block].last_write_page>(ssd->parameter->page_block-1))
 	{
 		printf("error! the last write page larger than 64!!\n");
 		while (1){}
@@ -1532,31 +1806,27 @@ struct ssd_info *compute_serve_time(struct ssd_info *ssd, unsigned int channel, 
 
 }
 
+
 /*****************************************************************************************
 *Function is to remove the request from ssd-> subs_w_head or ssd-> channel_head [channel] .subs_w_head
 ******************************************************************************************/
 struct ssd_info *delete_from_channel(struct ssd_info *ssd, unsigned int channel, struct sub_request * sub_req)
 {
 	struct sub_request *sub, *p;
-	if ((ssd->parameter->allocation_scheme == DYNAMIC_ALLOCATION) && (ssd->parameter->dynamic_allocation == FULL_ALLOCATION))
-	{
-		sub = ssd->subs_w_head;
-	}
-	else
-	{
-		sub = ssd->channel_head[channel].subs_w_head;
-	}
-	p = sub;
 
+	if (ssd->parameter->allocation_scheme == DYNAMIC_ALLOCATION)
+		sub = ssd->subs_w_head;
+	else if (ssd->parameter->allocation_scheme == STATIC_ALLOCATION)
+		sub = ssd->channel_head[channel].subs_w_head; 
+
+	p = sub;
 	while (sub != NULL)
 	{
 		if (sub == sub_req)
 		{
-			if ((ssd->parameter->allocation_scheme == DYNAMIC_ALLOCATION) && (ssd->parameter->dynamic_allocation == FULL_ALLOCATION))
+			if (ssd->parameter->allocation_scheme == DYNAMIC_ALLOCATION)
 			{
-				ssd->real_time_subreq--;
-
-				if (sub == ssd->subs_w_head)                                                     /*This sub request is removed from the sub request queue*/
+				if (sub == ssd->subs_w_head)
 				{
 					if (ssd->subs_w_head != ssd->subs_w_tail)
 					{
@@ -1571,7 +1841,7 @@ struct ssd_info *delete_from_channel(struct ssd_info *ssd, unsigned int channel,
 						p = NULL;
 						break;
 					}
-				}//if (sub==ssd->subs_w_head) 
+				}
 				else
 				{
 					if (sub->next_node != NULL)
@@ -1588,6 +1858,40 @@ struct ssd_info *delete_from_channel(struct ssd_info *ssd, unsigned int channel,
 					}
 				}
 			}
+			else if (ssd->parameter->allocation_scheme == STATIC_ALLOCATION)
+			{
+				if (sub == ssd->channel_head[channel].subs_w_head)
+				{
+					if (ssd->channel_head[channel].subs_w_head != ssd->channel_head[channel].subs_w_tail)
+					{
+						ssd->channel_head[channel].subs_w_head = sub->next_node;
+						sub = ssd->channel_head[channel].subs_w_head;
+						continue;
+					}
+					else
+					{
+						ssd->channel_head[channel].subs_w_head = NULL;
+						ssd->channel_head[channel].subs_w_tail = NULL;
+						p = NULL;
+						break;
+					}
+				}
+				else
+				{
+					if (sub->next_node != NULL)
+					{
+						p->next_node = sub->next_node;
+						sub = p->next_node;
+						continue;
+					}
+					else
+					{
+						ssd->channel_head[channel].subs_w_tail = p;
+						ssd->channel_head[channel].subs_w_tail->next_node = NULL;
+						break;
+					}
+				}
+			}
 		}
 		p = sub;
 		sub = sub->next_node;
@@ -1595,4 +1899,3 @@ struct ssd_info *delete_from_channel(struct ssd_info *ssd, unsigned int channel,
 
 	return ssd;
 }
-

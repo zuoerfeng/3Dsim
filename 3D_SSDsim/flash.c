@@ -142,18 +142,18 @@ struct ssd_info *flash_page_state_modify(struct ssd_info *ssd, struct sub_reques
 	ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[plane].blk_head[block].last_write_page = page;
 	ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[plane].blk_head[block].free_page_num--;
 
-	if (ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[plane].blk_head[block].last_write_page>63)
+	if (ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[plane].blk_head[block].last_write_page>(ssd->parameter->page_block - 1))
 	{
 		printf("error! the last write page larger than 64!!\n");
 		while (1){}
 	}
 
-	if (ssd->dram->map->map_entry[sub->lpn].state == 0)                                          /*this is the first logical page*/
+	if (ssd->dram->map->map_entry[sub->lpn].state == 0)                                        
 	{
 		ssd->dram->map->map_entry[sub->lpn].pn = find_ppn(ssd, channel, chip, die, plane, block, page);
 		ssd->dram->map->map_entry[sub->lpn].state = sub->state;
 	}
-	else                                                                                      /*This logical page has been updated, and the original page needs to be invalidated*/
+	else 
 	{
 		ppn = ssd->dram->map->map_entry[sub->lpn].pn;
 		location = find_location(ssd, ppn);
@@ -161,7 +161,7 @@ struct ssd_info *flash_page_state_modify(struct ssd_info *ssd, struct sub_reques
 		ssd->channel_head[location->channel].chip_head[location->chip].die_head[location->die].plane_head[location->plane].blk_head[location->block].page_head[location->page].free_state = 0;        
 		ssd->channel_head[location->channel].chip_head[location->chip].die_head[location->die].plane_head[location->plane].blk_head[location->block].page_head[location->page].lpn = 0;
 		ssd->channel_head[location->channel].chip_head[location->chip].die_head[location->die].plane_head[location->plane].blk_head[location->block].invalid_page_num++;
-		if (ssd->channel_head[location->channel].chip_head[location->chip].die_head[location->die].plane_head[location->plane].blk_head[location->block].invalid_page_num == ssd->parameter->page_block)    //The block is invalid in the page, it can directly delete
+		if (ssd->channel_head[location->channel].chip_head[location->chip].die_head[location->die].plane_head[location->plane].blk_head[location->block].invalid_page_num == ssd->parameter->page_block)    
 		{
 			new_direct_erase = (struct direct_erase *)malloc(sizeof(struct direct_erase));
 			alloc_assert(new_direct_erase, "new_direct_erase");
@@ -204,3 +204,4 @@ struct ssd_info *flash_page_state_modify(struct ssd_info *ssd, struct sub_reques
 
 	return ssd;
 }
+

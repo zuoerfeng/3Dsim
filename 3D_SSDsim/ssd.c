@@ -250,7 +250,7 @@ struct ssd_info *process(struct ssd_info *ssd)
 		ssd->flag = 1;
 		if (ssd->gc_request>0)                                                           
 		{
-			gc(ssd, 0, 1);                                                                  /*Active gc, require all channels must traverse*/
+			//gc(ssd, 0, 1);                                                                  /*Active gc, require all channels must traverse*/
 		}
 		return ssd;
 	}
@@ -279,7 +279,7 @@ struct ssd_info *process(struct ssd_info *ssd)
 			{
 				if (ssd->channel_head[i].gc_command != NULL)
 				{
-					flag_gc = gc(ssd, i, 0);                                                 //process passive gc ,this channel is busy
+					//flag_gc = gc(ssd, i, 0);                                                 //process passive gc ,this channel is busy
 				}
 				if (flag_gc == 1)															 
 				{

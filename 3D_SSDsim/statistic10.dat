@@ -76,23 +76,24 @@ address mapping=1;               #映射表策略：1：page；2：4kb_map(目前只支持page
 wear leveling=1;                 #WL算法
 gc=1;                            #gc策略：1：superblock
 gc hard threshold=0.10;          #gc硬阈值大小，当plane内无效页个数超过此阈值时，触发gc操作
-allocation=0;                    #分配方式，0：动态分配，1：静态分配
+allocation=1;                    #分配方式，0：动态分配，1：静态分配
+static_allocation=0;			 #静态分配方式类型，0：plane>channel>chip>die
 dynamic_allocation=0;            #动态分配方式类型，0:全动态，1:channel静态,chip，die，plane动态，2:channel，package，die静态,plane动态
 dynamic_allocation_priority=1;	 #动态分配方式优先级，0：channel>chip>die>plane,1：plane>channel>chip>die
-advanced command=0;             #高级命令支持，用二进制表示，无(00000)、mutli plane(00001), half-page-read(00010), one shot program(00100),one shot read(01000),erase suspend/resume(10000)
+advanced command=1;             #高级命令支持，用二进制表示，无(00000)、mutli plane(00001), half-page-read(00010), one shot program(00100),one shot read(01000),erase suspend/resume(10000)
 greed MPW command=1;             #multi-plane贪心算法，0：非贪心，1：贪心
 aged=0;                          #旧化处理，0：non-aged，1：aged
 aged ratio=0.5;                	 #旧化率
 flash mode=0;					 #flash支持模式，0：slc,1：tlc
 -----------------------simulation output----------------------
-the 0 channel, 0 chip, 0 die, 0 plane has :   0 erase operations,1691 read operations,1289 write operations,935 pre_process write operations
-the 0 channel, 0 chip, 0 die, 1 plane has :   0 erase operations,1606 read operations,1288 write operations,935 pre_process write operations
-the 0 channel, 0 chip, 1 die, 0 plane has :   0 erase operations,1743 read operations,1288 write operations,935 pre_process write operations
-the 0 channel, 0 chip, 1 die, 1 plane has :   0 erase operations,1965 read operations,1288 write operations,934 pre_process write operations
-the 1 channel, 0 chip, 0 die, 0 plane has :   0 erase operations,1473 read operations,1297 write operations,935 pre_process write operations
-the 1 channel, 0 chip, 0 die, 1 plane has :   0 erase operations,1597 read operations,1296 write operations,935 pre_process write operations
-the 1 channel, 0 chip, 1 die, 0 plane has :   0 erase operations,1788 read operations,1296 write operations,934 pre_process write operations
-the 1 channel, 0 chip, 1 die, 1 plane has :   0 erase operations,1767 read operations,1296 write operations,934 pre_process write operations
+the 0 channel, 0 chip, 0 die, 0 plane has :   0 erase operations,1600 read operations,1267 write operations,933 pre_process write operations
+the 0 channel, 0 chip, 0 die, 1 plane has :   0 erase operations,1657 read operations,1316 write operations,940 pre_process write operations
+the 0 channel, 0 chip, 1 die, 0 plane has :   0 erase operations,1645 read operations,1295 write operations,950 pre_process write operations
+the 0 channel, 0 chip, 1 die, 1 plane has :   0 erase operations,1645 read operations,1318 write operations,931 pre_process write operations
+the 1 channel, 0 chip, 0 die, 0 plane has :   0 erase operations,1619 read operations,1284 write operations,925 pre_process write operations
+the 1 channel, 0 chip, 0 die, 1 plane has :   0 erase operations,1966 read operations,1334 write operations,937 pre_process write operations
+the 1 channel, 0 chip, 1 die, 0 plane has :   0 erase operations,1566 read operations,1263 write operations,927 pre_process write operations
+the 1 channel, 0 chip, 1 die, 1 plane has :   0 erase operations,1932 read operations,1261 write operations,934 pre_process write operations
 
 
 ---------------------------statistic data---------------------------
@@ -111,7 +112,7 @@ erase count:             0
 direct erase count:             0
 
 multi-plane program count:             0
-multi-plane read count:             0
+multi-plane read count:            39
 
 write flash count:         17815
 
@@ -121,14 +122,14 @@ write request count:          5922
 read request average size:     12.187196
 write request average size:      9.841900
 
-read request average response time:           264460
-write request average response time:          1330595
+read request average response time:           264645
+write request average response time:          1531134
 
 buffer read hits:           550
 buffer read miss:         13388
 buffer write hits:         19228
 buffer write miss:         10338
-update sub request count :             4
+update sub request count :             0
 half page read count :             0
 mutli plane one shot program count :             0
 one shot read count :             0

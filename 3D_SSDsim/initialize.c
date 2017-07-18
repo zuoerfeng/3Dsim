@@ -322,6 +322,11 @@ struct plane_info * initialize_plane(struct plane_info * p_plane,struct paramete
 	p_plane->plane_erase_count = 0;
 	p_plane->pre_plane_write_count = 0;
 
+	p_plane->subs_w_head = NULL;
+	p_plane->subs_w_tail = NULL;
+	p_plane->subs_r_head = NULL;
+	p_plane->subs_r_tail = NULL;
+
 	p_plane->blk_head = (struct blk_info *)malloc(parameter->block_plane * sizeof(struct blk_info));
 	alloc_assert(p_plane->blk_head,"p_plane->blk_head");
 	memset(p_plane->blk_head,0,parameter->block_plane * sizeof(struct blk_info));
@@ -586,6 +591,8 @@ struct parameter_value *load_parameters(char parameter_file[30])
 			sscanf(buf + next_eql,"%f",&p->gc_hard_threshold);          //Gc hard threshold setting for the active write gc strategy to determine the threshold
 		}else if((res_eql=strcmp(buf,"allocation")) ==0){
 			sscanf(buf + next_eql,"%d",&p->allocation_scheme);		    //Determine the allocation method, 0 that dynamic allocation, that is, dynamic allocation of each channel, the static allocation that according to address allocation
+		}else if ((res_eql=strcmp(buf, "static_allocation")) == 0){
+			sscanf(buf + next_eql, "%d", &p->static_allocation);        //record the static allocation in ssd
 		}else if((res_eql=strcmp(buf, "dynamic_allocation")) == 0){
 			sscanf(buf + next_eql, "%d", &p->dynamic_allocation);        //Recorded in the use of which dynamic allocation, 0 that full dynamic, 1 said channel set package, die, plane dynamic, 2 said channel, package, die fixed plane dynamic
 		}else if((res_eql=strcmp(buf, "dynamic_allocation_priority")) == 0){

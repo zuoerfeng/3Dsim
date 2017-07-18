@@ -282,6 +282,16 @@ unsigned int get_ppn_for_pre_process(struct ssd_info *ssd, unsigned int lpn)
 			
 		}
 	}
+	else if (ssd->parameter->allocation_scheme == STATIC_ALLOCATION)
+	{
+		if (ssd->parameter->static_allocation == 0)    //plane>channel>chip>die
+		{
+			plane = lpn % plane_num;
+			channel = (lpn / plane_num) % channel_num;
+			chip = (lpn / (plane_num*channel_num)) % chip_num;
+			die = (lpn / (plane_num*channel_num*chip_num)) % die_num;
+		}
+	}
 
 	/******************************************************************************
 	*According to the above allocation method to find channel, chip, die, plane, 
@@ -343,7 +353,7 @@ struct ssd_info *get_ppn(struct ssd_info *ssd, unsigned int channel, unsigned in
 	ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[plane].blk_head[active_block].last_write_page++;
 	ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[plane].blk_head[active_block].free_page_num--;
 
-	if (ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[plane].blk_head[active_block].last_write_page>63)
+	if (ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[plane].blk_head[active_block].last_write_page >(ssd->parameter->page_block - 1))
 	{
 		printf("error! the last write page larger than 64!!\n");
 		while (1){}
@@ -538,13 +548,12 @@ struct local *find_location(struct ssd_info *ssd, unsigned int ppn)
 *********************************************************************/
 Status get_ppn_for_normal_command(struct ssd_info * ssd, unsigned int channel, unsigned int chip, struct sub_request * sub)
 {
-	unsigned int die = 0;
-	unsigned int plane = 0;
+	unsigned int die, plane;
+
 	if (sub == NULL)
 	{
 		return ERROR;
 	}
-
 	if (ssd->parameter->allocation_scheme == DYNAMIC_ALLOCATION)
 	{
 		die = ssd->channel_head[channel].chip_head[chip].token;
@@ -563,9 +572,17 @@ Status get_ppn_for_normal_command(struct ssd_info * ssd, unsigned int channel, u
 			ssd->channel_head[channel].chip_head[chip].token = (die + 1) % ssd->parameter->die_chip;
 		}
 		compute_serve_time(ssd, channel, chip, die, &sub, 1, NORMAL);
-		return SUCCESS;
 	}
-	return ERROR;
+	else if (ssd->parameter->allocation_scheme == STATIC_ALLOCATION)
+	{
+		die = sub->location->die;
+		plane = sub->location->plane;
+		get_ppn(ssd, channel, chip, die, plane, sub);
+
+		compute_serve_time(ssd, channel, chip, die, &sub, 1, NORMAL);
+	}
+
+	return SUCCESS;
 }
 
 /************************************************************************************************
@@ -583,6 +600,9 @@ Status get_ppn_for_normal_command(struct ssd_info * ssd, unsigned int channel, u
 Status get_ppn_for_advanced_commands(struct ssd_info *ssd, unsigned int channel, unsigned int chip, struct sub_request ** subs, unsigned int subs_count, unsigned int command)
 {
 	unsigned int die = 0, plane = 0;
+
+	unsigned int aim_die = 0, aim_plane = 0;
+
 	unsigned int die_token = 0, plane_token = 0;
 	struct sub_request * sub = NULL;
 	unsigned int i = 0, j = 0, k = 0;
@@ -592,10 +612,45 @@ Status get_ppn_for_advanced_commands(struct ssd_info *ssd, unsigned int channel,
 	struct sub_request ** mutli_subs = NULL;
 	mutli_subs = (struct sub_request **)malloc(ssd->parameter->plane_die * sizeof(struct sub_request *));
 
-	
+	if (ssd->parameter->allocation_scheme == DYNAMIC_ALLOCATION)  //动态分配的目标die plane由动态令牌来决定
+	{
+		aim_die = ssd->channel_head[channel].chip_head[chip].token;
+		aim_plane = ssd->channel_head[channel].chip_head[chip].die_head[die].token;
+	}
+	else if (ssd->parameter->allocation_scheme == STATIC_ALLOCATION)
+	{
+		aim_die = subs[0]->location->die;
+		aim_plane = subs[0]->location->plane;
+
+		//验证subs的有效性
+		for (i = 0; i < subs_count; i++)
+		{
+			if (subs[i]->location->die != aim_die)
+			{
+				printf("Error ,aim_die match failed\n");
+				getchar();
+			}
+			if (i < PAGE_INDEX)
+			{
+				if (subs[i]->location->plane != aim_plane)
+				{
+					printf("Error ,aim_plane match failed\n");
+					getchar();
+				}
+			}
+			else
+			{
+				if (subs[i]->location->plane == aim_plane)
+				{
+					printf("Error ,aim_plane match failed\n");
+					getchar();
+				}
+			}
+		}
+	}
+
 	if (command == ONE_SHOT_MUTLI_PLANE)
 	{
-		die = ssd->channel_head[channel].chip_head[chip].token;
 		for (i = 0; i < PAGE_INDEX; i++)
 		{
 			k = 0;
@@ -610,13 +665,14 @@ Status get_ppn_for_advanced_commands(struct ssd_info *ssd, unsigned int channel,
 				k = k + PAGE_INDEX;
 			}
 			//进行mutli plane的操作
-			find_level_page(ssd, channel, chip, die, mutli_subs, ssd->parameter->plane_die);
+			find_level_page(ssd, channel, chip, aim_die, mutli_subs, ssd->parameter->plane_die);
 		}
 		valid_subs_count = subs_count;
-		ssd->channel_head[channel].chip_head[chip].token = (die + 1) % ssd->parameter->die_chip;
-
-		compute_serve_time(ssd, channel, chip, die, subs, valid_subs_count, ONE_SHOT_MUTLI_PLANE);
+		compute_serve_time(ssd, channel, chip, aim_die, subs, valid_subs_count, ONE_SHOT_MUTLI_PLANE);
 		printf("lz:mutli plane one shot\n");
+
+		if (ssd->parameter->allocation_scheme == DYNAMIC_ALLOCATION)
+			ssd->channel_head[channel].chip_head[chip].token = (aim_die + 1) % ssd->parameter->die_chip;
 
 		//free mutli_subs
 		for (i = 0; i < ssd->parameter->plane_die; i++)
@@ -657,10 +713,9 @@ Status get_ppn_for_advanced_commands(struct ssd_info *ssd, unsigned int channel,
 	}*/
 	else if (command == MUTLI_PLANE)
 	{
-		die = ssd->channel_head[channel].chip_head[chip].token;
 		if (subs_count == ssd->parameter->plane_die)
 		{
-			state = find_level_page(ssd, channel, chip, die, subs, subs_count);
+			state = find_level_page(ssd, channel, chip, aim_die, subs, subs_count);
 			if (state != SUCCESS)
 			{
 				get_ppn_for_normal_command(ssd, channel, chip, subs[0]);		 
@@ -671,9 +726,11 @@ Status get_ppn_for_advanced_commands(struct ssd_info *ssd, unsigned int channel,
 			else
 			{
 				valid_subs_count = ssd->parameter->plane_die;
-				ssd->channel_head[channel].chip_head[chip].token = (die + 1) % ssd->parameter->die_chip;   
-			
-				compute_serve_time(ssd, channel, chip, die, subs, valid_subs_count, MUTLI_PLANE);
+				compute_serve_time(ssd, channel, chip, aim_die, subs, valid_subs_count, MUTLI_PLANE);
+
+				if (ssd->parameter->allocation_scheme == DYNAMIC_ALLOCATION)
+					ssd->channel_head[channel].chip_head[chip].token = (aim_die + 1) % ssd->parameter->die_chip;
+				
 				printf("lz:mutli_plane\n");
 				return SUCCESS;
 			}
@@ -686,19 +743,18 @@ Status get_ppn_for_advanced_commands(struct ssd_info *ssd, unsigned int channel,
 	else if (command == ONE_SHOT)
 	{
 		for (i = 0; i < subs_count; i++)
-		{
-			die = ssd->channel_head[channel].chip_head[chip].token;
-			plane = ssd->channel_head[channel].chip_head[chip].die_head[die].token;
-			get_ppn(ssd, channel, chip, die, plane, subs[i]);
-		}
-
-		//更新plane die
-		ssd->channel_head[channel].chip_head[chip].die_head[die].token = (plane + 1) % ssd->parameter->plane_die;
-		if (plane == (ssd->parameter->plane_die - 1))
-			ssd->channel_head[channel].chip_head[chip].token = (die + 1) % ssd->parameter->die_chip;
+			get_ppn(ssd, channel, chip, aim_die, aim_plane, subs[i]);
 
 		valid_subs_count = PAGE_INDEX;
-		compute_serve_time(ssd, channel, chip, die, subs, valid_subs_count, ONE_SHOT);
+		compute_serve_time(ssd, channel, chip, aim_die, subs, valid_subs_count, ONE_SHOT);
+
+		//更新plane die
+		if (ssd->parameter->allocation_scheme == DYNAMIC_ALLOCATION)
+		{
+			ssd->channel_head[channel].chip_head[chip].die_head[die].token = (aim_plane + 1) % ssd->parameter->plane_die;
+			if (aim_plane == (ssd->parameter->plane_die - 1))
+				ssd->channel_head[channel].chip_head[chip].token = (aim_die + 1) % ssd->parameter->die_chip;
+		}
 
 		printf("lz:one shot\n");
 		return SUCCESS;
@@ -709,8 +765,9 @@ Status get_ppn_for_advanced_commands(struct ssd_info *ssd, unsigned int channel,
 	}
 }
 
-/******************************************************************************************下面是ftl层gc操作******************************************************************************************/
 
+
+/******************************************************************************************下面是ftl层gc操作******************************************************************************************/
 
 /************************************************************************************************************
 *Gc operation, for the invalid block, the use of mutli erase select two plane offset address of the same invalid block to erase,
@@ -1148,7 +1205,7 @@ unsigned int get_ppn_for_gc(struct ssd_info *ssd, unsigned int channel, unsigned
 	ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[plane].blk_head[active_block].last_write_page++;
 	ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[plane].blk_head[active_block].free_page_num--;
 
-	if (ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[plane].blk_head[active_block].last_write_page>63)
+	if (ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[plane].blk_head[active_block].last_write_page>(ssd->parameter->page_block - 1))
 	{
 		printf("error! the last write page larger than 64!!\n");
 		while (1){}
