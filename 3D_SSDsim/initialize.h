@@ -31,6 +31,7 @@ Zuo Lu			2017/07/07		  1.5			Support advanced commands:erase suspend/resume  617
 #define BUFSIZE 200
 #define INDEX 10
 #define PAGE_INDEX 3 //tlc mode .LSB/CSB/MSB
+#define PLANE_NUMBER 8 //for_plane_buffer
 
 #define DYNAMIC_ALLOCATION 0
 #define STATIC_ALLOCATION 1
@@ -377,9 +378,10 @@ struct dram_info{
 
 	struct dram_parameter *dram_paramters;      
 	struct map_info *map;
-	struct buffer_info *buffer; 
 
-	struct buffer_info *command_buffer;   //used in advanced command buffer
+	struct buffer_info *buffer; 
+	struct buffer_info *command_buffer;					 //used in advanced command buffer
+	struct buffer_info *static_plane_buffer[PLANE_NUMBER];   //used in advanced command buffer in static allocation
 };
 
 

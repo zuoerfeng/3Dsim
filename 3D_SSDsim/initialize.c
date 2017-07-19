@@ -229,16 +229,24 @@ void initialize_statistic(struct ssd_info * ssd)
 struct dram_info * initialize_dram(struct ssd_info * ssd)
 {
 	unsigned int page_num;
+	unsigned int i;
 
 	struct dram_info *dram=ssd->dram;
 	dram->dram_capacity = ssd->parameter->dram_capacity;	
 	dram->buffer = (tAVLTree *)avlTreeCreate((void*)keyCompareFunc , (void *)freeFunc);
 	dram->buffer->max_buffer_sector=ssd->parameter->dram_capacity / ssd->parameter->subpage_capacity; 
 
-	//增加高级命令的缓存初始化
+
+	/**********************************************增加高级命令的缓存初始化******************************************************************/
 	dram->command_buffer = (tAVLTree *)avlTreeCreate((void*)keyCompareFunc, (void *)freeFunc);
+	for (i = 0; i < PLANE_NUMBER; i++)
+		dram->static_plane_buffer[i] = (tAVLTree *)avlTreeCreate((void*)keyCompareFunc, (void *)freeFunc);
+
 	if (ssd->parameter->flash_mode == SLC_MODE)
 	{
+		for (i = 0; i < PLANE_NUMBER; i++)
+			dram->static_plane_buffer[i]->max_command_buff_page = 1;      //slc 模式下，每个plane只需要维护1个页大小
+		
 		if ((ssd->parameter->advanced_commands&AD_MUTLIPLANE) == AD_MUTLIPLANE)
 			dram->command_buffer->max_command_buff_page = ssd->parameter->plane_die;
 		else
@@ -246,6 +254,9 @@ struct dram_info * initialize_dram(struct ssd_info * ssd)
 	}
 	else if (ssd->parameter->flash_mode == TLC_MODE)
 	{
+		for (i = 0; i < PLANE_NUMBER; i++)
+			dram->static_plane_buffer[i]->max_command_buff_page = PAGE_INDEX;		//tlc模式下，每个plane只需要维护one shot页大小
+
 		if ((ssd->parameter->advanced_commands&AD_ONESHOT_PROGRAM) == AD_ONESHOT_PROGRAM)
 		{
 			if ((ssd->parameter->advanced_commands&AD_MUTLIPLANE) == AD_MUTLIPLANE)
@@ -259,13 +270,13 @@ struct dram_info * initialize_dram(struct ssd_info * ssd)
 			getchar();
 		}
 	}
+	/******************************************************************************************************************************************/
 
 	dram->map = (struct map_info *)malloc(sizeof(struct map_info));
 	alloc_assert(dram->map,"dram->map");
 	memset(dram->map,0, sizeof(struct map_info));
 
 	page_num = ssd->parameter->page_block*ssd->parameter->block_plane*ssd->parameter->plane_die*ssd->parameter->die_chip*ssd->parameter->chip_num;
-
 	dram->map->map_entry = (struct entry *)malloc(sizeof(struct entry) * page_num); 
 	alloc_assert(dram->map->map_entry,"dram->map->map_entry");
 	memset(dram->map->map_entry,0,sizeof(struct entry) * page_num);

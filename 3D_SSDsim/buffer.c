@@ -210,11 +210,15 @@ struct ssd_info * insert2buffer(struct ssd_info *ssd, unsigned int lpn, int stat
 				sub_req_size = size(ssd->dram->buffer->buffer_tail->stored);
 				sub_req_lpn = ssd->dram->buffer->buffer_tail->group;
 				
+				/*
 				if (ssd->parameter->allocation_scheme == DYNAMIC_ALLOCATION)
 					insert2_command_buffer(ssd, sub_req_lpn, sub_req_size, sub_req_state, req, WRITE);
 				else
 					sub_req = creat_sub_request(ssd, sub_req_lpn, sub_req_size, sub_req_state, req, WRITE);
-				
+				*/
+				//将请求分配到command_buffer
+				distribute2_command_buffer(ssd, sub_req_lpn, sub_req_size, sub_req_state, req, WRITE);
+
 				ssd->dram->buffer->write_miss_hit++;
 				ssd->dram->buffer->buffer_sector_count = ssd->dram->buffer->buffer_sector_count - sub_req_size;
 				//ssd->dram->buffer->buffer_sector_count = ssd->dram->buffer->buffer_sector_count - sub_req->size;
@@ -312,12 +316,15 @@ struct ssd_info * insert2buffer(struct ssd_info *ssd, unsigned int lpn, int stat
 				sub_req_state = ssd->dram->buffer->buffer_tail->stored;
 				sub_req_size = size(ssd->dram->buffer->buffer_tail->stored);
 				sub_req_lpn = ssd->dram->buffer->buffer_tail->group;
-
+				/*
 				if (ssd->parameter->allocation_scheme == DYNAMIC_ALLOCATION)
 					insert2_command_buffer(ssd, sub_req_lpn, sub_req_size, sub_req_state, req, WRITE);
 				else
-					sub_req = creat_sub_request(ssd, sub_req_lpn, sub_req_size, sub_req_state, req, WRITE);
+					sub_req = creat_sub_request(ssd, sub_req_lpn, sub_req_size, sub_req_state, req, WRITE);*/
 				
+				//将请求分配到command_buffer
+				distribute2_command_buffer(ssd, sub_req_lpn, sub_req_size, sub_req_state, req, WRITE);
+
 				ssd->dram->buffer->write_miss_hit++;
 				//删除尾节点
 				pt = ssd->dram->buffer->buffer_tail;
@@ -536,6 +543,7 @@ unsigned int size(unsigned int stored)
 }
 
 
+/*
 struct ssd_info * insert2_command_buffer(struct ssd_info * ssd, unsigned int lpn, int size_count, unsigned int state, struct request * req, unsigned int operation)
 {
 	unsigned int i = 0;
@@ -550,13 +558,13 @@ struct ssd_info * insert2_command_buffer(struct ssd_info * ssd, unsigned int lpn
 	if (command_buffer_node == NULL)
 	{
 		//如果是更新写操作，直接写到flash上
-		/*
-		if ((state&ssd->dram->map->map_entry[lpn].state) != ssd->dram->map->map_entry[lpn].state)
-		{
-			creat_sub_request(ssd, lpn, size_count, state, req, operation);
-			return ssd;
-		}
-		*/
+		
+		//if ((state&ssd->dram->map->map_entry[lpn].state) != ssd->dram->map->map_entry[lpn].state)
+		//{
+			//creat_sub_request(ssd, lpn, size_count, state, req, operation);
+			//return ssd;
+		//}
+		
 
 		//生成 一个buff_node,根据这个页的情况分别赋值给各个成员，并且添加到队首
 		new_node = NULL;
@@ -635,6 +643,149 @@ struct ssd_info * insert2_command_buffer(struct ssd_info * ssd, unsigned int lpn
 			ssd->dram->command_buffer->buffer_head->LRU_link_pre = command_buffer_node;
 			command_buffer_node->LRU_link_pre = NULL;
 			ssd->dram->command_buffer->buffer_head = command_buffer_node;
+		}
+
+		command_buffer_node->stored = command_buffer_node->stored | state;
+		command_buffer_node->dirty_clean = command_buffer_node->dirty_clean | state;
+	}
+
+	return ssd;
+}
+*/
+
+
+struct ssd_info * distribute2_command_buffer(struct ssd_info * ssd, unsigned int lpn, int size_count, unsigned int state, struct request * req, unsigned int operation)
+{
+	unsigned int channel, chip, die, plane;
+	unsigned int channel_num, chip_num, die_num, plane_num;
+	unsigned int aim_plane;
+	struct buffer_info * aim_command_buffer;
+
+	if (ssd->parameter->allocation_scheme == STATIC_ALLOCATION)
+	{
+		channel_num = ssd->parameter->channel_number;
+		chip_num = ssd->parameter->chip_channel[0];
+		die_num = ssd->parameter->die_chip;
+		plane_num = ssd->parameter->plane_die;
+
+		//静态分配优先级：plane>channel>chip>die
+		plane = lpn % plane_num;
+		channel = (lpn / plane_num) % channel_num;
+		chip = (lpn / (plane_num*channel_num)) % chip_num;
+		die = (lpn / (plane_num*channel_num*chip_num)) % die_num;
+
+		//分配到对应的plane_buffer上
+		aim_plane = channel * (plane_num*die_num*chip_num) + chip *(plane_num*die_num) + die*plane_num + plane;
+		aim_command_buffer = ssd->dram->static_plane_buffer[aim_plane];
+	}
+	else if (ssd->parameter->allocation_scheme == DYNAMIC_ALLOCATION)
+	{
+		aim_command_buffer = ssd->dram->command_buffer;
+	}
+	
+	//将请求插入到对应的缓存中
+	insert2_command_buffer(ssd, aim_command_buffer, lpn, size_count, state, req, operation);
+}
+
+struct ssd_info * insert2_command_buffer(struct ssd_info * ssd, struct buffer_info * command_buffer, unsigned int lpn, int size_count, unsigned int state, struct request * req, unsigned int operation)
+{
+	unsigned int i = 0;
+	unsigned int sub_req_state = 0, sub_req_size = 0, sub_req_lpn = 0;
+	struct buffer_group *command_buffer_node = NULL, *pt, *new_node = NULL, key;
+	struct sub_request *sub_req = NULL;
+
+	//遍历缓存的节点，判断是否有命中
+	key.group = lpn;
+	command_buffer_node = (struct buffer_group*)avlTreeFind(command_buffer, (TREE_NODE *)&key);
+
+	if (command_buffer_node == NULL)
+	{
+		//如果是更新写操作，直接写到flash上
+		/*
+		if ((state&ssd->dram->map->map_entry[lpn].state) != ssd->dram->map->map_entry[lpn].state)
+		{
+		creat_sub_request(ssd, lpn, size_count, state, req, operation);
+		return ssd;
+		}
+		*/
+
+		//生成 一个buff_node,根据这个页的情况分别赋值给各个成员，并且添加到队首
+		new_node = NULL;
+		new_node = (struct buffer_group *)malloc(sizeof(struct buffer_group));
+		alloc_assert(new_node, "buffer_group_node");
+		memset(new_node, 0, sizeof(struct buffer_group));
+
+		new_node->group = lpn;
+		new_node->stored = state;
+		new_node->dirty_clean = state;
+		new_node->LRU_link_pre = NULL;
+		new_node->LRU_link_next = command_buffer->buffer_head;
+		if (command_buffer->buffer_head != NULL){
+			command_buffer->buffer_head->LRU_link_pre = new_node;
+		}
+		else{
+			command_buffer->buffer_tail = new_node;
+		}
+		command_buffer->buffer_head = new_node;
+		new_node->LRU_link_pre = NULL;
+		avlTreeAdd(command_buffer, (TREE_NODE *)new_node);
+		command_buffer->command_buff_page++;
+
+		//如果缓存已满，此时发生flush操作，将缓存的内存一次性flush到闪存上
+		if (command_buffer->command_buff_page == command_buffer->max_command_buff_page)
+		{
+			printf("begin to flush command_buffer\n");
+			for (i = 0; i < command_buffer->max_command_buff_page; i++)
+			{
+				sub_req = NULL;
+				sub_req_state = command_buffer->buffer_tail->stored;
+				sub_req_size = size(command_buffer->buffer_tail->stored);
+				sub_req_lpn = command_buffer->buffer_tail->group;
+				sub_req = creat_sub_request(ssd, sub_req_lpn, sub_req_size, sub_req_state, req, operation);
+
+				//删除buff中的节点
+				pt = command_buffer->buffer_tail;
+				avlTreeDel(command_buffer, (TREE_NODE *)pt);
+				if (command_buffer->buffer_head->LRU_link_next == NULL){
+					command_buffer->buffer_head = NULL;
+					command_buffer->buffer_tail = NULL;
+				}
+				else{
+					command_buffer->buffer_tail = command_buffer->buffer_tail->LRU_link_pre;
+					command_buffer->buffer_tail->LRU_link_next = NULL;
+				}
+				pt->LRU_link_next = NULL;
+				pt->LRU_link_pre = NULL;
+				AVL_TREENODE_FREE(command_buffer, (TREE_NODE *)pt);
+				pt = NULL;
+
+				command_buffer->command_buff_page--;
+			}
+			if (command_buffer->command_buff_page != 0)
+			{
+				printf("command buff flush failed\n");
+				getchar();
+			}
+		}
+	}
+	else  //命中的情况，合并扇区数
+	{
+		if (command_buffer->buffer_head != command_buffer_node)
+		{
+			if (command_buffer->buffer_tail == command_buffer_node)
+			{
+				command_buffer_node->LRU_link_pre->LRU_link_next = NULL;
+				command_buffer->buffer_tail = command_buffer_node->LRU_link_pre;
+			}
+			else
+			{
+				command_buffer_node->LRU_link_pre->LRU_link_next = command_buffer_node->LRU_link_next;
+				command_buffer_node->LRU_link_next->LRU_link_pre = command_buffer_node->LRU_link_pre;
+			}
+			command_buffer_node->LRU_link_next = command_buffer->buffer_head;
+			command_buffer->buffer_head->LRU_link_pre = command_buffer_node;
+			command_buffer_node->LRU_link_pre = NULL;
+			command_buffer->buffer_head = command_buffer_node;
 		}
 
 		command_buffer_node->stored = command_buffer_node->stored | state;
@@ -777,7 +928,7 @@ struct sub_request * creat_sub_request(struct ssd_info * ssd, unsigned int lpn, 
 }
 
 /***************************************
-*Write request dynamic allocation mount
+*Write request allocation mount
 ***************************************/
 Status allocate_location(struct ssd_info * ssd, struct sub_request *sub_req)
 {

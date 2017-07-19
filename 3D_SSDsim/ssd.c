@@ -631,10 +631,25 @@ void statistic_output(struct ssd_info *ssd)
 	fprintf(ssd->outputfile,"erase count: %13d\n",ssd->erase_count);
 	fprintf(ssd->outputfile,"direct erase count: %13d\n",ssd->direct_erase_count);
 
-	fprintf(ssd->outputfile,"mutli-plane erase count: %13d\n",ssd->mplane_erase_count);
-	fprintf(ssd->outputfile,"multi-plane program count: %13d\n",ssd->m_plane_prog_count);
-	fprintf(ssd->outputfile,"multi-plane read count: %13d\n",ssd->m_plane_read_count);
-	
+	fprintf(ssd->outputfile, "multi-plane program count: %13d\n", ssd->m_plane_prog_count);
+	fprintf(ssd->outputfile, "multi-plane read count: %13d\n", ssd->m_plane_read_count);
+	fprintf(ssd->outputfile, "\n");
+
+	fprintf(ssd->outputfile, "mutli plane one shot program count : %13d\n", ssd->mutliplane_oneshot_prog_count);
+	fprintf(ssd->outputfile, "one shot program count : %13d\n", ssd->ontshot_prog_count);
+	fprintf(ssd->outputfile, "\n");
+
+	fprintf(ssd->outputfile, "half page read count : %13d\n", ssd->half_page_read_count);
+	fprintf(ssd->outputfile, "one shot read count : %13d\n", ssd->one_shot_read_count);
+	fprintf(ssd->outputfile, "mutli plane one shot read count : %13d\n", ssd->one_shot_mutli_plane_count);
+	fprintf(ssd->outputfile, "\n");
+
+	fprintf(ssd->outputfile, "erase suspend count : %13d\n", ssd->suspend_count);
+	fprintf(ssd->outputfile, "erase resume  count : %13d\n", ssd->resume_count);
+	fprintf(ssd->outputfile, "suspend read  count : %13d\n", ssd->suspend_read_count);
+	fprintf(ssd->outputfile, "\n");
+
+	fprintf(ssd->outputfile, "update sub request count : %13d\n", ssd->update_sub_request);
 	fprintf(ssd->outputfile,"write flash count: %13d\n",ssd->write_flash_count);
 	fprintf(ssd->outputfile, "\n");
 	
@@ -689,6 +704,21 @@ void statistic_output(struct ssd_info *ssd)
 	fprintf(ssd->statisticfile,"multi-plane read count: %13d\n",ssd->m_plane_read_count);
 	fprintf(ssd->statisticfile, "\n");
 
+	fprintf(ssd->statisticfile, "mutli plane one shot program count : %13d\n", ssd->mutliplane_oneshot_prog_count);
+	fprintf(ssd->statisticfile, "one shot program count : %13d\n", ssd->ontshot_prog_count);
+	fprintf(ssd->statisticfile, "\n");
+
+	fprintf(ssd->statisticfile, "half page read count : %13d\n", ssd->half_page_read_count);
+	fprintf(ssd->statisticfile, "one shot read count : %13d\n", ssd->one_shot_read_count);
+	fprintf(ssd->statisticfile, "mutli plane one shot read count : %13d\n", ssd->one_shot_mutli_plane_count);
+	fprintf(ssd->statisticfile, "\n");
+
+	fprintf(ssd->statisticfile, "erase suspend count : %13d\n", ssd->suspend_count);
+	fprintf(ssd->statisticfile, "erase resume  count : %13d\n", ssd->resume_count);
+	fprintf(ssd->statisticfile, "suspend read  count : %13d\n", ssd->suspend_read_count);
+	fprintf(ssd->statisticfile, "\n");
+
+	fprintf(ssd->statisticfile, "update sub request count : %13d\n", ssd->update_sub_request);
 	fprintf(ssd->statisticfile,"write flash count: %13d\n",ssd->write_flash_count);
 	fprintf(ssd->statisticfile, "\n");
 	
@@ -705,16 +735,6 @@ void statistic_output(struct ssd_info *ssd)
 	fprintf(ssd->statisticfile,"buffer read miss: %13d\n",ssd->dram->buffer->read_miss_hit);
 	fprintf(ssd->statisticfile,"buffer write hits: %13d\n",ssd->dram->buffer->write_hit);
 	fprintf(ssd->statisticfile,"buffer write miss: %13d\n",ssd->dram->buffer->write_miss_hit);
-
-	fprintf(ssd->statisticfile, "update sub request count : %13d\n", ssd->update_sub_request);
-	fprintf(ssd->statisticfile, "half page read count : %13d\n", ssd->half_page_read_count);
-	fprintf(ssd->statisticfile, "mutli plane one shot program count : %13d\n", ssd->mutliplane_oneshot_prog_count);
-	fprintf(ssd->statisticfile, "one shot read count : %13d\n", ssd->one_shot_read_count);
-	fprintf(ssd->statisticfile, "mutli plane one shot read count : %13d\n", ssd->one_shot_mutli_plane_count);
-	fprintf(ssd->statisticfile, "erase suspend count : %13d\n", ssd->suspend_count);
-	fprintf(ssd->statisticfile, "erase resume  count : %13d\n", ssd->resume_count);
-	fprintf(ssd->statisticfile, "suspend read  count : %13d\n", ssd->suspend_read_count);
-
 	fprintf(ssd->statisticfile, "\n");
 	fflush(ssd->statisticfile);
 
@@ -729,7 +749,7 @@ void statistic_output(struct ssd_info *ssd)
 ************************************************/
 void free_all_node(struct ssd_info *ssd)
 {
-	unsigned int i,j,k,l,n;
+	unsigned int i,j,k,l,n,p;
 	struct buffer_group *pt=NULL;
 	struct direct_erase * erase_node=NULL;
 	for (i=0;i<ssd->parameter->channel_number;i++)
@@ -773,6 +793,12 @@ void free_all_node(struct ssd_info *ssd)
 	avlTreeDestroy(ssd->dram->command_buffer);
 	ssd->dram->command_buffer = NULL;
 	
+	for (p = 0; p < PLANE_NUMBER; p++)
+	{
+		avlTreeDestroy(ssd->dram->static_plane_buffer[p]);
+		ssd->dram->static_plane_buffer[p] = NULL;
+	}
+
 	free(ssd->dram->map->map_entry);
 	ssd->dram->map->map_entry=NULL;
 	free(ssd->dram->map);

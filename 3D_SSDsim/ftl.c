@@ -601,7 +601,7 @@ Status get_ppn_for_advanced_commands(struct ssd_info *ssd, unsigned int channel,
 {
 	unsigned int die = 0, plane = 0;
 
-	unsigned int aim_die = 0, aim_plane = 0;
+	unsigned int aim_die = 0, aim_plane = 0, aim_count = 0;
 
 	unsigned int die_token = 0, plane_token = 0;
 	struct sub_request * sub = NULL;
@@ -610,7 +610,6 @@ Status get_ppn_for_advanced_commands(struct ssd_info *ssd, unsigned int channel,
 	unsigned int state ;
 
 	struct sub_request ** mutli_subs = NULL;
-	mutli_subs = (struct sub_request **)malloc(ssd->parameter->plane_die * sizeof(struct sub_request *));
 
 	if (ssd->parameter->allocation_scheme == DYNAMIC_ALLOCATION)  //动态分配的目标die plane由动态令牌来决定
 	{
@@ -630,20 +629,29 @@ Status get_ppn_for_advanced_commands(struct ssd_info *ssd, unsigned int channel,
 				printf("Error ,aim_die match failed\n");
 				getchar();
 			}
-			if (i < PAGE_INDEX)
+			
+			if (command == ONE_SHOT_MUTLI_PLANE)
+				aim_count = PAGE_INDEX;
+			else if (command == MUTLI_PLANE)
+				aim_count = 1;
+
+			if (command == MUTLI_PLANE && command == ONE_SHOT_MUTLI_PLANE)
 			{
-				if (subs[i]->location->plane != aim_plane)
+				if (i < aim_count)
 				{
-					printf("Error ,aim_plane match failed\n");
-					getchar();
+					if (subs[i]->location->plane != aim_plane)
+					{
+						printf("Error ,aim_plane match failed\n");
+						getchar();
+					}
 				}
-			}
-			else
-			{
-				if (subs[i]->location->plane == aim_plane)
+				else
 				{
-					printf("Error ,aim_plane match failed\n");
-					getchar();
+					if (subs[i]->location->plane == aim_plane)
+					{
+						printf("Error ,aim_plane match failed\n");
+						getchar();
+					}
 				}
 			}
 		}
@@ -651,6 +659,7 @@ Status get_ppn_for_advanced_commands(struct ssd_info *ssd, unsigned int channel,
 
 	if (command == ONE_SHOT_MUTLI_PLANE)
 	{
+		mutli_subs = (struct sub_request **)malloc(ssd->parameter->plane_die * sizeof(struct sub_request *));
 		for (i = 0; i < PAGE_INDEX; i++)
 		{
 			k = 0;

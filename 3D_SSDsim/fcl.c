@@ -1195,7 +1195,6 @@ struct ssd_info *dynamic_advanced_process(struct ssd_info *ssd, unsigned int cha
 		}
 		else
 			ssd->buffer_full_flag = 0;
-
 		/*********************************支持不同的模式高级命令********************************************************/
 		if (ssd->parameter->flash_mode == SLC_MODE)
 		{
@@ -1248,6 +1247,17 @@ struct ssd_info *dynamic_advanced_process(struct ssd_info *ssd, unsigned int cha
 	}
 	else if (ssd->parameter->allocation_scheme == STATIC_ALLOCATION)
 	{
+	/*************************************************trace末尾的请求处理*******************************************************************/
+		if (ssd->trace_over_flag == 1 && ssd->request_work == NULL)
+		{
+			find_static_write_sub_request(ssd, channel, chip, subs, ONE_SHOT_MUTLI_PLANE);
+			for (i = 0; i < max_sub_num; i++)
+				subs[i] = NULL;
+			free(subs);
+			subs = NULL;
+			return ssd;
+		}
+	/*****************************************************************************************************************************************/
 		if (ssd->parameter->flash_mode == TLC_MODE)
 		{
 			//首先去遍历die plane，看能不能找到这样的请求数目
@@ -1275,6 +1285,7 @@ struct ssd_info *dynamic_advanced_process(struct ssd_info *ssd, unsigned int cha
 					get_ppn_for_advanced_commands(ssd, channel, chip, subs, subs_count, ONE_SHOT);
 				}
 			}
+
 			for (i = 0; i < max_sub_num; i++)
 				subs[i] = NULL;
 			free(subs);
@@ -1286,7 +1297,7 @@ struct ssd_info *dynamic_advanced_process(struct ssd_info *ssd, unsigned int cha
 			if ((ssd->parameter->advanced_commands&AD_MUTLIPLANE) == AD_MUTLIPLANE)
 			{
 				subs_count = find_static_write_sub_request(ssd, channel, chip, subs, MUTLI_PLANE);
-				if (subs_count == PAGE_INDEX * ssd->parameter->plane_die)
+				if (subs_count == ssd->parameter->plane_die)
 				{
 					get_ppn_for_advanced_commands(ssd, channel, chip, subs, subs_count, MUTLI_PLANE);
 					for (i = 0; i < max_sub_num; i++)
@@ -1296,13 +1307,13 @@ struct ssd_info *dynamic_advanced_process(struct ssd_info *ssd, unsigned int cha
 					return ssd;
 				}
 			}
-
 			//当mutli plane执行失败时，此时执行普通的写
 			subs_count = find_static_write_sub_request(ssd, channel, chip, subs, NORMAL);
 			if (subs_count == 1)
 			{				
 				get_ppn_for_normal_command(ssd, channel, chip, subs[0]);
 				printf("lz:normal program\n");
+
 				for (i = 0; i < max_sub_num; i++)
 					subs[i] = NULL;
 
@@ -1318,13 +1329,12 @@ struct ssd_info *dynamic_advanced_process(struct ssd_info *ssd, unsigned int cha
 				subs = NULL;
 				return NULL;
 			}
-
 		}
 	}
 }
 
 //为静态分配找有效的写子请求
-//暂时先不考虑update的问题
+//静态分配暂时不去考虑update请求队列深度的问题
 unsigned int find_static_write_sub_request(struct ssd_info *ssd, unsigned int channel, unsigned int chip, struct sub_request ** subs, unsigned int command)
 {
 	unsigned int i, j, k;
@@ -1342,6 +1352,31 @@ unsigned int find_static_write_sub_request(struct ssd_info *ssd, unsigned int ch
 		tmp_subs[k] = NULL;
 
 	subs_count = 0;
+
+	/*************************************************trace末尾的请求处理*******************************************************************/
+	if (ssd->trace_over_flag == 1 && ssd->request_work == NULL)
+	{
+		sub = ssd->channel_head[channel].subs_w_head;
+		while ((sub != NULL) && (tmp_subs_count < max_sub_num))
+		{
+			if (sub->current_state == SR_WAIT)
+			{
+				if ((sub->update == NULL) || ((sub->update != NULL) && ((sub->update->current_state == SR_COMPLETE) || ((sub->update->next_state == SR_COMPLETE) && (sub->update->next_state_predict_time <= ssd->current_time)))))    //没有需要提前读出的页
+				{
+					subs[subs_count] = sub;
+					subs_count++;
+				}
+			}
+			sub = sub->next_node;
+		}
+		
+		//当读到末尾就直接以normal program去执行
+		for (i = 0; i < subs_count; i++)
+			get_ppn_for_normal_command(ssd, channel, chip, subs[i]);
+
+		return 0;
+	}
+	/*******************************************************************************************************************************************/
 
 	if (command == ONE_SHOT || command == NORMAL)
 	{
