@@ -6,7 +6,7 @@ This is a project on 3D_SSDsim, based on ssdsim under the framework of the compl
 4.4-layer structure
 
 FileName： ftl.c
-Author: Zuo Lu 		Version: 1.5	Date:2017/07/07
+Author: Zuo Lu 		Version: 1.6	Date:2017/07/24
 Description: 
 ftl layer: can not interrupt the global gc operation, gc operation to migrate valid pages using ordinary read and write operations, remove support copyback operation;
 
@@ -18,6 +18,7 @@ Zuo Lu			2017/06/12		  1.2			Support advanced commands:half page read		617376665
 Zuo Lu			2017/06/16		  1.3			Support advanced commands:one shot program		617376665@qq.com
 Zuo Lu			2017/06/22		  1.4			Support advanced commands:one shot read			617376665@qq.com
 Zuo Lu			2017/07/07		  1.5			Support advanced commands:erase suspend/resume  617376665@qq.com
+Zuo Lu			2017/07/24		  1.6			Support static allocation strategy				617376665@qq.com
 *****************************************************************************************************************************/
 
 #define _CRTDBG_MAP_ALLOC
@@ -183,7 +184,7 @@ unsigned int get_ppn_for_pre_process(struct ssd_info *ssd, unsigned int lpn)
 
 	if (ssd->parameter->allocation_scheme == DYNAMIC_ALLOCATION)                           /*Dynamic way to get ppn*/
 	{
-		if (ssd->parameter->dynamic_allocation == FULL_ALLOCATION)
+		if (ssd->parameter->dynamic_allocation == FULL_DYNAMIC_ALLOCATION)
 		{
 			if (ssd->parameter->dynamic_allocation_priority == 0)						  //assign priority：channel>die>plane
 			{
@@ -210,7 +211,7 @@ unsigned int get_ppn_for_pre_process(struct ssd_info *ssd, unsigned int lpn)
 					page_count = 0;
 				}
 			}
-			else																		//assign priority：plane>channel>die
+			else if (ssd->parameter->dynamic_allocation_priority == 1)																		//assign priority：plane>channel>die
 			{
 				channel = ssd->token;
 				chip = ssd->channel_head[channel].token;
@@ -284,12 +285,19 @@ unsigned int get_ppn_for_pre_process(struct ssd_info *ssd, unsigned int lpn)
 	}
 	else if (ssd->parameter->allocation_scheme == STATIC_ALLOCATION)
 	{
-		if (ssd->parameter->static_allocation == 0)    //plane>channel>chip>die
+		if (ssd->parameter->static_allocation == PLANE_STATIC_ALLOCATION)    //plane>channel>chip>die
 		{
 			plane = lpn % plane_num;
 			channel = (lpn / plane_num) % channel_num;
 			chip = (lpn / (plane_num*channel_num)) % chip_num;
 			die = (lpn / (plane_num*channel_num*chip_num)) % die_num;
+		}
+		else if (ssd->parameter->static_allocation == SUPERPAGE_STATIC_ALLOCATION)
+		{
+			plane = (lpn / PAGE_INDEX) % plane_num;
+			channel = (lpn / (plane_num*PAGE_INDEX)) % channel_num;
+			chip = (lpn / (plane_num*channel_num*PAGE_INDEX)) % chip_num;
+			die = (lpn / (plane_num*channel_num*chip_num*PAGE_INDEX)) % die_num;
 		}
 	}
 
@@ -346,6 +354,7 @@ struct ssd_info *get_ppn(struct ssd_info *ssd, unsigned int channel, unsigned in
 	if (find_active_block(ssd, channel, chip, die, plane) == FAILURE)
 	{
 		printf("ERROR :there is no free page in channel:%d, chip:%d, die:%d, plane:%d\n", channel, chip, die, plane);
+		getchar();
 		return ssd;
 	}
 
@@ -436,6 +445,8 @@ struct ssd_info *get_ppn(struct ssd_info *ssd, unsigned int channel, unsigned in
 	ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[plane].blk_head[active_block].page_head[page].free_state = ((~(sub->state))&full_page);
 	ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[plane].blk_head[active_block].page_head[page].written_count++;
 	ssd->write_flash_count++;
+
+	ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[plane].test_pro_count++;
 
 	if (ssd->parameter->active_write == 0)                                        
 	{                                                                               /*If the number of free_page in plane is less than the threshold set by gc_hard_threshold, gc operation is generated*/
@@ -788,7 +799,7 @@ unsigned int gc(struct ssd_info *ssd, unsigned int channel, unsigned int flag)
 {
 	unsigned int i;
 
-	printf("gc flag=%d\n",flag);
+	//printf("gc flag=%d\n",flag);
 	//Active gc
 	if (flag == 1)                                                                       /*The whole ssd is the case of IDEL*/
 	{
@@ -811,7 +822,7 @@ unsigned int gc(struct ssd_info *ssd, unsigned int channel, unsigned int flag)
 	//Passive gc
 	else                                                                               /*Only for a specific channel, chip, die gc request operation (only the target die to determine whether to see is idle)*/
 	{
-		if ((ssd->parameter->allocation_scheme == DYNAMIC_ALLOCATION) && (ssd->parameter->dynamic_allocation == FULL_ALLOCATION))
+		if ((ssd->parameter->allocation_scheme == DYNAMIC_ALLOCATION) && (ssd->parameter->dynamic_allocation == FULL_DYNAMIC_ALLOCATION))
 		{
 			//当读写子请求都完成的情况下，才去执行gc操作，否则先去执行读写请求
 			if ((ssd->channel_head[channel].subs_r_head != NULL) || (ssd->channel_head[channel].subs_w_head != NULL) || (ssd->subs_w_head != NULL))    
@@ -918,6 +929,7 @@ int gc_direct_erase(struct ssd_info *ssd, unsigned int channel, unsigned int chi
 			erase_block = NULL;
 			return FAILURE;
 		}
+
 		//Perform mutli plane erase operation,and delete gc_node
 		ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[i].erase_node = direct_erase_node->next_node;
 		erase_block[i] = direct_erase_node->block;
@@ -953,6 +965,7 @@ int gc_direct_erase(struct ssd_info *ssd, unsigned int channel, unsigned int chi
 			block = erase_block[j];
 			erase_operation(ssd, channel, chip, die, plane, block);
 		}
+
 		ssd->mplane_erase_count++;
 		ssd->channel_head[channel].chip_head[chip].current_state = CHIP_ERASE_BUSY;
 		ssd->channel_head[channel].chip_head[chip].current_time = ssd->current_time;
@@ -982,6 +995,8 @@ int greedy_gc(struct ssd_info *ssd, unsigned int channel, unsigned int chip, uns
 	struct direct_erase * direct_erase_node_tmp = NULL;
 	struct direct_erase * pre_erase_node_tmp = NULL;
 	unsigned int * erase_block;
+	unsigned int aim_page;
+
 
 	erase_block = (unsigned int*)malloc( ssd->parameter->plane_die * sizeof(erase_block));
 	//gets active blocks within all plane
@@ -1036,7 +1051,11 @@ int greedy_gc(struct ssd_info *ssd, unsigned int channel, unsigned int chip, uns
 
 		//Found the block to be erased
 		if (block == -1)
-			return 1;
+		{
+			free(erase_block);
+			erase_block = NULL;
+			return ERROR;
+		}
 
 		//caculate sum of  vaild page_move count
 		page_move_count += ssd->parameter->page_block - ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[p].blk_head[block].invalid_page_num;
@@ -1079,7 +1098,11 @@ int greedy_gc(struct ssd_info *ssd, unsigned int channel, unsigned int chip, uns
 				location->page = i;
 				page_move_count++;
 
-				move_page(ssd, location, move_plane, &transfer_size);                                                   /*Real move_page operation*/
+				if ((ssd->parameter->advanced_commands&AD_MUTLIPLANE) == AD_MUTLIPLANE)
+					move_page(ssd, location, move_plane, &transfer_size);                                                   /*Real move_page operation*/
+				else 
+					move_page(ssd, location, move_plane, &transfer_size);
+
 				move_plane = (move_plane + 1) % ssd->parameter->plane_die;
 
 				free(location);
@@ -1087,6 +1110,25 @@ int greedy_gc(struct ssd_info *ssd, unsigned int channel, unsigned int chip, uns
 			}
 		}
 	}
+
+	//当move plane不等0的时候，表示此时是单数，需要磨平
+	if (move_plane != 0)
+	{
+		find_active_block(ssd, channel, chip, die, move_plane);
+		active_block = ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[move_plane].active_block;
+		aim_page = ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[move_plane].blk_head[active_block].last_write_page + 2;
+		if (aim_page == 65)
+			getchar();
+		make_same_level(ssd, channel, chip, die, move_plane, active_block, aim_page);
+	}
+	
+	//判断是否偏移地址free page一致
+	/*
+	if (ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[0].free_page != ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[1].free_page)
+	{
+		printf("free page don't equal\n");
+		getchar();
+	}*/
 
 	//迁移有效页的时间推动
 	ssd->channel_head[channel].current_state = CHANNEL_GC;
@@ -1225,11 +1267,12 @@ unsigned int get_ppn_for_gc(struct ssd_info *ssd, unsigned int channel, unsigned
 
 	ppn = find_ppn(ssd, channel, chip, die, plane, block, page);
 
-	ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[plane].blk_head[active_block].page_write_count++;
-	ssd->program_count++;
 	ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[plane].free_page--;
+	ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[plane].blk_head[active_block].page_write_count++;
 	ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[plane].blk_head[active_block].page_head[page].written_count++;
 	ssd->write_flash_count++;
+	ssd->program_count++;
+	ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[plane].test_gc_count++;
 
 	return ppn;
 

@@ -6,7 +6,7 @@ This is a project on 3D_SSDsim, based on ssdsim under the framework of the compl
 4.4-layer structure
 
 FileName£º buffer.h
-Author: Zuo Lu 		Version: 1.5	Date:2017/07/07
+Author: Zuo Lu 		Version: 1.6	Date:2017/07/24
 Description:
 buff layer: only contains data cache (minimum processing size for the sector, that is, unit = 512B), mapping table (page-level);
 
@@ -18,6 +18,7 @@ Zuo Lu			2017/06/12		  1.2			Support advanced commands:half page read		617376665
 Zuo Lu			2017/06/16		  1.3			Support advanced commands:one shot program		617376665@qq.com
 Zuo Lu			2017/06/22		  1.4			Support advanced commands:one shot read			617376665@qq.com
 Zuo Lu			2017/07/07		  1.5			Support advanced commands:erase suspend/resume  617376665@qq.com
+Zuo Lu			2017/07/24		  1.6			Support static allocation strategy				617376665@qq.com
 *****************************************************************************************************************************/
 
 struct ssd_info *buffer_management(struct ssd_info *);

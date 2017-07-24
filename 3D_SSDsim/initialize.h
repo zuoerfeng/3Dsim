@@ -6,7 +6,7 @@ This is a project on 3D_SSDsim, based on ssdsim under the framework of the compl
 4.4-layer structure
 
 FileName£º initialize.h
-Author: Zuo Lu 		Version: 1.5	Date:2017/07/07
+Author: Zuo Lu 		Version: 1.6	Date:2017/07/24
 Description:
 Initialization layer: complete ssd organizational data structure, request queue creation and memory space initialization
 
@@ -18,6 +18,7 @@ Zuo Lu			2017/06/12		  1.2			Support advanced commands:half page read		617376665
 Zuo Lu			2017/06/16		  1.3			Support advanced commands:one shot program		617376665@qq.com
 Zuo Lu			2017/06/22		  1.4			Support advanced commands:one shot read			617376665@qq.com
 Zuo Lu			2017/07/07		  1.5			Support advanced commands:erase suspend/resume  617376665@qq.com
+Zuo Lu			2017/07/24		  1.6			Support static allocation strategy				617376665@qq.com
 *****************************************************************************************************************************/
 
 #include <stdio.h>
@@ -36,9 +37,12 @@ Zuo Lu			2017/07/07		  1.5			Support advanced commands:erase suspend/resume  617
 #define DYNAMIC_ALLOCATION 0
 #define STATIC_ALLOCATION 1
 
-#define FULL_ALLOCATION 0
-#define DIE_ALLOCATION 1
-#define PLANE_ALLOCATION 2
+#define FULL_DYNAMIC_ALLOCATION 0
+#define DIE_DYNAMIC_ALLOCATION 1
+#define PLANE_DYNAMIC_ALLOCATION 2
+
+#define PLANE_STATIC_ALLOCATION 0
+#define SUPERPAGE_STATIC_ALLOCATION 1
 
 #define SLC_MODE 0
 #define TLC_MODE 1
@@ -182,7 +186,7 @@ struct ssd_info{
 	int trace_over_flag;				 //the end of trace flag:0-- not ending ,1--ending
 	__int64 request_lz_count;			 //trace request count
 	unsigned int update_sub_request;
-	
+
 	__int64 current_time;                //Record system time
 	__int64 next_request_time;
 	unsigned int real_time_subreq;       //Record the number of real-time write requests, used in the full dynamic allocation, channel priority situation
@@ -341,6 +345,10 @@ struct plane_info{
 	unsigned long plane_erase_count;
 	unsigned long pre_plane_write_count;
 	
+	unsigned int test_gc_count;
+	unsigned int test_pro_count;
+	unsigned int test_pre_count;
+
 	struct sub_request *subs_r_head;
 	struct sub_request *subs_r_tail;
 	struct sub_request *subs_w_head;

@@ -38,6 +38,8 @@
 
 > 14.增加高级命令Erase suspend/resume，此高级命令主要服务于gc操作中的erase
 
+> 15.增加静态分配方式，在配置文件page.parameters中allocation中配置
+
 .......
 
 

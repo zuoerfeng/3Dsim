@@ -6,7 +6,7 @@ This is a project on 3D_SSDsim, based on ssdsim under the framework of the compl
 4.4-layer structure
 
 FileName： fcl.c
-Author: Zuo Lu 		Version: 1.5	Date:2017/07/07
+Author: Zuo Lu 		Version: 1.6	Date:2017/07/24
 Description:
 fcl layer: remove other high-level commands, leaving only mutli plane;
 
@@ -18,6 +18,7 @@ Zuo Lu			2017/06/12		  1.2			Support advanced commands:half page read		617376665
 Zuo Lu			2017/06/16		  1.3			Support advanced commands:one shot program		617376665@qq.com
 Zuo Lu			2017/06/22		  1.4			Support advanced commands:one shot read			617376665@qq.com
 Zuo Lu			2017/07/07		  1.5			Support advanced commands:erase suspend/resume  617376665@qq.com
+Zuo Lu			2017/07/24		  1.6			Support static allocation strategy				617376665@qq.com
 *****************************************************************************************************************************/
 
 #define _CRTDBG_MAP_ALLOC
@@ -1153,7 +1154,7 @@ struct ssd_info *dynamic_advanced_process(struct ssd_info *ssd, unsigned int cha
 	//动静态分配的请求挂载点不一样
 	if ((ssd->parameter->allocation_scheme == DYNAMIC_ALLOCATION))                                           /*Full dynamic allocation, you need to select the wait-to-service sub-request from ssd-> subs_w_head*/
 	{
-		if (ssd->parameter->dynamic_allocation == FULL_ALLOCATION)
+		if (ssd->parameter->dynamic_allocation == FULL_DYNAMIC_ALLOCATION)
 			sub = ssd->subs_w_head;
 
 		subs_count = 0;
@@ -1635,18 +1636,53 @@ Status find_level_page(struct ssd_info *ssd, unsigned int channel, unsigned int 
 	else				    //page偏移地址不一致
 	{
 		if (ssd->parameter->greed_MPW_ad == 1)                                          
-		{
+		{			
+			//查看page最大的页当做aim_page
 			for (i = 0; i < ssd->parameter->plane_die; i++)
 			{
 				if (page_place[i] > aim_page)
 					aim_page = page_place[i];
 			}
+			/*
+			for (i = 0; i < ssd->parameter->plane_die; i++)
+			{
+				if (page_place[i] != aim_page)
+				{
+					if (aim_page - page_place[i] != 1)
+						getchar();
+				}
+			}*/
 
+			//首先检查是否出现了0-63、63-0的跨页不均匀现象
+			if ((page_place[0] == (ssd->parameter->page_block - 1) && page_place[1] == 0) || (page_place[0] == 0 && page_place[1] == (ssd->parameter->page_block - 1)))
+			{
+				for (i = 0; i < ssd->parameter->plane_die; i++)
+				{
+					if (page_place[i] == (ssd->parameter->page_block - 1))
+					{
+						//首先将这个63号页置无效
+						active_block = ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[i].active_block;
+						make_same_level(ssd, channel, chip, die, i, active_block, ssd->parameter->page_block);
+
+						//寻找新的block,由于置无效了63号页，则会寻找到后面的一个空闲块
+						find_active_block(ssd, channel, chip, die, i);
+						active_block = ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[i].active_block;
+						page_place[i] = ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[i].blk_head[active_block].last_write_page + 1;
+
+						//设置aim_page为0
+						aim_page = 0;
+						break;
+					}
+				}
+			}
+			
 			for (i = 0; i < ssd->parameter->plane_die; i++)
 			{
 				active_block = ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[i].active_block;
 				if (page_place[i] != aim_page)
+				{
 					make_same_level(ssd, channel, chip, die, i, active_block, aim_page);
+				}
 
 				if (ssd->parameter->allocation_scheme == DYNAMIC_ALLOCATION)
 				{
@@ -1675,6 +1711,15 @@ Status find_level_page(struct ssd_info *ssd, unsigned int channel, unsigned int 
 			return FAILURE;
 		}
 	}
+
+	//判断是否偏移地址free page一致
+	if (ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[0].free_page != ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[1].free_page)
+	{
+		printf("free page don't equal\n");
+		getchar();
+	}
+
+
 	gc_add = 1;
 	for (i = 0; i < ssd->parameter->plane_die; i++)
 	{

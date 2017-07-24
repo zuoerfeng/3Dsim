@@ -6,7 +6,7 @@ This is a project on 3D_SSDsim, based on ssdsim under the framework of the compl
 4.4-layer structure
 
 FileName： buffer.c
-Author: Zuo Lu 		Version: 1.5	Date:2017/07/07
+Author: Zuo Lu 		Version: 1.6	Date:2017/07/24
 Description: 
 buff layer: only contains data cache (minimum processing size for the sector, that is, unit = 512B), mapping table (page-level);
 
@@ -18,6 +18,7 @@ Zuo Lu			2017/06/12		  1.2			Support advanced commands:half page read		617376665
 Zuo Lu			2017/06/16		  1.3			Support advanced commands:one shot program		617376665@qq.com
 Zuo Lu			2017/06/22		  1.4			Support advanced commands:one shot read			617376665@qq.com
 Zuo Lu			2017/07/07		  1.5			Support advanced commands:erase suspend/resume  617376665@qq.com
+Zuo Lu			2017/07/24		  1.6			Support static allocation strategy				617376665@qq.com
 *****************************************************************************************************************************/
 #define _CRTDBG_MAP_ALLOC
 
@@ -668,11 +669,21 @@ struct ssd_info * distribute2_command_buffer(struct ssd_info * ssd, unsigned int
 		die_num = ssd->parameter->die_chip;
 		plane_num = ssd->parameter->plane_die;
 
-		//静态分配优先级：plane>channel>chip>die
-		plane = lpn % plane_num;
-		channel = (lpn / plane_num) % channel_num;
-		chip = (lpn / (plane_num*channel_num)) % chip_num;
-		die = (lpn / (plane_num*channel_num*chip_num)) % die_num;
+		//静态分配优先级
+		if (ssd->parameter->static_allocation == PLANE_STATIC_ALLOCATION)    //plane>channel>chip>die
+		{
+			plane = lpn % plane_num;
+			channel = (lpn / plane_num) % channel_num;
+			chip = (lpn / (plane_num*channel_num)) % chip_num;
+			die = (lpn / (plane_num*channel_num*chip_num)) % die_num;
+		}
+		else if (ssd->parameter->static_allocation == SUPERPAGE_STATIC_ALLOCATION)  //superpage>plane>channel>chip>die
+		{
+			plane = (lpn / PAGE_INDEX) % plane_num;
+			channel = (lpn / (plane_num*PAGE_INDEX)) % channel_num;
+			chip = (lpn / (plane_num*channel_num*PAGE_INDEX)) % chip_num;
+			die = (lpn / (plane_num*channel_num*chip_num*PAGE_INDEX)) % die_num;
+		}
 
 		//分配到对应的plane_buffer上
 		aim_plane = channel * (plane_num*die_num*chip_num) + chip *(plane_num*die_num) + die*plane_num + plane;
@@ -734,7 +745,7 @@ struct ssd_info * insert2_command_buffer(struct ssd_info * ssd, struct buffer_in
 		//如果缓存已满，此时发生flush操作，将缓存的内存一次性flush到闪存上
 		if (command_buffer->command_buff_page == command_buffer->max_command_buff_page)
 		{
-			printf("begin to flush command_buffer\n");
+			//printf("begin to flush command_buffer\n");
 			for (i = 0; i < command_buffer->max_command_buff_page; i++)
 			{
 				sub_req = NULL;
@@ -1017,7 +1028,7 @@ Status allocate_location(struct ssd_info * ssd, struct sub_request *sub_req)
 	//分静态还是动态分配，动态分配直接分配在ssd上
 	if (ssd->parameter->allocation_scheme == DYNAMIC_ALLOCATION)                                          /*动态分配的情况*/
 	{
-		if (ssd->parameter->dynamic_allocation == FULL_ALLOCATION)
+		if (ssd->parameter->dynamic_allocation == FULL_DYNAMIC_ALLOCATION)
 		{
 			sub_req->location->channel = -1;
 			sub_req->location->chip = -1;
@@ -1052,12 +1063,19 @@ Status allocate_location(struct ssd_info * ssd, struct sub_request *sub_req)
 	}
 	else if (ssd->parameter->allocation_scheme == STATIC_ALLOCATION)							//挂载在plane上
 	{
-		if (ssd->parameter->static_allocation == 0)
+		if (ssd->parameter->static_allocation == PLANE_STATIC_ALLOCATION)
 		{
 			sub_req->location->channel = (sub_req->lpn / plane_num) % channel_num;
 			sub_req->location->chip = (sub_req->lpn / (plane_num*channel_num)) % chip_num;
 			sub_req->location->die = (sub_req->lpn / (plane_num*channel_num*chip_num)) % die_num;
 			sub_req->location->plane = sub_req->lpn % plane_num;
+		}
+		else if (ssd->parameter->static_allocation == SUPERPAGE_STATIC_ALLOCATION)
+		{
+			sub_req->location->channel = (sub_req->lpn / (plane_num*PAGE_INDEX)) % channel_num;
+			sub_req->location->chip = (sub_req->lpn / (plane_num*channel_num*PAGE_INDEX)) % chip_num;
+			sub_req->location->die = (sub_req->lpn / (plane_num*channel_num*chip_num*PAGE_INDEX)) % die_num;
+			sub_req->location->plane = (sub_req->lpn / PAGE_INDEX) % plane_num;
 		}
 
 		channel = sub_req->location->channel;
