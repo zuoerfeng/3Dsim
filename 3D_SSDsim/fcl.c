@@ -1059,15 +1059,50 @@ Write the request function of the request
 *****************************************/
 Status services_2_write(struct ssd_info * ssd, unsigned int channel)
 {
-	int j = 0;
+	int j = 0,i=0;
 	unsigned int chip_token = 0;
+	struct sub_request *sub = NULL;
 
 	/************************************************************************************************************************
 	*Because it is dynamic allocation, all write requests hanging in ssd-> subs_w_head, that is, do not know which allocation before writing on the channel
 	*************************************************************************************************************************/
 	if (ssd->subs_w_head != NULL || ssd->channel_head[channel].subs_w_head != NULL)
 	{
-		if (ssd->parameter->allocation_scheme == DYNAMIC_ALLOCATION)
+		if (ssd->channel_head[channel].subs_w_head != NULL)
+		{
+			sub = ssd->channel_head[channel].subs_w_head;
+			while (sub != NULL)
+			{
+				i++;
+				sub = sub->next_node;
+			}
+			//if (i < PAGE_INDEX)
+				//getchar();
+		}
+		
+	
+		//混合分配方式下，比较channel和ssd上挂载的头部请求的时间，较小的时间本轮执行
+		if (ssd->parameter->allocation_scheme == HYBRID_ALLOCATION)
+		{
+			if (ssd->subs_w_head != NULL && ssd->channel_head[channel].subs_w_head != NULL)
+			{
+				if (ssd->subs_w_head->begin_time <= ssd->channel_head[channel].subs_w_head->begin_time)
+					ssd->active_flag = SSD_MOUNT;
+				else
+					ssd->active_flag = CHANNEL_MOUNT;
+			}
+			else if (ssd->subs_w_head != NULL)
+			{
+				ssd->active_flag = SSD_MOUNT;
+			}
+			else if (ssd->channel_head[channel].subs_w_head != NULL)
+			{
+				ssd->active_flag = CHANNEL_MOUNT;
+			}
+		}
+		
+		//根据flag去判断到底本次状态转变执行哪种方式
+		if (ssd->parameter->allocation_scheme == DYNAMIC_ALLOCATION || ssd->active_flag == SSD_MOUNT)
 		{
 			for (j = 0; j<ssd->channel_head[channel].chip; j++)							  //Traverse all the chips
 			{
@@ -1096,7 +1131,7 @@ Status services_2_write(struct ssd_info * ssd, unsigned int channel)
 				}
 			}
 		}
-		else if (ssd->parameter->allocation_scheme == STATIC_ALLOCATION)
+		else if (ssd->parameter->allocation_scheme == STATIC_ALLOCATION || ssd->active_flag == CHANNEL_MOUNT)
 		{
 			for (j = 0; j < ssd->channel_head[channel].chip; j++)
 			{
@@ -1119,7 +1154,6 @@ Status services_2_write(struct ssd_info * ssd, unsigned int channel)
 	else
 	{
 		ssd->channel_head[channel].channel_busy_flag = 0;
-		//printf("there is no write sub_request\n");
 	}
 	return SUCCESS;
 }
@@ -1150,13 +1184,10 @@ struct ssd_info *dynamic_advanced_process(struct ssd_info *ssd, unsigned int cha
 	for (i = 0; i < max_sub_num; i++)
 		subs[i] = NULL;  
 	
-	
 	//动静态分配的请求挂载点不一样
-	if ((ssd->parameter->allocation_scheme == DYNAMIC_ALLOCATION))                                           /*Full dynamic allocation, you need to select the wait-to-service sub-request from ssd-> subs_w_head*/
+	if (ssd->parameter->allocation_scheme == DYNAMIC_ALLOCATION || ssd->active_flag == SSD_MOUNT)                                           /*Full dynamic allocation, you need to select the wait-to-service sub-request from ssd-> subs_w_head*/
 	{
-		if (ssd->parameter->dynamic_allocation == FULL_DYNAMIC_ALLOCATION)
-			sub = ssd->subs_w_head;
-
+		sub = ssd->subs_w_head;
 		subs_count = 0;
 		while ((sub != NULL) && (subs_count < max_sub_num))
 		{
@@ -1246,7 +1277,7 @@ struct ssd_info *dynamic_advanced_process(struct ssd_info *ssd, unsigned int cha
 		return ssd;
 
 	}
-	else if (ssd->parameter->allocation_scheme == STATIC_ALLOCATION)
+	else if (ssd->parameter->allocation_scheme == STATIC_ALLOCATION || ssd->active_flag == CHANNEL_MOUNT)
 	{
 	/*************************************************trace末尾的请求处理*******************************************************************/
 		if (ssd->trace_over_flag == 1 && ssd->request_work == NULL)
@@ -1285,7 +1316,10 @@ struct ssd_info *dynamic_advanced_process(struct ssd_info *ssd, unsigned int cha
 				{
 					get_ppn_for_advanced_commands(ssd, channel, chip, subs, subs_count, ONE_SHOT);
 				}
+				else
+					getchar();
 			}
+
 
 			for (i = 0; i < max_sub_num; i++)
 				subs[i] = NULL;
@@ -1353,7 +1387,7 @@ unsigned int find_static_write_sub_request(struct ssd_info *ssd, unsigned int ch
 		tmp_subs[k] = NULL;
 
 	subs_count = 0;
-
+	tmp_subs_count = 0;
 	/*************************************************trace末尾的请求处理*******************************************************************/
 	if (ssd->trace_over_flag == 1 && ssd->request_work == NULL)
 	{
@@ -1529,7 +1563,7 @@ Status service_advance_command(struct ssd_info *ssd, unsigned int channel, unsig
 	}
 	else if (subs_count > 0)
 	{
-		
+		/*
 		while (subs_count < aim_subs_count)
 		{
 			getout2buffer(ssd, NULL, subs[0]->total_request);
@@ -1556,7 +1590,8 @@ Status service_advance_command(struct ssd_info *ssd, unsigned int channel, unsig
 		}
 		if (subs_count == aim_subs_count)
 			get_ppn_for_advanced_commands(ssd, channel, chip, subs, subs_count, command);	
-
+		*/
+		return FAILURE;
 	}
 	else
 	{
@@ -1616,11 +1651,11 @@ Status find_level_page(struct ssd_info *ssd, unsigned int channel, unsigned int 
 		for (i = 0; i < ssd->parameter->plane_die; i++)
 		{
 			active_block = ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[i].active_block;
-			if (ssd->parameter->allocation_scheme == DYNAMIC_ALLOCATION)
+			if (ssd->parameter->allocation_scheme == DYNAMIC_ALLOCATION || ssd->active_flag == SSD_MOUNT)
 			{
 				flash_page_state_modify(ssd, sub[i], channel, chip, die, i, active_block, page_place[i]);
 			}
-			else if (ssd->parameter->allocation_scheme == STATIC_ALLOCATION)
+			else if (ssd->parameter->allocation_scheme == STATIC_ALLOCATION || ssd->active_flag == CHANNEL_MOUNT)
 			{
 				for (j = 0; j < subs_count; j++)
 				{
@@ -1684,11 +1719,11 @@ Status find_level_page(struct ssd_info *ssd, unsigned int channel, unsigned int 
 					make_same_level(ssd, channel, chip, die, i, active_block, aim_page);
 				}
 
-				if (ssd->parameter->allocation_scheme == DYNAMIC_ALLOCATION)
+				if (ssd->parameter->allocation_scheme == DYNAMIC_ALLOCATION || ssd->active_flag == SSD_MOUNT)
 				{
 					flash_page_state_modify(ssd, sub[i], channel, chip, die, i, active_block, aim_page);
 				}
-				else if (ssd->parameter->allocation_scheme == STATIC_ALLOCATION)
+				else if (ssd->parameter->allocation_scheme == STATIC_ALLOCATION || ssd->active_flag == CHANNEL_MOUNT)
 				{
 					for (j = 0; j < subs_count; j++)
 					{
@@ -1713,11 +1748,12 @@ Status find_level_page(struct ssd_info *ssd, unsigned int channel, unsigned int 
 	}
 
 	//判断是否偏移地址free page一致
+	/*
 	if (ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[0].free_page != ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[1].free_page)
 	{
 		printf("free page don't equal\n");
 		getchar();
-	}
+	}*/
 
 
 	gc_add = 1;
@@ -1894,9 +1930,9 @@ struct ssd_info *delete_from_channel(struct ssd_info *ssd, unsigned int channel,
 {
 	struct sub_request *sub, *p;
 
-	if (ssd->parameter->allocation_scheme == DYNAMIC_ALLOCATION)
+	if (ssd->parameter->allocation_scheme == DYNAMIC_ALLOCATION || ssd->active_flag == SSD_MOUNT)
 		sub = ssd->subs_w_head;
-	else if (ssd->parameter->allocation_scheme == STATIC_ALLOCATION)
+	else if (ssd->parameter->allocation_scheme == STATIC_ALLOCATION || ssd->active_flag == CHANNEL_MOUNT)
 		sub = ssd->channel_head[channel].subs_w_head; 
 
 	p = sub;
@@ -1904,7 +1940,7 @@ struct ssd_info *delete_from_channel(struct ssd_info *ssd, unsigned int channel,
 	{
 		if (sub == sub_req)
 		{
-			if (ssd->parameter->allocation_scheme == DYNAMIC_ALLOCATION)
+			if (ssd->parameter->allocation_scheme == DYNAMIC_ALLOCATION || ssd->active_flag == SSD_MOUNT)
 			{
 				if (sub == ssd->subs_w_head)
 				{
@@ -1938,7 +1974,7 @@ struct ssd_info *delete_from_channel(struct ssd_info *ssd, unsigned int channel,
 					}
 				}
 			}
-			else if (ssd->parameter->allocation_scheme == STATIC_ALLOCATION)
+			else if (ssd->parameter->allocation_scheme == STATIC_ALLOCATION || ssd->active_flag == CHANNEL_MOUNT)
 			{
 				if (sub == ssd->channel_head[channel].subs_w_head)
 				{

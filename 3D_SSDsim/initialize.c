@@ -91,8 +91,8 @@ struct ssd_info *initiation(struct ssd_info *ssd)
 //	printf("\ninput trace file name:");
 //	gets(ssd->tracefilename);
 //	strcpy_s(ssd->tracefilename, 50, "16M_2KB_sequence_RandW.ascii");
-	strcpy_s(ssd->tracefilename, 25, "f1_512MB.ascii");
-//	strcpy_s(ssd->tracefilename, 25, "example.ascii");
+//	strcpy_s(ssd->tracefilename, 25, "f1_512MB.ascii");
+	strcpy_s(ssd->tracefilename, 25, "example.ascii");
 //	strcpy_s(ssd->tracefilename, 50, "ts0_16GB.ascii");
 //	strcpy_s(ssd->tracefilename, 50, "512M 4KB sequence R.ascii");
 
@@ -224,6 +224,7 @@ void initialize_statistic(struct ssd_info * ssd)
 	ssd->trace_over_flag = 0;
 	ssd->update_sub_request = 0;
 	ssd->resume_count = 0;
+	ssd->active_flag = 0;
 }
 
 
@@ -606,9 +607,7 @@ struct parameter_value *load_parameters(char parameter_file[30])
 		}else if ((res_eql=strcmp(buf, "static_allocation")) == 0){
 			sscanf(buf + next_eql, "%d", &p->static_allocation);        //record the static allocation in ssd
 		}else if((res_eql=strcmp(buf, "dynamic_allocation")) == 0){
-			sscanf(buf + next_eql, "%d", &p->dynamic_allocation);        //Recorded in the use of which dynamic allocation, 0 that full dynamic, 1 said channel set package, die, plane dynamic, 2 said channel, package, die fixed plane dynamic
-		}else if((res_eql=strcmp(buf, "dynamic_allocation_priority")) == 0){
-			sscanf(buf + next_eql, "%d", &p->dynamic_allocation_priority);	 //Indicates the priority of the ssd allocation mode, 0 means channel> chip> die> plane, and 1 represents plane> channel> chip> die
+			sscanf(buf + next_eql, "%d", &p->dynamic_allocation);	 //Indicates the priority of the ssd allocation mode, 0 means channel> chip> die> plane, and 1 represents plane> channel> chip> die
 		}else if((res_eql=strcmp(buf,"advanced command")) ==0){
 			sscanf(buf + next_eql,"%d",&p->advanced_commands);         //Whether to use the advanced command, 0 means not to use. (00001), copyback (00010), two-plane-program (00100), interleave (01000), and two-plane-read (10000) are used respectively, and all use is 11111, both 31       
 		}else if((res_eql=strcmp(buf,"greed MPW command")) ==0){

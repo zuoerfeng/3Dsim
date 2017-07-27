@@ -661,7 +661,7 @@ void statistic_output(struct ssd_info *ssd)
 	fprintf(ssd->outputfile,"write request average size: %13f\n",ssd->ave_write_size);
 	fprintf(ssd->outputfile, "\n");
 	fprintf(ssd->outputfile,"read request average response time: %16I64u\n",ssd->read_avg/ssd->read_request_count);
-//	fprintf(ssd->outputfile,"write request average response time: %16I64u\n",ssd->write_avg/ssd->write_request_count);
+	fprintf(ssd->outputfile,"write request average response time: %16I64u\n",ssd->write_avg/ssd->write_request_count);
 	fprintf(ssd->outputfile, "\n");
 	fprintf(ssd->outputfile,"buffer read hits: %13d\n",ssd->dram->buffer->read_hit);
 	fprintf(ssd->outputfile,"buffer read miss: %13d\n",ssd->dram->buffer->read_miss_hit);
@@ -730,7 +730,7 @@ void statistic_output(struct ssd_info *ssd)
 	fprintf(ssd->statisticfile,"write request average size: %13f\n",ssd->ave_write_size);
 	fprintf(ssd->statisticfile, "\n");
 	fprintf(ssd->statisticfile,"read request average response time: %16I64u\n",ssd->read_avg/ssd->read_request_count);
-//	fprintf(ssd->statisticfile,"write request average response time: %16I64u\n",ssd->write_avg/ssd->write_request_count);
+	fprintf(ssd->statisticfile,"write request average response time: %16I64u\n",ssd->write_avg/ssd->write_request_count);
 	fprintf(ssd->statisticfile, "\n");
 	fprintf(ssd->statisticfile,"buffer read hits: %13d\n",ssd->dram->buffer->read_hit);
 	fprintf(ssd->statisticfile,"buffer read miss: %13d\n",ssd->dram->buffer->read_miss_hit);

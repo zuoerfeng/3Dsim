@@ -211,8 +211,7 @@ int get_requests(struct ssd_info *ssd)
 	printf("request:%I64u\n", ssd->request_lz_count);
 	//printf("%d\n", ssd->request_queue_length);
 
-	
-	if (ssd->request_lz_count == 48230)
+	if (ssd->request_lz_count == 2578)
 		printf("lz\n");
 	
 	/*
@@ -220,8 +219,7 @@ int get_requests(struct ssd_info *ssd)
 		printf("lz\n");
 	*/
 
-
-	if (request1->operation == 1)             //Calculate the average request size ,1 for read 0 for write
+	if (request1->operation == READ)             //Calculate the average request size ,1 for read 0 for write
 	{
 		ssd->ave_read_size = (ssd->ave_read_size*ssd->read_request_count + request1->size) / (ssd->read_request_count + 1);
 	}

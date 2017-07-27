@@ -33,16 +33,19 @@ Zuo Lu			2017/07/24		  1.6			Support static allocation strategy				617376665@qq.
 #define INDEX 10
 #define PAGE_INDEX 3 //tlc mode .LSB/CSB/MSB
 #define PLANE_NUMBER 8 //for_plane_buffer
+#define DIE_NUMBER 4   
 
 #define DYNAMIC_ALLOCATION 0
 #define STATIC_ALLOCATION 1
-
-#define FULL_DYNAMIC_ALLOCATION 0
-#define DIE_DYNAMIC_ALLOCATION 1
-#define PLANE_DYNAMIC_ALLOCATION 2
+#define HYBRID_ALLOCATION 2
 
 #define PLANE_STATIC_ALLOCATION 0
 #define SUPERPAGE_STATIC_ALLOCATION 1
+#define CHANNEL_STATIC_ALLOCATION 2
+#define DIE_STATIC_ALLOCATION 3
+
+#define CHANNEL_DYNAMIC_ALLOCATION 0
+#define PLANE_DYNAMIC_ALLOCATION 1
 
 #define SLC_MODE 0
 #define TLC_MODE 1
@@ -75,6 +78,12 @@ Zuo Lu			2017/07/24		  1.6			Support static allocation strategy				617376665@qq.
 
 #define NORMAL_TYPE 0
 #define SUSPEND_TYPE 1
+
+#define WRITE_MORE 1      
+#define READ_MORE 2
+
+#define SSD_MOUNT 1
+#define CHANNEL_MOUNT 2
 /*********************************all states of each objects************************************************
 *Defines the channel idle, command address transmission, data transmission, transmission, and other states
 *And chip free, write busy, read busy, command address transfer, data transfer, erase busy, copyback busy, 
@@ -192,7 +201,7 @@ struct ssd_info{
 	unsigned int real_time_subreq;       //Record the number of real-time write requests, used in the full dynamic allocation, channel priority situation
 
 	int flag;
-	int active_flag;                     //Record the active write is blocked, if found plunger, need to move forward time, 0 that there is no block, 1 that is blocked, need to move forward time
+	int active_flag;                     //Record the active write sub_request
 	unsigned int page;
 
 	unsigned int token;                  //In the dynamic allocation, in order to prevent each assignment in the first channel need to maintain a token, each time from the token refers to the location of the distribution
@@ -550,8 +559,7 @@ struct parameter_value{
 	float gc_hard_threshold;        //Hard trigger gc threshold size
 	int allocation_scheme;          //Record the choice of allocation mode, 0 for dynamic allocation, 1 for static allocation
 	int static_allocation;          //The record is the kind of static allocation
-	int dynamic_allocation;         //Record the way of dynamic allocation
-	int dynamic_allocation_priority; //The priority of the dynamic allocation 0--channel>chip>die>plane,1--plane>channel>chip>die
+	int dynamic_allocation;			 //The priority of the dynamic allocation 0--channel>chip>die>plane,1--plane>channel>chip>die
 	int advanced_commands;  
 	int ad_priority;                //record the priority between two plane operation and interleave operation
 	int greed_MPW_ad;               //0 don't use multi-plane write advanced commands greedily; 1 use multi-plane write advanced commands greedily
@@ -571,7 +579,9 @@ struct parameter_value{
 struct entry{                       
 	unsigned int pn;                //Physical number, either a physical page number, a physical subpage number, or a physical block number
 	int state;                      //The hexadecimal representation is 0000-FFFF, and each bit indicates whether the corresponding subpage is valid (page mapping). 
-									//For example, in this page, 0,1 sub-page effective, 2,3 invalid, this should be 0x0003.
+	unsigned int write_count;
+	unsigned int read_count;
+	unsigned int type;
 };
 
 

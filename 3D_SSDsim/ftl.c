@@ -182,61 +182,45 @@ unsigned int get_ppn_for_pre_process(struct ssd_info *ssd, unsigned int lpn)
 	die_num = ssd->parameter->die_chip;
 	plane_num = ssd->parameter->plane_die;
 
-	if (ssd->parameter->allocation_scheme == DYNAMIC_ALLOCATION)                           /*Dynamic way to get ppn*/
+	if (ssd->parameter->allocation_scheme == DYNAMIC_ALLOCATION || ssd->parameter->allocation_scheme == HYBRID_ALLOCATION)                           /*Dynamic way to get ppn*/
 	{
-		if (ssd->parameter->dynamic_allocation == FULL_DYNAMIC_ALLOCATION)
+		if (ssd->parameter->dynamic_allocation == CHANNEL_DYNAMIC_ALLOCATION)						  //assign priority：channel>die>plane
 		{
-			if (ssd->parameter->dynamic_allocation_priority == 0)						  //assign priority：channel>die>plane
-			{
-				channel = ssd->token;
-				ssd->token = (ssd->token + 1) % ssd->parameter->channel_number;
-				chip = ssd->channel_head[channel].token;
-				ssd->channel_head[channel].token = (chip + 1) % ssd->parameter->chip_channel[0];
-				die = ssd->channel_head[channel].chip_head[chip].token;
-				ssd->channel_head[channel].chip_head[chip].token = (die + 1) % ssd->parameter->die_chip;
-				plane = ssd->channel_head[channel].chip_head[chip].die_head[die].token;
-				page_count++;
+			channel = ssd->token;
+			ssd->token = (ssd->token + 1) % ssd->parameter->channel_number;
+			chip = ssd->channel_head[channel].token;
+			ssd->channel_head[channel].token = (chip + 1) % ssd->parameter->chip_channel[0];
+			die = ssd->channel_head[channel].chip_head[chip].token;
+			ssd->channel_head[channel].chip_head[chip].token = (die + 1) % ssd->parameter->die_chip;
+			plane = ssd->channel_head[channel].chip_head[chip].die_head[die].token;
+			page_count++;
 
-				if (ssd->parameter->flash_mode == TLC_MODE)
-				{
-					if (page_count % PAGE_INDEX == 0)                                      //tlc模式下，首先写同个die的三个页，写满了再去写另外的plane
-					{
-						ssd->channel_head[channel].chip_head[chip].die_head[die].token = (plane + 1) % ssd->parameter->plane_die;
-						page_count = 0;
-					}
-				}
-				else if (ssd->parameter->flash_mode == SLC_MODE)
+			if (ssd->parameter->flash_mode == TLC_MODE)
+			{
+				if (page_count % PAGE_INDEX == 0)                                      //tlc模式下，首先写同个die的三个页，写满了再去写另外的plane
 				{
 					ssd->channel_head[channel].chip_head[chip].die_head[die].token = (plane + 1) % ssd->parameter->plane_die;
 					page_count = 0;
 				}
 			}
-			else if (ssd->parameter->dynamic_allocation_priority == 1)																		//assign priority：plane>channel>die
+			else if (ssd->parameter->flash_mode == SLC_MODE)
 			{
-				channel = ssd->token;
-				chip = ssd->channel_head[channel].token;
-				die = ssd->channel_head[channel].chip_head[chip].token;
-				plane = ssd->channel_head[channel].chip_head[chip].die_head[die].token;
-				page_count++;
+				ssd->channel_head[channel].chip_head[chip].die_head[die].token = (plane + 1) % ssd->parameter->plane_die;
+				page_count = 0;
+			}
+		}
+		else if (ssd->parameter->dynamic_allocation == PLANE_DYNAMIC_ALLOCATION)																		//assign priority：plane>channel>die
+		{
+			channel = ssd->token;
+			chip = ssd->channel_head[channel].token;
+			die = ssd->channel_head[channel].chip_head[chip].token;
+			plane = ssd->channel_head[channel].chip_head[chip].die_head[die].token;
+			page_count++;
 
-				if (ssd->parameter->flash_mode == TLC_MODE)
-				{
-					if (page_count % PAGE_INDEX == 0)
-					{
-						ssd->channel_head[channel].chip_head[chip].die_head[die].token = (plane + 1) % ssd->parameter->plane_die;
-						if (plane == (ssd->parameter->plane_die - 1))
-						{
-							ssd->token = (ssd->token + 1) % ssd->parameter->channel_number;
-							if (ssd->token == 0)
-								ssd->channel_head[ssd->token].chip_head[ssd->channel_head[channel].token].token = (die + 1) % ssd->parameter->die_chip;
-							else
-								ssd->channel_head[ssd->token].chip_head[ssd->channel_head[channel].token].token = die;
-						}
-						page_count = 0;
-					}
-				}
-				else if (ssd->parameter->flash_mode == SLC_MODE)
-				{
+			if (ssd->parameter->flash_mode == TLC_MODE)
+			{
+				//if (page_count % PAGE_INDEX == 0)
+				//{
 					ssd->channel_head[channel].chip_head[chip].die_head[die].token = (plane + 1) % ssd->parameter->plane_die;
 					if (plane == (ssd->parameter->plane_die - 1))
 					{
@@ -247,44 +231,72 @@ unsigned int get_ppn_for_pre_process(struct ssd_info *ssd, unsigned int lpn)
 							ssd->channel_head[ssd->token].chip_head[ssd->channel_head[channel].token].token = die;
 					}
 					page_count = 0;
+				//}
+			}
+			else if (ssd->parameter->flash_mode == SLC_MODE)
+			{
+				ssd->channel_head[channel].chip_head[chip].die_head[die].token = (plane + 1) % ssd->parameter->plane_die;
+				if (plane == (ssd->parameter->plane_die - 1))
+				{
+					ssd->token = (ssd->token + 1) % ssd->parameter->channel_number;
+					if (ssd->token == 0)
+						ssd->channel_head[ssd->token].chip_head[ssd->channel_head[channel].token].token = (die + 1) % ssd->parameter->die_chip;
+					else
+						ssd->channel_head[ssd->token].chip_head[ssd->channel_head[channel].token].token = die;
+				}
+				page_count = 0;
+			}
+		}
+
+		/*
+			if (ssd->parameter->dynamic_allocation == CHANNEL_DYNAMIC_ALLOCATION)			     
+			{
+				channel = ssd->token;
+				ssd->token = (ssd->token + 1) % ssd->parameter->channel_number;
+				chip = ssd->channel_head[channel].token;
+				ssd->channel_head[channel].token = (chip + 1) % ssd->parameter->chip_channel[0];
+				die = ssd->channel_head[channel].chip_head[chip].token;
+				ssd->channel_head[channel].chip_head[chip].token = (die + 1) % ssd->parameter->die_chip;
+				plane = ssd->channel_head[channel].chip_head[chip].die_head[die].token;
+				ssd->channel_head[channel].chip_head[chip].die_head[die].token = (plane + 1) % ssd->parameter->plane_die;
+			}
+			else																
+			{
+				channel = ssd->token;
+				chip = ssd->channel_head[channel].token;
+				die = ssd->channel_head[channel].chip_head[chip].token;
+				plane = ssd->channel_head[channel].chip_head[chip].die_head[die].token;
+				ssd->channel_head[channel].chip_head[chip].die_head[die].token = (plane + 1) % ssd->parameter->plane_die;    
+
+				if (plane == (ssd->parameter->plane_die - 1))
+				{
+					ssd->token = (ssd->token + 1) % ssd->parameter->channel_number;											  
+					if (ssd->token == 0)
+						ssd->channel_head[ssd->token].chip_head[ssd->channel_head[channel].token].token = (die + 1) % ssd->parameter->die_chip;  
+					else
+						ssd->channel_head[ssd->token].chip_head[ssd->channel_head[channel].token].token = die;				
 				}
 			}
-
-			/*
-				if (ssd->parameter->dynamic_allocation_priority == 0)			     
-				{
-					channel = ssd->token;
-					ssd->token = (ssd->token + 1) % ssd->parameter->channel_number;
-					chip = ssd->channel_head[channel].token;
-					ssd->channel_head[channel].token = (chip + 1) % ssd->parameter->chip_channel[0];
-					die = ssd->channel_head[channel].chip_head[chip].token;
-					ssd->channel_head[channel].chip_head[chip].token = (die + 1) % ssd->parameter->die_chip;
-					plane = ssd->channel_head[channel].chip_head[chip].die_head[die].token;
-					ssd->channel_head[channel].chip_head[chip].die_head[die].token = (plane + 1) % ssd->parameter->plane_die;
-				}
-				else																
-				{
-					channel = ssd->token;
-					chip = ssd->channel_head[channel].token;
-					die = ssd->channel_head[channel].chip_head[chip].token;
-					plane = ssd->channel_head[channel].chip_head[chip].die_head[die].token;
-					ssd->channel_head[channel].chip_head[chip].die_head[die].token = (plane + 1) % ssd->parameter->plane_die;    
-
-					if (plane == (ssd->parameter->plane_die - 1))
-					{
-						ssd->token = (ssd->token + 1) % ssd->parameter->channel_number;											  
-						if (ssd->token == 0)
-							ssd->channel_head[ssd->token].chip_head[ssd->channel_head[channel].token].token = (die + 1) % ssd->parameter->die_chip;  
-						else
-							ssd->channel_head[ssd->token].chip_head[ssd->channel_head[channel].token].token = die;				
-					}
-				}
-			*/
+		*/
 			
-		}
 	}
 	else if (ssd->parameter->allocation_scheme == STATIC_ALLOCATION)
 	{
+		/*
+		//1.die>channel>chip 2.channel>chip>die
+		if (ssd->parameter->static_allocation == DIE_STATIC_ALLOCATION)
+		{
+			channel = (lpn / (plane_num*PAGE_INDEX)) % channel_num;
+			chip = (lpn / (plane_num*PAGE_INDEX*channel_num)) % chip_num;
+			die = (lpn / (plane_num*PAGE_INDEX*channel_num*chip_num)) % chip_num;
+		}
+		else if (ssd->parameter->static_allocation == CHANNEL_STATIC_ALLOCATION)
+		{
+			channel = lpn % channel_num;
+			chip = (lpn / channel_num) % chip_num;
+			die = (lpn / (plane_num*PAGE_INDEX*channel_num*chip_num)) % die_num;
+		}*/
+		
 		if (ssd->parameter->static_allocation == PLANE_STATIC_ALLOCATION)    //plane>channel>chip>die
 		{
 			plane = lpn % plane_num;
@@ -298,6 +310,13 @@ unsigned int get_ppn_for_pre_process(struct ssd_info *ssd, unsigned int lpn)
 			channel = (lpn / (plane_num*PAGE_INDEX)) % channel_num;
 			chip = (lpn / (plane_num*channel_num*PAGE_INDEX)) % chip_num;
 			die = (lpn / (plane_num*channel_num*chip_num*PAGE_INDEX)) % die_num;
+		}
+		else if (ssd->parameter->static_allocation == CHANNEL_STATIC_ALLOCATION)
+		{
+			channel = lpn % channel_num;
+			chip = (lpn / channel_num) % chip_num;
+			plane = (lpn / (channel_num*chip_num)) % plane_num;
+			die = (lpn / (plane_num*channel_num*chip_num)) % die_num;
 		}
 	}
 
@@ -565,13 +584,13 @@ Status get_ppn_for_normal_command(struct ssd_info * ssd, unsigned int channel, u
 	{
 		return ERROR;
 	}
-	if (ssd->parameter->allocation_scheme == DYNAMIC_ALLOCATION)
+	if (ssd->parameter->allocation_scheme == DYNAMIC_ALLOCATION || ssd->active_flag == SSD_MOUNT)
 	{
 		die = ssd->channel_head[channel].chip_head[chip].token;
 		plane = ssd->channel_head[channel].chip_head[chip].die_head[die].token;
 		get_ppn(ssd, channel, chip, die, plane, sub);
 
-		if (ssd->parameter->dynamic_allocation_priority == 1)
+		if (ssd->parameter->dynamic_allocation == PLANE_DYNAMIC_ALLOCATION)
 		{
 			ssd->channel_head[channel].chip_head[chip].die_head[die].token = (plane + 1) % ssd->parameter->plane_die;
 			if (plane == (ssd->parameter->plane_die - 1))
@@ -584,7 +603,7 @@ Status get_ppn_for_normal_command(struct ssd_info * ssd, unsigned int channel, u
 		}
 		compute_serve_time(ssd, channel, chip, die, &sub, 1, NORMAL);
 	}
-	else if (ssd->parameter->allocation_scheme == STATIC_ALLOCATION)
+	else if (ssd->parameter->allocation_scheme == STATIC_ALLOCATION || ssd->active_flag == CHANNEL_MOUNT)
 	{
 		die = sub->location->die;
 		plane = sub->location->plane;
@@ -622,12 +641,12 @@ Status get_ppn_for_advanced_commands(struct ssd_info *ssd, unsigned int channel,
 
 	struct sub_request ** mutli_subs = NULL;
 
-	if (ssd->parameter->allocation_scheme == DYNAMIC_ALLOCATION)  //动态分配的目标die plane由动态令牌来决定
+	if (ssd->parameter->allocation_scheme == DYNAMIC_ALLOCATION || ssd->active_flag == SSD_MOUNT)  //动态分配的目标die plane由动态令牌来决定
 	{
 		aim_die = ssd->channel_head[channel].chip_head[chip].token;
 		aim_plane = ssd->channel_head[channel].chip_head[chip].die_head[die].token;
 	}
-	else if (ssd->parameter->allocation_scheme == STATIC_ALLOCATION)
+	else if (ssd->parameter->allocation_scheme == STATIC_ALLOCATION || ssd->active_flag == CHANNEL_MOUNT)
 	{
 		aim_die = subs[0]->location->die;
 		aim_plane = subs[0]->location->plane;
@@ -691,7 +710,7 @@ Status get_ppn_for_advanced_commands(struct ssd_info *ssd, unsigned int channel,
 		compute_serve_time(ssd, channel, chip, aim_die, subs, valid_subs_count, ONE_SHOT_MUTLI_PLANE);
 		printf("lz:mutli plane one shot\n");
 
-		if (ssd->parameter->allocation_scheme == DYNAMIC_ALLOCATION)
+		if (ssd->parameter->allocation_scheme == DYNAMIC_ALLOCATION || ssd->active_flag == SSD_MOUNT)
 			ssd->channel_head[channel].chip_head[chip].token = (aim_die + 1) % ssd->parameter->die_chip;
 
 		//free mutli_subs
@@ -748,7 +767,7 @@ Status get_ppn_for_advanced_commands(struct ssd_info *ssd, unsigned int channel,
 				valid_subs_count = ssd->parameter->plane_die;
 				compute_serve_time(ssd, channel, chip, aim_die, subs, valid_subs_count, MUTLI_PLANE);
 
-				if (ssd->parameter->allocation_scheme == DYNAMIC_ALLOCATION)
+				if (ssd->parameter->allocation_scheme == DYNAMIC_ALLOCATION || ssd->active_flag == SSD_MOUNT)
 					ssd->channel_head[channel].chip_head[chip].token = (aim_die + 1) % ssd->parameter->die_chip;
 				
 				printf("lz:mutli_plane\n");
@@ -769,7 +788,7 @@ Status get_ppn_for_advanced_commands(struct ssd_info *ssd, unsigned int channel,
 		compute_serve_time(ssd, channel, chip, aim_die, subs, valid_subs_count, ONE_SHOT);
 
 		//更新plane die
-		if (ssd->parameter->allocation_scheme == DYNAMIC_ALLOCATION)
+		if (ssd->parameter->allocation_scheme == DYNAMIC_ALLOCATION || ssd->active_flag == SSD_MOUNT)
 		{
 			ssd->channel_head[channel].chip_head[chip].die_head[die].token = (aim_plane + 1) % ssd->parameter->plane_die;
 			if (aim_plane == (ssd->parameter->plane_die - 1))
@@ -820,20 +839,17 @@ unsigned int gc(struct ssd_info *ssd, unsigned int channel, unsigned int flag)
 		return SUCCESS;
 	}
 	//Passive gc
-	else                                                                               /*Only for a specific channel, chip, die gc request operation (only the target die to determine whether to see is idle)*/
+	else                                                                             
 	{
-		if ((ssd->parameter->allocation_scheme == DYNAMIC_ALLOCATION) && (ssd->parameter->dynamic_allocation == FULL_DYNAMIC_ALLOCATION))
+		//当读写子请求都完成的情况下，才去执行gc操作，否则先去执行读写请求
+		if ((ssd->channel_head[channel].subs_r_head != NULL) || (ssd->channel_head[channel].subs_w_head != NULL) || (ssd->subs_w_head != NULL))    
 		{
-			//当读写子请求都完成的情况下，才去执行gc操作，否则先去执行读写请求
-			if ((ssd->channel_head[channel].subs_r_head != NULL) || (ssd->channel_head[channel].subs_w_head != NULL) || (ssd->subs_w_head != NULL))    
-			{
-				return 0;
-			}
-			if (gc_for_channel(ssd, channel) == SUCCESS)
-				return SUCCESS;
-			else
-				return FAILURE;
+			return 0;
 		}
+		if (gc_for_channel(ssd, channel) == SUCCESS)
+			return SUCCESS;
+		else
+			return FAILURE;
 	}
 	return FAILURE;
 }
@@ -1098,11 +1114,7 @@ int greedy_gc(struct ssd_info *ssd, unsigned int channel, unsigned int chip, uns
 				location->page = i;
 				page_move_count++;
 
-				if ((ssd->parameter->advanced_commands&AD_MUTLIPLANE) == AD_MUTLIPLANE)
-					move_page(ssd, location, move_plane, &transfer_size);                                                   /*Real move_page operation*/
-				else 
-					move_page(ssd, location, move_plane, &transfer_size);
-
+				move_page(ssd, location, move_plane, &transfer_size);                                                   /*Real move_page operation*/
 				move_plane = (move_plane + 1) % ssd->parameter->plane_die;
 
 				free(location);
@@ -1117,18 +1129,17 @@ int greedy_gc(struct ssd_info *ssd, unsigned int channel, unsigned int chip, uns
 		find_active_block(ssd, channel, chip, die, move_plane);
 		active_block = ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[move_plane].active_block;
 		aim_page = ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[move_plane].blk_head[active_block].last_write_page + 2;
-		if (aim_page == 65)
+		if (aim_page == ssd->parameter->page_block + 1)
 			getchar();
 		make_same_level(ssd, channel, chip, die, move_plane, active_block, aim_page);
 	}
 	
 	//判断是否偏移地址free page一致
-	/*
 	if (ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[0].free_page != ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[1].free_page)
 	{
 		printf("free page don't equal\n");
 		getchar();
-	}*/
+	}
 
 	//迁移有效页的时间推动
 	ssd->channel_head[channel].current_state = CHANNEL_GC;
