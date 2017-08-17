@@ -31,7 +31,10 @@ struct ssd_info *make_aged(struct ssd_info *);
 struct ssd_info *pre_process_write(struct ssd_info *ssd);
 struct ssd_info *process(struct ssd_info *);
 struct ssd_info *simulate(struct ssd_info *);
+void tracefile_sim(struct ssd_info *ssd);
+
 
 void file_assert(int error, char *s);
 void alloc_assert(void *p, char *s);
 void trace_assert(_int64 time_t, int device, unsigned int lsn, int size, int ope);
+

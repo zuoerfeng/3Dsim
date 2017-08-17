@@ -40,6 +40,96 @@ Zuo Lu			2017/07/24		  1.6			Support static allocation strategy				617376665@qq.
 #include "fcl.h"
 
 int secno_num_per_page, secno_num_sub_page;
+//parameters路径名
+char *parameters_file[3] =
+{ "page_2D.parameters",
+"page_3D.parameters",
+"page.parameters"
+};
+
+//trace 路径名
+char *trace_file[10] =
+{
+	"example.ascii", "512M_4KB_sequence_RandW.ascii", "f2_512MB.ascii", "fiu_webserver_16GB.ascii", "hm0_16GB.ascii", "src0_16GB.ascii", "rsrch0_mod_16GB.ascii", "ts0_16GB.ascii", "usr0_16GB.ascii", "vps107_16GB.ascii"
+};
+
+
+char *result_file_statistic[2][10] =
+{ 
+	{ "example_statistic_2D.dat", "512M_4KB_sequence_RandW_statistic_2D.dat", "f2_512MB_statistic_2D.dat", "fiu_webserver_16GB_statistic_2D.dat", "hm0_16GB_statistic_2D.dat",
+	  "src0_16GB_statistic_2D.dat", "rsrch0_mod_16GB_statistic_2D.dat", "ts0_16GB_statistic_2D.dat", "usr0_16GB_statistic_2D.dat", "vps107_16GB_statistic_2D.dat" },
+    
+   { "example_statistic_3D.dat", "512M_4KB_sequence_RandW_statistic_3D.dat", "f2_512MB_statistic_3D.dat", "fiu_webserver_16GB_statistic_3D.dat", "hm0_16GB_statistic_3D.dat", 
+   "src0_16GB_statistic_3D.dat", "rsrch0_mod_16GB_statistic_3D.dat", "ts0_16GB_statistic_3D.dat", "usr0_16GB_statistic_3D.dat", "vps107_16GB_statistic_3D.dat" }
+};
+
+char *result_file_ex[2][10] =
+{ 
+	{ "example_ex_2D.dat", "512M_4KB_sequence_RandW_ex_2D.dat", "f2_512MB_ex_2D.dat", "fiu_webserver_16GB_ex_2D.dat", "hm0_16GB_ex_2D.dat",
+	"src0_16GB_ex_2D.dat", "rsrch0_mod_16GB_ex_2D.dat", "ts0_16GB_ex_2D.dat", "usr0_16GB_ex_2D.dat", "vps107_16GB_ex_2D.dat" },
+
+	{ "example_ex_3D.dat", "512M_4KB_sequence_RandW_ex_3D.dat", "f2_512MB_ex_3D.dat", "fiu_webserver_16GB_ex_3D.dat", "hm0_16GB_ex_3D.dat",
+	"src0_16GB_ex_3D.dat", "rsrch0_mod_16GB_ex_3D.dat", "ts0_16GB_ex_3D.dat", "usr0_16GB_ex_3D.dat", "vps107_16GB_ex_3D.dat" }
+	
+	/*
+"example_ex.dat",
+"512M_4KB_sequence_RandW_ex.dat",
+"f2_512MB_ex.dat",
+"fiu_webserver_16GB_ex.dat",
+"hm0_16GB_ex.dat",
+"src0_16GB_ex.dat",
+"rsrch0_mod_16GB_ex.dat",
+"ts0_16GB_ex.dat",
+"usr0_16GB_ex.dat",
+"vps107_16GB_ex.dat"
+*/
+
+};
+
+char *result_file_die[2][10] =
+{ 
+	{ "example_die_2D.dat", "512M_4KB_sequence_RandW_die_2D.dat", "f2_512MB_die_2D.dat", "fiu_webserver_16GB_die_2D.dat", "hm0_16GB_die_2D.dat",
+	"src0_16GB_die_2D.dat", "rsrch0_mod_16GB_die_2D.dat", "ts0_16GB_die_2D.dat", "usr0_16GB_die_2D.dat", "vps107_16GB_die_2D.dat" },
+
+	{ "example_die_3D.dat", "512M_4KB_sequence_RandW_die_3D.dat", "f2_512MB_die_3D.dat", "fiu_webserver_16GB_die_3D.dat", "hm0_16GB_die_3D.dat",
+	"src0_16GB_die_3D.dat", "rsrch0_mod_16GB_die_3D.dat", "ts0_16GB_die_3D.dat", "usr0_16GB_die_3D.dat", "vps107_16GB_die_3D.dat" }
+
+/*
+"example_die.dat",
+"512M_4KB_sequence_RandW_die.dat",
+"f2_512MB_die.dat",
+"fiu_webserver_16GB_die.dat",
+"hm0_16GB_die.dat",
+"src0_16GB_die.dat",
+"rsrch0_mod_16GB_die.dat",
+"ts0_16GB_die.dat",
+"usr0_16GB_die.dat",
+"vps107_16GB_die.dat"
+*/
+
+};
+
+char *result_file_size[2][10] =
+{
+	{ "example_size_2D.dat", "512M_4KB_sequence_RandW_size_2D.dat", "f2_512MB_size_2D.dat", "fiu_webserver_16GB_size_2D.dat", "hm0_16GB_size_2D.dat",
+	"src0_16GB_size_2D.dat", "rsrch0_mod_16GB_size_2D.dat", "ts0_16GB_size_2D.dat", "usr0_16GB_size_2D.dat", "vps107_16GB_size_2D.dat" },
+
+	{ "example_size_3D.dat", "512M_4KB_sequence_RandW_size_3D.dat", "f2_512MB_size_3D.dat", "fiu_webserver_16GB_size_3D.dat", "hm0_16GB_size_3D.dat",
+	"src0_16GB_size_3D.dat", "rsrch0_mod_16GB_size_3D.dat", "ts0_16GB_size_3D.dat", "usr0_16GB_size_3D.dat", "vps107_16GB_size_3D.dat" }
+
+/*
+"example_size.dat",
+"512M_4KB_sequence_RandW_size.dat",
+"f2_512MB_size.dat",
+"fiu_webserver_16GB_size.dat",
+"hm0_16GB_size.dat",
+"src0_16GB_size.dat",
+"rsrch0_mod_16GB_size.dat",
+"ts0_16GB_size.dat",
+"usr0_16GB_size.dat",
+"vps107_16GB_size.dat"
+*/
+};
 
 /********************************************************************************************************************************
 1，the initiation() used to initialize ssd;
@@ -54,8 +144,52 @@ pre-processing trace to prevent the read request is not read the data;
 
 void main()
 {
-	unsigned  int i,j,k,p,m,n;
+	unsigned int i = 0,j = 0;
 	struct ssd_info *ssd;
+
+	for (j = 0; j < 2; j++)
+	{
+		for (i = 0; i < 10; i++)
+		{
+			//初始化ssd结构体
+			ssd = (struct ssd_info*)malloc(sizeof(struct ssd_info));
+			alloc_assert(ssd, "ssd");
+			memset(ssd, 0, sizeof(struct ssd_info));
+
+			//输入配置文件参数
+			strcpy_s(ssd->parameterfilename, 50, parameters_file[j]);
+			//strcpy_s(ssd->parameterfilename, 50, "page.parameters");
+
+			//输入trace文件参数，输出文件名
+			strcpy_s(ssd->tracefilename, 50, trace_file[i]);
+			strcpy_s(ssd->outputfilename, 50, result_file_ex[j][i]);
+			strcpy_s(ssd->statisticfilename, 50, result_file_statistic[j][i]);
+			strcpy_s(ssd->statistic_time_filename, 50, result_file_die[j][i]);
+			strcpy_s(ssd->statistic_size_filename, 50, result_file_size[j][i]);
+
+			printf("tracefile:%s begin simulate-------------------------\n", ssd->tracefilename);
+			//getchar();
+
+			//开始对当前trace进行仿真
+			tracefile_sim(ssd);
+
+			//仿真结束，释放所有的节点
+			printf("tracefile:%s end simulate---------------------------\n\n\n", ssd->tracefilename);
+			free_all_node(ssd);
+			//getchar();
+		}
+	}
+
+	//所有trace跑完停止当前程序
+	system("pause");
+}
+
+
+//void main()
+void tracefile_sim(struct ssd_info *ssd)
+{
+	unsigned  int i,j,k,p,m,n;
+	//struct ssd_info *ssd;
 
 	/*
 	int tmp;
@@ -67,10 +201,12 @@ void main()
 	#ifdef DEBUG
 	printf("enter main\n"); 
 	#endif
+	/*
+	ssd = (struct ssd_info*)malloc(sizeof(struct ssd_info));
+	alloc_assert(ssd, "ssd");
+	memset(ssd, 0, sizeof(struct ssd_info));
+	*/
 
-	ssd=(struct ssd_info*)malloc(sizeof(struct ssd_info));
-	alloc_assert(ssd,"ssd");
-	memset(ssd,0, sizeof(struct ssd_info));
 
 	ssd=initiation(ssd);
 
@@ -107,12 +243,12 @@ void main()
 
 	ssd=simulate(ssd);
 	statistic_output(ssd);  
-	free_all_node(ssd);
+	//free_all_node(ssd);
 
 	printf("\n");
 	printf("the simulation is completed!\n");
 
-	system("pause");
+	//system("pause");
  	_CrtDumpMemoryLeaks();  //Memory leak detection
 }
 
@@ -377,6 +513,13 @@ void trace_output(struct ssd_info* ssd){
 			{
 				ssd->read_request_count++;
 				ssd->read_avg = ssd->read_avg + (req->response_time - req->time);
+
+				if (ssd->read_request_count % SAMPLE_SPACE == 0)
+				{
+					//fprintf(ssd->statisticfile_size, "%-12f      %-8u\n", ((ssd->read_request_count*ssd->ave_read_size * 1000 * 1000 * 1000)) / ssd->read_avg, ssd->read_request_count);
+					fprintf(ssd->statisticfile_size, "%-12llu      %-8lu\n", (ssd->read_avg / ssd->read_request_count), ssd->read_request_count);
+					fflush(ssd->statisticfile_size);
+				}
 			}
 			else
 			{
@@ -469,6 +612,13 @@ void trace_output(struct ssd_info* ssd){
 				{
 					ssd->read_request_count++;
 					ssd->read_avg = ssd->read_avg + (end_time - req->time);
+
+					if (ssd->read_request_count % SAMPLE_SPACE == 0)
+					{
+						//fprintf(ssd->statisticfile_size, "%-12f      %-8u\n", ((ssd->read_request_count*ssd->ave_read_size * 1000 * 1000 * 1000)) / ssd->read_avg, ssd->read_request_count);
+						fprintf(ssd->statisticfile_size, "%-12llu      %-8lu\n", (ssd->read_avg / ssd->read_request_count), ssd->read_request_count);
+						fflush(ssd->statisticfile_size);
+					}
 				}
 				else
 				{
@@ -794,10 +944,10 @@ void free_all_node(struct ssd_info *ssd)
 	avlTreeDestroy(ssd->dram->command_buffer);
 	ssd->dram->command_buffer = NULL;
 	
-	for (p = 0; p < PLANE_NUMBER; p++)
+	for (p = 0; p < DIE_NUMBER; p++)
 	{
-		avlTreeDestroy(ssd->dram->static_plane_buffer[p]);
-		ssd->dram->static_plane_buffer[p] = NULL;
+		avlTreeDestroy(ssd->dram->static_die_buffer[p]);
+		ssd->dram->static_die_buffer[p] = NULL;
 	}
 
 	free(ssd->dram->map->map_entry);

@@ -32,8 +32,10 @@ Zuo Lu			2017/07/24		  1.6			Support static allocation strategy				617376665@qq.
 #define BUFSIZE 200
 #define INDEX 10
 #define PAGE_INDEX 3 //tlc mode .LSB/CSB/MSB
-#define PLANE_NUMBER 8 //for_plane_buffer
-#define DIE_NUMBER 4   
+//#define PLANE_NUMBER 8 //for_plane_buffer
+#define DIE_NUMBER 4
+
+#define SAMPLE_SPACE 10
 
 #define DYNAMIC_ALLOCATION 0
 #define STATIC_ALLOCATION 1
@@ -41,11 +43,12 @@ Zuo Lu			2017/07/24		  1.6			Support static allocation strategy				617376665@qq.
 
 #define PLANE_STATIC_ALLOCATION 0
 #define SUPERPAGE_STATIC_ALLOCATION 1
-#define CHANNEL_STATIC_ALLOCATION 2
-#define DIE_STATIC_ALLOCATION 3
+#define CHANNEL_PLANE_STATIC_ALLOCATION 2
+#define CHANNEL_SUPERPAGE_STATIC_ALLOCATION 3
 
 #define CHANNEL_DYNAMIC_ALLOCATION 0
 #define PLANE_DYNAMIC_ALLOCATION 1
+#define STRIPE_DYNAMIC_ALLOCATION 2
 
 #define SLC_MODE 0
 #define TLC_MODE 1
@@ -195,6 +198,9 @@ struct ssd_info{
 	int trace_over_flag;				 //the end of trace flag:0-- not ending ,1--ending
 	__int64 request_lz_count;			 //trace request count
 	unsigned int update_sub_request;
+	unsigned int page_count;
+	int test_count;
+	unsigned int die_token;
 
 	__int64 current_time;                //Record system time
 	__int64 next_request_time;
@@ -249,16 +255,18 @@ struct ssd_info{
 	float ave_write_size;
 	unsigned int request_queue_length;
 	
-	char parameterfilename[30];
-	char tracefilename[30];
-	char outputfilename[30];
-	char statisticfilename[30];
-	char statisticfilename2[30];
+	char parameterfilename[50];
+	char tracefilename[50];
+	char outputfilename[50];
+	char statisticfilename[50];
+	char statistic_time_filename[50];
+	char statistic_size_filename[50];
 
 	FILE * outputfile;
 	FILE * tracefile;
 	FILE * statisticfile;
-	FILE * statisticfile2;
+	FILE * statisticfile_time;
+	FILE * statisticfile_size;
 
     struct parameter_value *parameter;   //SSD parameter
 	struct dram_info *dram;
@@ -398,7 +406,8 @@ struct dram_info{
 
 	struct buffer_info *buffer; 
 	struct buffer_info *command_buffer;					 //used in advanced command buffer
-	struct buffer_info *static_plane_buffer[PLANE_NUMBER];   //used in advanced command buffer in static allocation
+	//struct buffer_info *static_plane_buffer[PLANE_NUMBER];   //used in advanced command buffer in static allocation
+	struct buffer_info *static_die_buffer[DIE_NUMBER];
 };
 
 
@@ -459,7 +468,7 @@ struct request{
 
 	__int64 begin_time;
 	__int64 response_time;
-	double energy_consumption;         //Record the energy consumption of the request
+	__int64 request_read_num;
 
 	struct sub_request *subs;          //Record all sub-requests belonging to the request
 	struct request *next_node;        

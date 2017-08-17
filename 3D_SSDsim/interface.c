@@ -183,7 +183,7 @@ int get_requests(struct ssd_info *ssd)
 	request1->operation = ope;
 	request1->begin_time = time_t;
 	request1->response_time = 0;
-	request1->energy_consumption = 0;
+//	request1->request_read_num = ssd->request_lz_count;
 	request1->next_node = NULL;
 	request1->distri_flag = 0;              // indicate whether this request has been distributed already
 	request1->subs = NULL;
@@ -208,11 +208,12 @@ int get_requests(struct ssd_info *ssd)
 	}
 
 	ssd->request_lz_count++;
-	printf("request:%I64u\n", ssd->request_lz_count);
+	//printf("request:%I64u\n", ssd->request_lz_count);
 	//printf("%d\n", ssd->request_queue_length);
 
-	if (ssd->request_lz_count == 2578)
-		printf("lz\n");
+
+	//if (ssd->request_lz_count == 2578)
+		//printf("lz\n");
 	
 	/*
 	if (time_t == 109726921875 && lsn == 618111)
@@ -222,6 +223,8 @@ int get_requests(struct ssd_info *ssd)
 	if (request1->operation == READ)             //Calculate the average request size ,1 for read 0 for write
 	{
 		ssd->ave_read_size = (ssd->ave_read_size*ssd->read_request_count + request1->size) / (ssd->read_request_count + 1);
+		ssd->test_count++;
+		request1->request_read_num = ssd->test_count;
 	}
 	else
 	{

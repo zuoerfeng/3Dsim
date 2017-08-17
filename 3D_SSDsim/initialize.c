@@ -86,29 +86,30 @@ struct ssd_info *initiation(struct ssd_info *ssd)
 	
 //	printf("input parameter file name:");
 //	gets(ssd->parameterfilename);
- 	strcpy_s(ssd->parameterfilename,16,"page.parameters");
+// 	strcpy_s(ssd->parameterfilename,16,"page.parameters");
 
 //	printf("\ninput trace file name:");
 //	gets(ssd->tracefilename);
 //	strcpy_s(ssd->tracefilename, 50, "16M_2KB_sequence_RandW.ascii");
-//	strcpy_s(ssd->tracefilename, 25, "f1_512MB.ascii");
-	strcpy_s(ssd->tracefilename, 25, "example.ascii");
+//	strcpy_s(ssd->tracefilename, 25, "f2_512MB.ascii");
+//	strcpy_s(ssd->tracefilename, 25, "example.ascii");
 //	strcpy_s(ssd->tracefilename, 50, "ts0_16GB.ascii");
-//	strcpy_s(ssd->tracefilename, 50, "512M 4KB sequence R.ascii");
+//	strcpy_s(ssd->tracefilename, 50, "512M_4KB_sequence_RandW.ascii");
 
 //	printf("\ninput output file name:");
 //	gets(ssd->outputfilename);
-	strcpy_s(ssd->outputfilename,7,"ex.out");
+//	strcpy_s(ssd->outputfilename,7,"ex.out");
 //	strcpy_s(ssd->outputfilename,25,"CFS.out");
 //	strcpy_s(ssd->outputfilename,25,"DevDivRelease.out");
 
 //	printf("\ninput statistic file name:");
 //	gets(ssd->statisticfilename);
-	strcpy_s(ssd->statisticfilename,16,"statistic10.dat");
+//	strcpy_s(ssd->statisticfilename,16,"statistic10.dat");
 //	strcpy_s(ssd->statisticfilename,16,"CFS.dat");
 //	strcpy_s(ssd->statisticfilename,25,"DevDivRelease.dat");
 	
-	//strcpy_s(ssd->statisticfilename2 ,16,"statistic2.dat");
+//	strcpy_s(ssd->statistic_time_filename, 50, "die_req.dat");
+//	strcpy_s(ssd->statistic_size_filename, 50, "size_req.dat");
 
 	//Import the configuration file for ssd
 	parameters=load_parameters(ssd->parameterfilename);
@@ -134,34 +135,53 @@ struct ssd_info *initiation(struct ssd_info *ssd)
 	memset(ssd->channel_head,0,ssd->parameter->channel_number * sizeof(struct channel_info));
 	initialize_channels(ssd );
 
-	printf("\n");
+	//printf("\n");
 	if((err=fopen_s(&ssd->outputfile,ssd->outputfilename,"w")) != 0)
 	{
 		printf("the output file can't open\n");
 		return NULL;
 	}
 
-	printf("\n");
+	//printf("\n");
 	if((err=fopen_s(&ssd->statisticfile,ssd->statisticfilename,"w"))!=0)
 	{
 		printf("the statistic file can't open\n");
 		return NULL;
 	}
 
-	printf("\n");
-// 	if((err=fopen_s(&ssd->statisticfile2,ssd->statisticfilename2,"w"))!=0)
-// 	{
-// 		printf("the second statistic file can't open\n");
-// 		return NULL;
-// 	}
+	//printf("\n");
+
+	if ((err = fopen_s(&ssd->statisticfile_time, ssd->statistic_time_filename, "w")) != 0)
+ 	{
+ 		printf("the second statistic file can't open\n");
+ 		return NULL;
+ 	}
+
+	//printf("\n");
+
+	if ((err = fopen_s(&ssd->statisticfile_size, ssd->statistic_size_filename, "w")) != 0)
+	{
+		printf("the second statistic file can't open\n");
+		return NULL;
+	}
 
 	fprintf(ssd->outputfile,"parameter file: %s\n",ssd->parameterfilename); 
 	fprintf(ssd->outputfile,"trace file: %s\n",ssd->tracefilename);
 	fprintf(ssd->statisticfile,"parameter file: %s\n",ssd->parameterfilename); 
 	fprintf(ssd->statisticfile,"trace file: %s\n",ssd->tracefilename);
-	
+
+	/*
+	fprintf(ssd->statisticfile_time, "parameter file: %s\n", ssd->parameterfilename);
+	fprintf(ssd->statisticfile_time, "trace file: %s\n", ssd->tracefilename);
+	fprintf(ssd->statisticfile_time, "-----------------------time_ppn in read operation----------------------\n");
+	fprintf(ssd->statisticfile_time, "      time           channel     chip     die    plane   plane_number\n");
+	*/
+
 	fflush(ssd->outputfile);
 	fflush(ssd->statisticfile);
+	fflush(ssd->statisticfile_time);
+	fflush(ssd->statisticfile_size);
+
 
 	if((err=fopen_s(&fp,ssd->parameterfilename,"r"))!=0)
 	{
@@ -225,6 +245,7 @@ void initialize_statistic(struct ssd_info * ssd)
 	ssd->update_sub_request = 0;
 	ssd->resume_count = 0;
 	ssd->active_flag = 0;
+	ssd->die_token = 0;
 }
 
 
@@ -238,33 +259,44 @@ struct dram_info * initialize_dram(struct ssd_info * ssd)
 	dram->buffer = (tAVLTree *)avlTreeCreate((void*)keyCompareFunc , (void *)freeFunc);
 	dram->buffer->max_buffer_sector=ssd->parameter->dram_capacity / ssd->parameter->subpage_capacity; 
 
-
 	/**********************************************增加高级命令的缓存初始化******************************************************************/
+	//1.为对应的缓存定平衡二叉树
 	dram->command_buffer = (tAVLTree *)avlTreeCreate((void*)keyCompareFunc, (void *)freeFunc);
-	for (i = 0; i < PLANE_NUMBER; i++)
-		dram->static_plane_buffer[i] = (tAVLTree *)avlTreeCreate((void*)keyCompareFunc, (void *)freeFunc);
+	for (i = 0; i < DIE_NUMBER; i++)
+		dram->static_die_buffer[i] = (tAVLTree *)avlTreeCreate((void*)keyCompareFunc, (void *)freeFunc);
 
+	//2.给不同的缓存，按照高级命令设置不同的大小
 	if (ssd->parameter->flash_mode == SLC_MODE)
 	{
-		for (i = 0; i < PLANE_NUMBER; i++)
-			dram->static_plane_buffer[i]->max_command_buff_page = 1;      //slc 模式下，每个plane只需要维护1个页大小
-		
 		if ((ssd->parameter->advanced_commands&AD_MUTLIPLANE) == AD_MUTLIPLANE)
+		{
 			dram->command_buffer->max_command_buff_page = ssd->parameter->plane_die;
+			for (i = 0; i < DIE_NUMBER; i++)
+				dram->static_die_buffer[i]->max_command_buff_page = ssd->parameter->plane_die;
+		}
 		else
+		{
 			dram->command_buffer->max_command_buff_page = 1;
+			for (i = 0; i < DIE_NUMBER; i++)
+				dram->static_die_buffer[i]->max_command_buff_page = 1;
+		}
 	}
 	else if (ssd->parameter->flash_mode == TLC_MODE)
 	{
-		for (i = 0; i < PLANE_NUMBER; i++)
-			dram->static_plane_buffer[i]->max_command_buff_page = PAGE_INDEX;		//tlc模式下，每个plane只需要维护one shot页大小
-
 		if ((ssd->parameter->advanced_commands&AD_ONESHOT_PROGRAM) == AD_ONESHOT_PROGRAM)
 		{
 			if ((ssd->parameter->advanced_commands&AD_MUTLIPLANE) == AD_MUTLIPLANE)
+			{
 				dram->command_buffer->max_command_buff_page = ssd->parameter->plane_die * PAGE_INDEX;
+				for (i = 0; i < DIE_NUMBER; i++)
+					dram->static_die_buffer[i]->max_command_buff_page = ssd->parameter->plane_die * PAGE_INDEX;
+			}
 			else
+			{
 				dram->command_buffer->max_command_buff_page = PAGE_INDEX;
+				for (i = 0; i < DIE_NUMBER; i++)
+					dram->static_die_buffer[i]->max_command_buff_page = PAGE_INDEX;
+			}
 		}
 		else
 		{
@@ -481,7 +513,6 @@ struct parameter_value *load_parameters(char parameter_file[30])
 		printf("the file parameter_value error!\n");	
 		return p;
 	}
-    
 
 
 	while(fgets(buf,200,fp)){

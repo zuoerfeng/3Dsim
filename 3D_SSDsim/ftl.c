@@ -171,7 +171,7 @@ unsigned int get_ppn_for_pre_process(struct ssd_info *ssd, unsigned int lpn)
 	unsigned int ppn;
 	unsigned int active_block;
 	unsigned int channel_num = 0, chip_num = 0, die_num = 0, plane_num = 0;
-	unsigned int page_count = 0;
+	//unsigned int page_count = 0;
 
 #ifdef DEBUG
 	printf("enter get_psn_for_pre_process\n");
@@ -186,6 +186,7 @@ unsigned int get_ppn_for_pre_process(struct ssd_info *ssd, unsigned int lpn)
 	{
 		if (ssd->parameter->dynamic_allocation == CHANNEL_DYNAMIC_ALLOCATION)						  //assign priority：channel>die>plane
 		{
+			
 			channel = ssd->token;
 			ssd->token = (ssd->token + 1) % ssd->parameter->channel_number;
 			chip = ssd->channel_head[channel].token;
@@ -193,20 +194,21 @@ unsigned int get_ppn_for_pre_process(struct ssd_info *ssd, unsigned int lpn)
 			die = ssd->channel_head[channel].chip_head[chip].token;
 			ssd->channel_head[channel].chip_head[chip].token = (die + 1) % ssd->parameter->die_chip;
 			plane = ssd->channel_head[channel].chip_head[chip].die_head[die].token;
-			page_count++;
+			
+			ssd->page_count++;
 
 			if (ssd->parameter->flash_mode == TLC_MODE)
 			{
-				if (page_count % PAGE_INDEX == 0)                                      //tlc模式下，首先写同个die的三个页，写满了再去写另外的plane
+				if (ssd->page_count % PAGE_INDEX == 0)                                      //tlc模式下，首先写同个die的三个页，写满了再去写另外的plane
 				{
 					ssd->channel_head[channel].chip_head[chip].die_head[die].token = (plane + 1) % ssd->parameter->plane_die;
-					page_count = 0;
+					ssd->page_count = 0;
 				}
 			}
 			else if (ssd->parameter->flash_mode == SLC_MODE)
 			{
 				ssd->channel_head[channel].chip_head[chip].die_head[die].token = (plane + 1) % ssd->parameter->plane_die;
-				page_count = 0;
+				ssd->page_count = 0;
 			}
 		}
 		else if (ssd->parameter->dynamic_allocation == PLANE_DYNAMIC_ALLOCATION)																		//assign priority：plane>channel>die
@@ -215,23 +217,24 @@ unsigned int get_ppn_for_pre_process(struct ssd_info *ssd, unsigned int lpn)
 			chip = ssd->channel_head[channel].token;
 			die = ssd->channel_head[channel].chip_head[chip].token;
 			plane = ssd->channel_head[channel].chip_head[chip].die_head[die].token;
-			page_count++;
+			ssd->page_count++;
 
 			if (ssd->parameter->flash_mode == TLC_MODE)
 			{
-				//if (page_count % PAGE_INDEX == 0)
-				//{
+				if (ssd->page_count % PAGE_INDEX == 0)
+				{
 					ssd->channel_head[channel].chip_head[chip].die_head[die].token = (plane + 1) % ssd->parameter->plane_die;
 					if (plane == (ssd->parameter->plane_die - 1))
 					{
 						ssd->token = (ssd->token + 1) % ssd->parameter->channel_number;
+						ssd->channel_head[channel].token = (ssd->channel_head[channel].token + 1) % ssd->parameter->chip_channel[0];
 						if (ssd->token == 0)
 							ssd->channel_head[ssd->token].chip_head[ssd->channel_head[channel].token].token = (die + 1) % ssd->parameter->die_chip;
 						else
 							ssd->channel_head[ssd->token].chip_head[ssd->channel_head[channel].token].token = die;
 					}
-					page_count = 0;
-				//}
+					ssd->page_count = 0;
+				}
 			}
 			else if (ssd->parameter->flash_mode == SLC_MODE)
 			{
@@ -239,85 +242,123 @@ unsigned int get_ppn_for_pre_process(struct ssd_info *ssd, unsigned int lpn)
 				if (plane == (ssd->parameter->plane_die - 1))
 				{
 					ssd->token = (ssd->token + 1) % ssd->parameter->channel_number;
+					ssd->channel_head[channel].token = (ssd->channel_head[channel].token + 1) % ssd->parameter->chip_channel[0];
 					if (ssd->token == 0)
 						ssd->channel_head[ssd->token].chip_head[ssd->channel_head[channel].token].token = (die + 1) % ssd->parameter->die_chip;
 					else
 						ssd->channel_head[ssd->token].chip_head[ssd->channel_head[channel].token].token = die;
 				}
-				page_count = 0;
+				ssd->page_count = 0;
 			}
 		}
+		else if (ssd->parameter->dynamic_allocation == STRIPE_DYNAMIC_ALLOCATION)
+		{
+			//本次操作对应的location
+			channel = ssd->token;
+			chip = ssd->channel_head[channel].token;
+			die = ssd->channel_head[channel].chip_head[chip].token;
+			plane = ssd->channel_head[channel].chip_head[chip].die_head[die].token;
 
-		/*
-			if (ssd->parameter->dynamic_allocation == CHANNEL_DYNAMIC_ALLOCATION)			     
+			//更新下次操作的令牌
+			ssd->channel_head[channel].chip_head[chip].die_head[die].token = (plane + 1) % ssd->parameter->plane_die;
+			if (ssd->channel_head[channel].chip_head[chip].die_head[die].token == 0)
 			{
-				channel = ssd->token;
-				ssd->token = (ssd->token + 1) % ssd->parameter->channel_number;
-				chip = ssd->channel_head[channel].token;
-				ssd->channel_head[channel].token = (chip + 1) % ssd->parameter->chip_channel[0];
-				die = ssd->channel_head[channel].chip_head[chip].token;
-				ssd->channel_head[channel].chip_head[chip].token = (die + 1) % ssd->parameter->die_chip;
-				plane = ssd->channel_head[channel].chip_head[chip].die_head[die].token;
-				ssd->channel_head[channel].chip_head[chip].die_head[die].token = (plane + 1) % ssd->parameter->plane_die;
+				ssd->channel_head[channel].token = (ssd->channel_head[channel].token + 1) % ssd->parameter->chip_channel[0];
+				ssd->channel_head[ssd->token].chip_head[ssd->channel_head[channel].token].token = (die + 1) % ssd->parameter->die_chip;
+				if (ssd->channel_head[channel].token == 0)
+					ssd->token = (ssd->token + 1) % ssd->parameter->channel_number;
 			}
-			else																
-			{
-				channel = ssd->token;
-				chip = ssd->channel_head[channel].token;
-				die = ssd->channel_head[channel].chip_head[chip].token;
-				plane = ssd->channel_head[channel].chip_head[chip].die_head[die].token;
-				ssd->channel_head[channel].chip_head[chip].die_head[die].token = (plane + 1) % ssd->parameter->plane_die;    
-
-				if (plane == (ssd->parameter->plane_die - 1))
-				{
-					ssd->token = (ssd->token + 1) % ssd->parameter->channel_number;											  
-					if (ssd->token == 0)
-						ssd->channel_head[ssd->token].chip_head[ssd->channel_head[channel].token].token = (die + 1) % ssd->parameter->die_chip;  
-					else
-						ssd->channel_head[ssd->token].chip_head[ssd->channel_head[channel].token].token = die;				
-				}
-			}
-		*/
-			
+		}
 	}
 	else if (ssd->parameter->allocation_scheme == STATIC_ALLOCATION)
 	{
-		/*
-		//1.die>channel>chip 2.channel>chip>die
-		if (ssd->parameter->static_allocation == DIE_STATIC_ALLOCATION)
+		//预处理的分配，是直接去写，所以应该分配到对应的plane上,按照静态分配方式去进行(分tlc/slc mode)
+		if (ssd->parameter->flash_mode == TLC_MODE)
 		{
-			channel = (lpn / (plane_num*PAGE_INDEX)) % channel_num;
-			chip = (lpn / (plane_num*PAGE_INDEX*channel_num)) % chip_num;
-			die = (lpn / (plane_num*PAGE_INDEX*channel_num*chip_num)) % chip_num;
+			switch (ssd->parameter->static_allocation)
+			{
+				case PLANE_STATIC_ALLOCATION:													 //1.plane>superpage>channel>chip>die 
+				{
+					plane = lpn % plane_num;
+					channel = (lpn / (plane_num*PAGE_INDEX)) % channel_num;
+					chip = (lpn / (plane_num*PAGE_INDEX*channel_num)) % chip_num;
+					die = (lpn / (plane_num*PAGE_INDEX*channel_num*chip_num)) % die_num;
+					break;
+				}
+				case SUPERPAGE_STATIC_ALLOCATION:												//2.superpage>plane>channel>chip>die
+				{
+					plane = (lpn / PAGE_INDEX) % plane_num;
+					channel = (lpn / (plane_num*PAGE_INDEX)) % channel_num;
+					chip = (lpn / (plane_num*PAGE_INDEX*channel_num)) % chip_num;
+					die = (lpn / (plane_num*channel_num*chip_num*PAGE_INDEX)) % die_num;
+					break;
+				}
+				case CHANNEL_PLANE_STATIC_ALLOCATION:											//3.channel>chip>plane>superpage>die
+				{
+					channel = lpn % channel_num;
+					chip = (lpn / channel_num) % chip_num;
+					plane = (lpn / (channel_num*chip_num)) % plane_num;
+					die = (lpn / (plane_num*channel_num*chip_num*PAGE_INDEX)) % die_num;
+					break;
+				}
+				case CHANNEL_SUPERPAGE_STATIC_ALLOCATION:										//4.channel>chip>superpage>plane>die
+				{
+					channel = lpn % channel_num;
+					chip = (lpn / channel_num) % chip_num;
+					plane = (lpn / (channel_num*chip_num*PAGE_INDEX)) % plane_num;
+					die = (lpn / (plane_num*channel_num*chip_num*PAGE_INDEX)) % die_num;
+					break;
+				}
+				default:break;
+			}
 		}
-		else if (ssd->parameter->static_allocation == CHANNEL_STATIC_ALLOCATION)
+		else if (ssd->parameter->flash_mode == SLC_MODE)									
 		{
-			channel = lpn % channel_num;
-			chip = (lpn / channel_num) % chip_num;
-			die = (lpn / (plane_num*PAGE_INDEX*channel_num*chip_num)) % die_num;
-		}*/
-		
-		if (ssd->parameter->static_allocation == PLANE_STATIC_ALLOCATION)    //plane>channel>chip>die
+			if (ssd->parameter->static_allocation == PLANE_STATIC_ALLOCATION || ssd->parameter->static_allocation == SUPERPAGE_STATIC_ALLOCATION)			//1.plane>channel>chip>die
+			{
+				plane = lpn % plane_num;
+				channel = (lpn / plane_num) % channel_num;
+				chip = (lpn / (plane_num*channel_num)) % chip_num;
+				die = (lpn / (plane_num*channel_num*chip_num)) % die_num;
+			}
+			else if (ssd->parameter->static_allocation == CHANNEL_PLANE_STATIC_ALLOCATION || ssd->parameter->static_allocation == CHANNEL_SUPERPAGE_STATIC_ALLOCATION)         //2.channel>chip>plane>die
+			{
+				channel = lpn % channel_num;
+				chip = (lpn / channel_num) % chip_num;
+				plane = (lpn / (chip_num*channel_num)) % plane_num;
+				die = (lpn / (plane_num*channel_num*chip_num)) % die_num;
+			}
+		}
+		/*
+		if (ssd->parameter->static_allocation == PLANE_STATIC_ALLOCATION)                                  
 		{
 			plane = lpn % plane_num;
-			channel = (lpn / plane_num) % channel_num;
-			chip = (lpn / (plane_num*channel_num)) % chip_num;
-			die = (lpn / (plane_num*channel_num*chip_num)) % die_num;
+			channel = (lpn / (plane_num*PAGE_INDEX)) % channel_num;
+			chip = (lpn / (plane_num*PAGE_INDEX*channel_num)) % chip_num;
+			die = (lpn / (plane_num*PAGE_INDEX*channel_num*chip_num)) % die_num;
 		}
-		else if (ssd->parameter->static_allocation == SUPERPAGE_STATIC_ALLOCATION)
+		else if (ssd->parameter->static_allocation == SUPERPAGE_STATIC_ALLOCATION)							
 		{
 			plane = (lpn / PAGE_INDEX) % plane_num;
 			channel = (lpn / (plane_num*PAGE_INDEX)) % channel_num;
-			chip = (lpn / (plane_num*channel_num*PAGE_INDEX)) % chip_num;
+			chip = (lpn / (plane_num*PAGE_INDEX*channel_num)) % chip_num;
 			die = (lpn / (plane_num*channel_num*chip_num*PAGE_INDEX)) % die_num;
 		}
-		else if (ssd->parameter->static_allocation == CHANNEL_STATIC_ALLOCATION)
+		else if (ssd->parameter->static_allocation == CHANNEL_PLANE_STATIC_ALLOCATION)						
 		{
 			channel = lpn % channel_num;
 			chip = (lpn / channel_num) % chip_num;
 			plane = (lpn / (channel_num*chip_num)) % plane_num;
-			die = (lpn / (plane_num*channel_num*chip_num)) % die_num;
+			die = (lpn / (plane_num*channel_num*chip_num*PAGE_INDEX)) % die_num;
 		}
+		else if (ssd->parameter->static_allocation == CHANNEL_SUPERPAGE_STATIC_ALLOCATION)					
+		{
+			channel = lpn % channel_num;
+			chip = (lpn / channel_num) % chip_num;
+			plane = (lpn / (channel_num*chip_num*PAGE_INDEX)) % plane_num;
+			die = (lpn / (plane_num*channel_num*chip_num*PAGE_INDEX)) % die_num;
+		}
+		*/
 	}
 
 	/******************************************************************************
@@ -606,6 +647,9 @@ Status get_ppn_for_normal_command(struct ssd_info * ssd, unsigned int channel, u
 	else if (ssd->parameter->allocation_scheme == STATIC_ALLOCATION || ssd->active_flag == CHANNEL_MOUNT)
 	{
 		die = sub->location->die;
+		if (ssd->parameter->flash_mode == TLC_MODE)
+			sub->location->plane = 0;
+
 		plane = sub->location->plane;
 		get_ppn(ssd, channel, chip, die, plane, sub);
 
@@ -629,28 +673,23 @@ Status get_ppn_for_normal_command(struct ssd_info * ssd, unsigned int channel, u
 *************************************************************************************************/
 Status get_ppn_for_advanced_commands(struct ssd_info *ssd, unsigned int channel, unsigned int chip, struct sub_request ** subs, unsigned int subs_count, unsigned int command)
 {
-	unsigned int die = 0, plane = 0;
-
 	unsigned int aim_die = 0, aim_plane = 0, aim_count = 0;
-
 	unsigned int die_token = 0, plane_token = 0;
-	struct sub_request * sub = NULL;
 	unsigned int i = 0, j = 0, k = 0;
 	unsigned int valid_subs_count = 0;
 	unsigned int state ;
 
+	struct sub_request * sub = NULL;
 	struct sub_request ** mutli_subs = NULL;
 
 	if (ssd->parameter->allocation_scheme == DYNAMIC_ALLOCATION || ssd->active_flag == SSD_MOUNT)  //动态分配的目标die plane由动态令牌来决定
 	{
 		aim_die = ssd->channel_head[channel].chip_head[chip].token;
-		aim_plane = ssd->channel_head[channel].chip_head[chip].die_head[die].token;
+		aim_plane = ssd->channel_head[channel].chip_head[chip].die_head[aim_die].token;
 	}
 	else if (ssd->parameter->allocation_scheme == STATIC_ALLOCATION || ssd->active_flag == CHANNEL_MOUNT)
 	{
-		aim_die = subs[0]->location->die;
-		aim_plane = subs[0]->location->plane;
-
+		aim_die = subs[0]->location->die;            //静态分配只能找到对应的die
 		//验证subs的有效性
 		for (i = 0; i < subs_count; i++)
 		{
@@ -659,53 +698,52 @@ Status get_ppn_for_advanced_commands(struct ssd_info *ssd, unsigned int channel,
 				printf("Error ,aim_die match failed\n");
 				getchar();
 			}
-			
-			if (command == ONE_SHOT_MUTLI_PLANE)
-				aim_count = PAGE_INDEX;
-			else if (command == MUTLI_PLANE)
-				aim_count = 1;
-
-			if (command == MUTLI_PLANE && command == ONE_SHOT_MUTLI_PLANE)
-			{
-				if (i < aim_count)
-				{
-					if (subs[i]->location->plane != aim_plane)
-					{
-						printf("Error ,aim_plane match failed\n");
-						getchar();
-					}
-				}
-				else
-				{
-					if (subs[i]->location->plane == aim_plane)
-					{
-						printf("Error ,aim_plane match failed\n");
-						getchar();
-					}
-				}
-			}
 		}
 	}
 
+	//如果是one shot mutli plane的情况，这里就要分superpage还是mutli plane优先
 	if (command == ONE_SHOT_MUTLI_PLANE)
 	{
 		mutli_subs = (struct sub_request **)malloc(ssd->parameter->plane_die * sizeof(struct sub_request *));
-		for (i = 0; i < PAGE_INDEX; i++)
+		//plane>superpage:024/135
+		if (ssd->parameter->static_allocation == PLANE_STATIC_ALLOCATION || ssd->parameter->static_allocation == CHANNEL_PLANE_STATIC_ALLOCATION )
 		{
-			k = 0;
-			for (j = 0; j < ssd->parameter->plane_die; j++)
+			for (i = 0; i < PAGE_INDEX; i++)
 			{
-				if (i + k > subs_count)
+				for (j = 0; j < ssd->parameter->plane_die; j++)
 				{
-					printf("subs_count distribute error\n");
-					getchar();
+					if (i + k > subs_count)
+					{
+						printf("subs_count distribute error\n");
+						getchar();
+					}
+					mutli_subs[j] = subs[j + k];
 				}
-				mutli_subs[j] = subs[i + k];
-				k = k + PAGE_INDEX;
+				//进行mutli plane的操作
+				find_level_page(ssd, channel, chip, aim_die, mutli_subs, ssd->parameter->plane_die);
+				k = k + ssd->parameter->plane_die;
 			}
-			//进行mutli plane的操作
-			find_level_page(ssd, channel, chip, aim_die, mutli_subs, ssd->parameter->plane_die);
+		}//superpage>plane;012/345
+		else if (ssd->parameter->static_allocation == SUPERPAGE_STATIC_ALLOCATION || ssd->parameter->static_allocation == CHANNEL_SUPERPAGE_STATIC_ALLOCATION)
+		{
+			for (i = 0; i < PAGE_INDEX; i++)
+			{
+				k = 0;
+				for (j = 0; j < ssd->parameter->plane_die; j++)
+				{
+					if (i + k > subs_count)
+					{
+						printf("subs_count distribute error\n");
+						getchar();
+					}
+					mutli_subs[j] = subs[i + k];
+					k = k + PAGE_INDEX;
+				}
+				//进行mutli plane的操作
+				find_level_page(ssd, channel, chip, aim_die, mutli_subs, ssd->parameter->plane_die);
+			}
 		}
+
 		valid_subs_count = subs_count;
 		compute_serve_time(ssd, channel, chip, aim_die, subs, valid_subs_count, ONE_SHOT_MUTLI_PLANE);
 		printf("lz:mutli plane one shot\n");
@@ -720,36 +758,6 @@ Status get_ppn_for_advanced_commands(struct ssd_info *ssd, unsigned int channel,
 		mutli_subs = NULL;
 		return SUCCESS;
 	}
-	
-
-	/*
-	if (command == ONE_SHOT_MUTLI_PLANE)
-	{
-		die = ssd->channel_head[channel].chip_head[chip].token;
-		for (i = 0; i < PAGE_INDEX; i++)
-		{
-			for (j = 0; j < ssd->parameter->plane_die; j++)
-				mutli_subs[j] = subs[j + k];
-
-			//进行mutli plane的操作
-			find_level_page(ssd, channel, chip, die, mutli_subs, ssd->parameter->plane_die);
-
-			k = k + ssd->parameter->plane_die;
-		}
-
-		valid_subs_count = subs_count;
-		ssd->channel_head[channel].chip_head[chip].token = (die + 1) % ssd->parameter->die_chip;
-
-		compute_serve_time(ssd, channel, chip, die, subs, valid_subs_count, ONE_SHOT_MUTLI_PLANE);
-		printf("lz:mutli plane one shot\n");
-
-		//free mutli_subs
-		for (i = 0; i < ssd->parameter->plane_die; i++)
-			mutli_subs[i] = NULL;
-		free(mutli_subs);
-		mutli_subs = NULL;
-		return SUCCESS;
-	}*/
 	else if (command == MUTLI_PLANE)
 	{
 		if (subs_count == ssd->parameter->plane_die)
@@ -790,12 +798,12 @@ Status get_ppn_for_advanced_commands(struct ssd_info *ssd, unsigned int channel,
 		//更新plane die
 		if (ssd->parameter->allocation_scheme == DYNAMIC_ALLOCATION || ssd->active_flag == SSD_MOUNT)
 		{
-			ssd->channel_head[channel].chip_head[chip].die_head[die].token = (aim_plane + 1) % ssd->parameter->plane_die;
+			ssd->channel_head[channel].chip_head[chip].die_head[aim_die].token = (aim_plane + 1) % ssd->parameter->plane_die;
 			if (aim_plane == (ssd->parameter->plane_die - 1))
 				ssd->channel_head[channel].chip_head[chip].token = (aim_die + 1) % ssd->parameter->die_chip;
 		}
 
-		printf("lz:one shot\n");
+		//printf("lz:one shot\n");
 		return SUCCESS;
 	}
 	else
@@ -803,8 +811,6 @@ Status get_ppn_for_advanced_commands(struct ssd_info *ssd, unsigned int channel,
 		return ERROR;
 	}
 }
-
-
 
 /******************************************************************************************下面是ftl层gc操作******************************************************************************************/
 
@@ -1000,7 +1006,7 @@ int gc_direct_erase(struct ssd_info *ssd, unsigned int channel, unsigned int chi
 int greedy_gc(struct ssd_info *ssd, unsigned int channel, unsigned int chip, unsigned int die)
 {
 	unsigned int i = 0, j = 0, p = 0 ,invalid_page = 0;
-	unsigned int active_block1, active_block2, transfer_size, free_page, avg_page_move = 0;                           /*Record the maximum number of blocks that are invalid*/
+	unsigned int active_block1, active_block2, transfer_size = 0, free_page, avg_page_move = 0;                           /*Record the maximum number of blocks that are invalid*/
 	struct local *  location = NULL;
 	unsigned int plane , move_plane;
 	int block1, block2;
@@ -1098,7 +1104,7 @@ int greedy_gc(struct ssd_info *ssd, unsigned int channel, unsigned int chip, uns
 			if (free_page != 0)
 			{
 				printf("\ntoo much free page. \t %d\t .%d\t%d\t%d\t%d\t\n", free_page, channel, chip, die, plane); /*There are free pages, proved to be active blocks, blocks are not finished, can not be erased*/
-				getchar();
+				//getchar();
 			}
 
 			if (ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[plane].blk_head[block].page_head[i].valid_state > 0) /*The page is a valid page that requires a copyback operation*/
@@ -1135,11 +1141,12 @@ int greedy_gc(struct ssd_info *ssd, unsigned int channel, unsigned int chip, uns
 	}
 	
 	//判断是否偏移地址free page一致
+	/*
 	if (ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[0].free_page != ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[1].free_page)
 	{
 		printf("free page don't equal\n");
 		getchar();
-	}
+	}*/
 
 	//迁移有效页的时间推动
 	ssd->channel_head[channel].current_state = CHANNEL_GC;
