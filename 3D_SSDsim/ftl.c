@@ -6,19 +6,21 @@ This is a project on 3D_SSDsim, based on ssdsim under the framework of the compl
 4.4-layer structure
 
 FileName： ftl.c
-Author: Zuo Lu 		Version: 1.6	Date:2017/07/24
+Author: Zuo Lu 		Version: 1.8	Date:2017/08/17
 Description: 
 ftl layer: can not interrupt the global gc operation, gc operation to migrate valid pages using ordinary read and write operations, remove support copyback operation;
 
 History:
-<contributor>     <time>        <version>       <desc>											<e-mail>
-Zuo Lu	        2017/04/06	      1.0		    Creat 3D_SSDsim									617376665@qq.com
-Zuo Lu			2017/05/12		  1.1			Support advanced commands:mutli plane			617376665@qq.com
-Zuo Lu			2017/06/12		  1.2			Support advanced commands:half page read		617376665@qq.com
-Zuo Lu			2017/06/16		  1.3			Support advanced commands:one shot program		617376665@qq.com
-Zuo Lu			2017/06/22		  1.4			Support advanced commands:one shot read			617376665@qq.com
-Zuo Lu			2017/07/07		  1.5			Support advanced commands:erase suspend/resume  617376665@qq.com
-Zuo Lu			2017/07/24		  1.6			Support static allocation strategy				617376665@qq.com
+<contributor>     <time>        <version>       <desc>													<e-mail>
+Zuo Lu	        2017/04/06	      1.0		    Creat 3D_SSDsim											617376665@qq.com
+Zuo Lu			2017/05/12		  1.1			Support advanced commands:mutli plane					617376665@qq.com
+Zuo Lu			2017/06/12		  1.2			Support advanced commands:half page read				617376665@qq.com
+Zuo Lu			2017/06/16		  1.3			Support advanced commands:one shot program				617376665@qq.com
+Zuo Lu			2017/06/22		  1.4			Support advanced commands:one shot read					617376665@qq.com
+Zuo Lu			2017/07/07		  1.5			Support advanced commands:erase suspend/resume			617376665@qq.com
+Zuo Lu			2017/07/24		  1.6			Support static allocation strategy						617376665@qq.com
+Zuo Lu			2017/07/27		  1.7			Support hybrid allocation strategy						617376665@qq.com
+Zuo Lu			2017/08/17		  1.8			Support dynamic stripe allocation strategy				617376665@qq.com
 *****************************************************************************************************************************/
 
 #define _CRTDBG_MAP_ALLOC
@@ -625,26 +627,38 @@ Status get_ppn_for_normal_command(struct ssd_info * ssd, unsigned int channel, u
 	{
 		return ERROR;
 	}
-	if (ssd->parameter->allocation_scheme == DYNAMIC_ALLOCATION || ssd->active_flag == SSD_MOUNT)
+	if (ssd->parameter->allocation_scheme == DYNAMIC_ALLOCATION || ssd->parameter->allocation_scheme == HYBRID_ALLOCATION)
 	{
 		die = ssd->channel_head[channel].chip_head[chip].token;
 		plane = ssd->channel_head[channel].chip_head[chip].die_head[die].token;
 		get_ppn(ssd, channel, chip, die, plane, sub);
 
+		//更新下次操作的令牌
 		if (ssd->parameter->dynamic_allocation == PLANE_DYNAMIC_ALLOCATION)
 		{
 			ssd->channel_head[channel].chip_head[chip].die_head[die].token = (plane + 1) % ssd->parameter->plane_die;
 			if (plane == (ssd->parameter->plane_die - 1))
 				ssd->channel_head[channel].chip_head[chip].token = (die + 1) % ssd->parameter->die_chip;
 		}
-		else
+		else if (ssd->parameter->dynamic_allocation == STRIPE_DYNAMIC_ALLOCATION)
+		{
+			ssd->channel_head[channel].chip_head[chip].die_head[die].token = (plane + 1) % ssd->parameter->plane_die;
+			if (ssd->channel_head[channel].chip_head[chip].die_head[die].token == 0)
+			{
+				ssd->channel_head[channel].token = (ssd->channel_head[channel].token + 1) % ssd->parameter->chip_channel[0];
+				ssd->channel_head[ssd->token].chip_head[ssd->channel_head[channel].token].token = (die + 1) % ssd->parameter->die_chip;
+				if (ssd->channel_head[channel].token == 0)
+					ssd->token = (ssd->token + 1) % ssd->parameter->channel_number;
+			}
+		}
+		else if (ssd->parameter->dynamic_allocation == CHANNEL_DYNAMIC_ALLOCATION)
 		{
 			ssd->channel_head[channel].chip_head[chip].die_head[die].token = (plane + 1) % ssd->parameter->plane_die;
 			ssd->channel_head[channel].chip_head[chip].token = (die + 1) % ssd->parameter->die_chip;
 		}
 		compute_serve_time(ssd, channel, chip, die, &sub, 1, NORMAL);
 	}
-	else if (ssd->parameter->allocation_scheme == STATIC_ALLOCATION || ssd->active_flag == CHANNEL_MOUNT)
+	else if (ssd->parameter->allocation_scheme == STATIC_ALLOCATION)
 	{
 		die = sub->location->die;
 		if (ssd->parameter->flash_mode == TLC_MODE)
@@ -682,12 +696,12 @@ Status get_ppn_for_advanced_commands(struct ssd_info *ssd, unsigned int channel,
 	struct sub_request * sub = NULL;
 	struct sub_request ** mutli_subs = NULL;
 
-	if (ssd->parameter->allocation_scheme == DYNAMIC_ALLOCATION || ssd->active_flag == SSD_MOUNT)  //动态分配的目标die plane由动态令牌来决定
+	if (ssd->parameter->allocation_scheme == DYNAMIC_ALLOCATION || ssd->parameter->allocation_scheme == HYBRID_ALLOCATION)  //动态分配的目标die plane由动态令牌来决定
 	{
 		aim_die = ssd->channel_head[channel].chip_head[chip].token;
 		aim_plane = ssd->channel_head[channel].chip_head[chip].die_head[aim_die].token;
 	}
-	else if (ssd->parameter->allocation_scheme == STATIC_ALLOCATION || ssd->active_flag == CHANNEL_MOUNT)
+	else if (ssd->parameter->allocation_scheme == STATIC_ALLOCATION)
 	{
 		aim_die = subs[0]->location->die;            //静态分配只能找到对应的die
 		//验证subs的有效性
@@ -746,9 +760,9 @@ Status get_ppn_for_advanced_commands(struct ssd_info *ssd, unsigned int channel,
 
 		valid_subs_count = subs_count;
 		compute_serve_time(ssd, channel, chip, aim_die, subs, valid_subs_count, ONE_SHOT_MUTLI_PLANE);
-		printf("lz:mutli plane one shot\n");
+		//printf("lz:mutli plane one shot\n");
 
-		if (ssd->parameter->allocation_scheme == DYNAMIC_ALLOCATION || ssd->active_flag == SSD_MOUNT)
+		if (ssd->parameter->allocation_scheme == DYNAMIC_ALLOCATION || ssd->parameter->allocation_scheme == HYBRID_ALLOCATION)
 			ssd->channel_head[channel].chip_head[chip].token = (aim_die + 1) % ssd->parameter->die_chip;
 
 		//free mutli_subs
@@ -775,10 +789,10 @@ Status get_ppn_for_advanced_commands(struct ssd_info *ssd, unsigned int channel,
 				valid_subs_count = ssd->parameter->plane_die;
 				compute_serve_time(ssd, channel, chip, aim_die, subs, valid_subs_count, MUTLI_PLANE);
 
-				if (ssd->parameter->allocation_scheme == DYNAMIC_ALLOCATION || ssd->active_flag == SSD_MOUNT)
+				if (ssd->parameter->allocation_scheme == DYNAMIC_ALLOCATION || ssd->parameter->allocation_scheme == HYBRID_ALLOCATION)
 					ssd->channel_head[channel].chip_head[chip].token = (aim_die + 1) % ssd->parameter->die_chip;
 				
-				printf("lz:mutli_plane\n");
+				//printf("lz:mutli_plane\n");
 				return SUCCESS;
 			}
 		}
@@ -796,7 +810,7 @@ Status get_ppn_for_advanced_commands(struct ssd_info *ssd, unsigned int channel,
 		compute_serve_time(ssd, channel, chip, aim_die, subs, valid_subs_count, ONE_SHOT);
 
 		//更新plane die
-		if (ssd->parameter->allocation_scheme == DYNAMIC_ALLOCATION || ssd->active_flag == SSD_MOUNT)
+		if (ssd->parameter->allocation_scheme == DYNAMIC_ALLOCATION || ssd->parameter->allocation_scheme == HYBRID_ALLOCATION)
 		{
 			ssd->channel_head[channel].chip_head[chip].die_head[aim_die].token = (aim_plane + 1) % ssd->parameter->plane_die;
 			if (aim_plane == (ssd->parameter->plane_die - 1))

@@ -6,19 +6,21 @@ This is a project on 3D_SSDsim, based on ssdsim under the framework of the compl
 4.4-layer structure
 
 FileName： buffer.c
-Author: Zuo Lu 		Version: 1.6	Date:2017/07/24
+Author: Zuo Lu 		Version: 1.8	Date:2017/08/17
 Description: 
 buff layer: only contains data cache (minimum processing size for the sector, that is, unit = 512B), mapping table (page-level);
 
 History:
-<contributor>     <time>        <version>       <desc>											<e-mail>
-Zuo Lu	        2017/04/06	      1.0		    Creat 3D_SSDsim									617376665@qq.com
-Zuo Lu			2017/05/12		  1.1			Support advanced commands:mutli plane			617376665@qq.com
-Zuo Lu			2017/06/12		  1.2			Support advanced commands:half page read		617376665@qq.com
-Zuo Lu			2017/06/16		  1.3			Support advanced commands:one shot program		617376665@qq.com
-Zuo Lu			2017/06/22		  1.4			Support advanced commands:one shot read			617376665@qq.com
-Zuo Lu			2017/07/07		  1.5			Support advanced commands:erase suspend/resume  617376665@qq.com
-Zuo Lu			2017/07/24		  1.6			Support static allocation strategy				617376665@qq.com
+<contributor>     <time>        <version>       <desc>													<e-mail>
+Zuo Lu	        2017/04/06	      1.0		    Creat 3D_SSDsim											617376665@qq.com
+Zuo Lu			2017/05/12		  1.1			Support advanced commands:mutli plane					617376665@qq.com
+Zuo Lu			2017/06/12		  1.2			Support advanced commands:half page read				617376665@qq.com
+Zuo Lu			2017/06/16		  1.3			Support advanced commands:one shot program				617376665@qq.com
+Zuo Lu			2017/06/22		  1.4			Support advanced commands:one shot read					617376665@qq.com
+Zuo Lu			2017/07/07		  1.5			Support advanced commands:erase suspend/resume			617376665@qq.com
+Zuo Lu			2017/07/24		  1.6			Support static allocation strategy						617376665@qq.com
+Zuo Lu			2017/07/27		  1.7			Support hybrid allocation strategy						617376665@qq.com
+Zuo Lu			2017/08/17		  1.8			Support dynamic stripe allocation strategy				617376665@qq.com
 *****************************************************************************************************************************/
 #define _CRTDBG_MAP_ALLOC
 
@@ -129,14 +131,22 @@ struct ssd_info *handle_write_buffer(struct ssd_info *ssd, struct request *req)
 			if (req->operation == READ)
 			{
 				ssd->dram->map->map_entry[lpn].read_count++;
+				/*
 				if (ssd->dram->map->map_entry[lpn].read_count > 65536)
+				{
+					printf("beyond 65536\n");
 					getchar();
+				}*/
 			}
 			else if (req->operation == WRITE)
 			{
 				ssd->dram->map->map_entry[lpn].write_count++;
+				/*
 				if (ssd->dram->map->map_entry[lpn].write_count > 65536)
+				{
+					printf("beyond 65536\n");
 					getchar();
+				}*/
 			}
 		}
 
@@ -682,7 +692,7 @@ struct ssd_info * distribute2_command_buffer(struct ssd_info * ssd, unsigned int
 	unsigned int aim_die = 0;
 	struct buffer_info * aim_command_buffer = NULL;
 
-	unsigned int type_flag = 0;
+	unsigned int type_flag = 0, i = 0;
 	struct buffer_group *buffer_node, key;
 
 	channel_num = ssd->parameter->channel_number;
@@ -693,17 +703,6 @@ struct ssd_info * distribute2_command_buffer(struct ssd_info * ssd, unsigned int
 	if (ssd->parameter->allocation_scheme == HYBRID_ALLOCATION)
 	{
 		//1.check缓存是否命中，命中则直接分配到对应的buffer，没有命中则按照频率来分配
-		/*
-		plane = lpn % plane_num;
-		channel = (lpn / plane_num) % channel_num;
-		chip = (lpn / (plane_num*channel_num)) % chip_num;
-		die = (lpn / (plane_num*channel_num*chip_num)) % die_num;
-		*/
-		
-		channel = lpn % channel_num;
-		chip = (lpn / channel_num) % chip_num;
-		die = (lpn / (plane_num*PAGE_INDEX*channel_num*chip_num)) % die_num;
-		
 		switch (ssd->dram->map->map_entry[lpn].type)
 		{
 			case 0:
@@ -726,9 +725,18 @@ struct ssd_info * distribute2_command_buffer(struct ssd_info * ssd, unsigned int
 			case READ_MORE:
 			{
 				key.group = lpn;
-				aim_die = channel * (die_num*chip_num) + chip * die_num + die;
-				buffer_node = (struct buffer_group*)avlTreeFind(ssd->dram->static_die_buffer[aim_die], (TREE_NODE *)&key);		// buffer node 
+				//检查所有的writeback缓存，判断是否命中
+				for (i = 0; i < die_num; i++)
+				{
+					buffer_node = (struct buffer_group*)avlTreeFind(ssd->dram->static_die_buffer[i], (TREE_NODE *)&key);		// buffer node 
+					if (buffer_node != NULL)
+					{
+						aim_die = i;
+						break;
+					}
+				}
 
+				//判读是否命中，若检查所有缓存没有命中，则置1，否则置
 				if (buffer_node != NULL)
 				{
 					aim_command_buffer = ssd->dram->static_die_buffer[aim_die];
@@ -748,15 +756,22 @@ struct ssd_info * distribute2_command_buffer(struct ssd_info * ssd, unsigned int
 			if (ssd->dram->map->map_entry[lpn].read_count >= ssd->dram->map->map_entry[lpn].write_count)
 			{	
 				//分配到对应的plane_buffer上
-				aim_die = channel * (die_num*chip_num) + chip * die_num + die;
+				aim_die = ssd->die_token;
 				aim_command_buffer = ssd->dram->static_die_buffer[aim_die];
 
+				ssd->plane_count++;
+				if (ssd->plane_count % ssd->parameter->plane_die == 0)
+				{
+					ssd->die_token = (ssd->die_token + 1) % DIE_NUMBER;
+					ssd->plane_count = 0;
+				}
 				//在表中支持改lpn的类型
 				ssd->dram->map->map_entry[lpn].type = READ_MORE;
 			}
 			else
 			{
 				aim_command_buffer = ssd->dram->command_buffer;
+				aim_die = 4;
 				ssd->dram->map->map_entry[lpn].type = WRITE_MORE;
 			}
 		}
@@ -809,7 +824,13 @@ struct ssd_info * distribute2_command_buffer(struct ssd_info * ssd, unsigned int
 			//确定要写入的die，按照替换的顺序依次写下
 			aim_die = ssd->die_token;
 			aim_command_buffer = ssd->dram->static_die_buffer[aim_die];
-			ssd->die_token = (ssd->die_token + 1) % DIE_NUMBER;
+
+			ssd->plane_count++;
+			if (ssd->plane_count % ssd->parameter->plane_die == 0)
+			{
+				ssd->die_token = (ssd->die_token + 1) % DIE_NUMBER;
+				ssd->plane_count = 0;
+			}
 		}
 		else
 		{
@@ -1248,14 +1269,48 @@ Status allocate_location(struct ssd_info * ssd, struct sub_request *sub_req, uns
 	}
 	else if (ssd->parameter->allocation_scheme == HYBRID_ALLOCATION)
 	{
-		sub_req->location->channel = sub_req->lpn % channel_num;
-		sub_req->location->chip = (sub_req->lpn / channel_num) % chip_num;
-		sub_req->location->die = (sub_req->lpn / (plane_num*PAGE_INDEX*channel_num*chip_num)) % die_num;
-
-		if (ssd->dram->map->map_entry[sub_req->lpn].type == READ_MORE)
-			mount_flag = CHANNEL_MOUNT;
-		else if (ssd->dram->map->map_entry[sub_req->lpn].type == WRITE_MORE)
-			mount_flag = SSD_MOUNT;
+		switch (die_number)
+		{
+			case 0:
+			{
+				sub_req->location->channel = 0;
+				sub_req->location->chip = 0;
+				sub_req->location->die = 0;
+				break;
+			}
+			case 1:
+			{
+				sub_req->location->channel = 0;
+				sub_req->location->chip = 1;
+				sub_req->location->die = 0;
+				break;
+			}
+			case 2:
+			{
+				sub_req->location->channel = 1;
+				sub_req->location->chip = 0;
+				sub_req->location->die = 0;
+				break;
+			}
+			case 3:
+			{
+				sub_req->location->channel = 1;
+				sub_req->location->chip = 1;
+				sub_req->location->die = 0;
+				break;
+			}
+			case 4:
+			{
+				sub_req->location->channel = -1;
+				sub_req->location->chip = -1;
+				sub_req->location->die = -1;
+				sub_req->location->plane = -1;
+				sub_req->location->block = -1;
+				sub_req->location->page = -1;
+			}
+			default:break;
+		}
+		mount_flag = SSD_MOUNT;
 	}
 	
 	//根据mount_flag, 选择挂载在channel上还是ssd上

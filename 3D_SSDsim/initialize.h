@@ -6,19 +6,21 @@ This is a project on 3D_SSDsim, based on ssdsim under the framework of the compl
 4.4-layer structure
 
 FileName£º initialize.h
-Author: Zuo Lu 		Version: 1.6	Date:2017/07/24
+Author: Zuo Lu 		Version: 1.8	Date:2017/08/17
 Description:
 Initialization layer: complete ssd organizational data structure, request queue creation and memory space initialization
 
 History:
-<contributor>     <time>        <version>       <desc>											<e-mail>
-Zuo Lu	        2017/04/06	      1.0		    Creat 3D_SSDsim									617376665@qq.com
-Zuo Lu			2017/05/12		  1.1			Support advanced commands:mutli plane			617376665@qq.com
-Zuo Lu			2017/06/12		  1.2			Support advanced commands:half page read		617376665@qq.com
-Zuo Lu			2017/06/16		  1.3			Support advanced commands:one shot program		617376665@qq.com
-Zuo Lu			2017/06/22		  1.4			Support advanced commands:one shot read			617376665@qq.com
-Zuo Lu			2017/07/07		  1.5			Support advanced commands:erase suspend/resume  617376665@qq.com
-Zuo Lu			2017/07/24		  1.6			Support static allocation strategy				617376665@qq.com
+<contributor>     <time>        <version>       <desc>													<e-mail>
+Zuo Lu	        2017/04/06	      1.0		    Creat 3D_SSDsim											617376665@qq.com
+Zuo Lu			2017/05/12		  1.1			Support advanced commands:mutli plane					617376665@qq.com
+Zuo Lu			2017/06/12		  1.2			Support advanced commands:half page read				617376665@qq.com
+Zuo Lu			2017/06/16		  1.3			Support advanced commands:one shot program				617376665@qq.com
+Zuo Lu			2017/06/22		  1.4			Support advanced commands:one shot read					617376665@qq.com
+Zuo Lu			2017/07/07		  1.5			Support advanced commands:erase suspend/resume			617376665@qq.com
+Zuo Lu			2017/07/24		  1.6			Support static allocation strategy						617376665@qq.com
+Zuo Lu			2017/07/27		  1.7			Support hybrid allocation strategy						617376665@qq.com
+Zuo Lu			2017/08/17		  1.8			Support dynamic stripe allocation strategy				617376665@qq.com
 *****************************************************************************************************************************/
 
 #include <stdio.h>
@@ -201,13 +203,13 @@ struct ssd_info{
 	unsigned int page_count;
 	int test_count;
 	unsigned int die_token;
+	unsigned int plane_count;
 
 	__int64 current_time;                //Record system time
 	__int64 next_request_time;
 	unsigned int real_time_subreq;       //Record the number of real-time write requests, used in the full dynamic allocation, channel priority situation
 
 	int flag;
-	int active_flag;                     //Record the active write sub_request
 	unsigned int page;
 
 	unsigned int token;                  //In the dynamic allocation, in order to prevent each assignment in the first channel need to maintain a token, each time from the token refers to the location of the distribution
@@ -588,8 +590,8 @@ struct parameter_value{
 struct entry{                       
 	unsigned int pn;                //Physical number, either a physical page number, a physical subpage number, or a physical block number
 	int state;                      //The hexadecimal representation is 0000-FFFF, and each bit indicates whether the corresponding subpage is valid (page mapping). 
-	unsigned int write_count;
-	unsigned int read_count;
+	long write_count;
+	long read_count;
 	unsigned int type;
 };
 

@@ -6,19 +6,21 @@ This is a project on 3D_SSDsim, based on ssdsim under the framework of the compl
 4.4-layer structure
 
 FileName： fcl.c
-Author: Zuo Lu 		Version: 1.6	Date:2017/07/24
+Author: Zuo Lu 		Version: 1.8	Date:2017/08/17
 Description:
 fcl layer: remove other high-level commands, leaving only mutli plane;
 
 History:
-<contributor>     <time>        <version>       <desc>											<e-mail>
-Zuo Lu	        2017/04/06	      1.0		    Creat 3D_SSDsim									617376665@qq.com
-Zuo Lu			2017/05/12		  1.1			Support advanced commands:mutli plane			617376665@qq.com
-Zuo Lu			2017/06/12		  1.2			Support advanced commands:half page read		617376665@qq.com
-Zuo Lu			2017/06/16		  1.3			Support advanced commands:one shot program		617376665@qq.com
-Zuo Lu			2017/06/22		  1.4			Support advanced commands:one shot read			617376665@qq.com
-Zuo Lu			2017/07/07		  1.5			Support advanced commands:erase suspend/resume  617376665@qq.com
-Zuo Lu			2017/07/24		  1.6			Support static allocation strategy				617376665@qq.com
+<contributor>     <time>        <version>       <desc>													<e-mail>
+Zuo Lu	        2017/04/06	      1.0		    Creat 3D_SSDsim											617376665@qq.com
+Zuo Lu			2017/05/12		  1.1			Support advanced commands:mutli plane					617376665@qq.com
+Zuo Lu			2017/06/12		  1.2			Support advanced commands:half page read				617376665@qq.com
+Zuo Lu			2017/06/16		  1.3			Support advanced commands:one shot program				617376665@qq.com
+Zuo Lu			2017/06/22		  1.4			Support advanced commands:one shot read					617376665@qq.com
+Zuo Lu			2017/07/07		  1.5			Support advanced commands:erase suspend/resume			617376665@qq.com
+Zuo Lu			2017/07/24		  1.6			Support static allocation strategy						617376665@qq.com
+Zuo Lu			2017/07/27		  1.7			Support hybrid allocation strategy						617376665@qq.com
+Zuo Lu			2017/08/17		  1.8			Support dynamic stripe allocation strategy				617376665@qq.com
 *****************************************************************************************************************************/
 
 #define _CRTDBG_MAP_ALLOC
@@ -1086,12 +1088,13 @@ Status services_2_write(struct ssd_info * ssd, unsigned int channel)
 	*************************************************************************************************************************/
 	if (ssd->subs_w_head != NULL || ssd->channel_head[channel].subs_w_head != NULL)
 	{
+		//判断tlc模式下，一次process，请求链上的请求有没有小于3个请求，不能执行one　shot
 		if (ssd->channel_head[channel].subs_w_head != NULL)
 		{
 			sub = ssd->channel_head[channel].subs_w_head;
 			while (sub != NULL)
 			{
-				i++;
+				i++;	
 				sub = sub->next_node;
 			}
 			if (ssd->parameter->flash_mode == TLC_MODE)
@@ -1101,39 +1104,8 @@ Status services_2_write(struct ssd_info * ssd, unsigned int channel)
 			}
 		}
 		
-		//混合分配方式下，比较channel和ssd上挂载的头部请求的时间，较小的时间本轮执行
-		if (ssd->parameter->allocation_scheme == HYBRID_ALLOCATION)
-		{
-			if (ssd->subs_w_head != NULL && ssd->channel_head[channel].subs_w_head != NULL)
-			{
-				if (ssd->subs_w_head->begin_time <= ssd->channel_head[channel].subs_w_head->begin_time)
-					ssd->active_flag = SSD_MOUNT;
-				else
-					ssd->active_flag = CHANNEL_MOUNT;
-			}
-			else if (ssd->subs_w_head != NULL)
-			{
-				ssd->active_flag = SSD_MOUNT;
-			}
-			else if (ssd->channel_head[channel].subs_w_head != NULL)
-			{
-				ssd->active_flag = CHANNEL_MOUNT;
-			}
-		}
-		/*
-		else if (ssd->parameter->allocation_scheme == DYNAMIC_ALLOCATION)
-		{
-			if (ssd->parameter->dynamic_allocation == STRIPE_DYNAMIC_ALLOCATION)
-				ssd->active_flag = CHANNEL_MOUNT;
-			else
-				ssd->active_flag = SSD_MOUNT;
-		}
-		else if (ssd->parameter->allocation_scheme == STATIC_ALLOCATION)
-			ssd->active_flag == CHANNEL_MOUNT;*/
-
-
 		//根据flag去判断到底本次状态转变执行哪种方式
-		if (ssd->parameter->allocation_scheme == DYNAMIC_ALLOCATION || ssd->active_flag == SSD_MOUNT)
+		if (ssd->parameter->allocation_scheme == DYNAMIC_ALLOCATION || ssd->parameter->allocation_scheme == HYBRID_ALLOCATION)
 		{
 			for (j = 0; j<ssd->channel_head[channel].chip; j++)							  //Traverse all the chips
 			{
@@ -1156,7 +1128,7 @@ Status services_2_write(struct ssd_info * ssd, unsigned int channel)
 				}
 			}
 		}
-		else if (ssd->parameter->allocation_scheme == STATIC_ALLOCATION || ssd->active_flag == CHANNEL_MOUNT)
+		else if (ssd->parameter->allocation_scheme == STATIC_ALLOCATION)
 		{
 			for (j = 0; j < ssd->channel_head[channel].chip; j++)
 			{
@@ -1210,9 +1182,9 @@ struct ssd_info *dynamic_advanced_process(struct ssd_info *ssd, unsigned int cha
 	
 
 	//根据是动态分配还是静态分配，选择不同的挂载点
-	if (ssd->parameter->allocation_scheme == DYNAMIC_ALLOCATION || ssd->active_flag == SSD_MOUNT)
+	if (ssd->parameter->allocation_scheme == DYNAMIC_ALLOCATION || ssd->parameter->allocation_scheme == HYBRID_ALLOCATION)
 		sub = ssd->subs_w_head;
-	else if (ssd->parameter->allocation_scheme == STATIC_ALLOCATION || ssd->active_flag == CHANNEL_MOUNT)
+	else if (ssd->parameter->allocation_scheme == STATIC_ALLOCATION)
 	{
 		sub = ssd->channel_head[channel].subs_w_head;
 		aim_die = sub->location->die;
@@ -1227,15 +1199,15 @@ struct ssd_info *dynamic_advanced_process(struct ssd_info *ssd, unsigned int cha
 			if ((sub->update == NULL) || ((sub->update != NULL) && ((sub->update->current_state == SR_COMPLETE) || ((sub->update->next_state == SR_COMPLETE) && (sub->update->next_state_predict_time <= ssd->current_time)))))    //没有需要提前读出的页
 			{
 				//如果是静态分配，还需要保证找到的空闲请求是属于同一个aim_die
-				if (ssd->parameter->allocation_scheme == STATIC_ALLOCATION || ssd->active_flag == CHANNEL_MOUNT)
+				if (ssd->parameter->allocation_scheme == STATIC_ALLOCATION)
 				{
-					if (sub->location->die == aim_die)
+					if (sub->location->die == aim_die && sub->location->chip == chip)
 					{
 						subs[subs_count] = sub;
 						subs_count++;
 					}
 				}
-				else if (ssd->parameter->allocation_scheme == DYNAMIC_ALLOCATION || ssd->active_flag == SSD_MOUNT)
+				else if (ssd->parameter->allocation_scheme == DYNAMIC_ALLOCATION)
 				{
 					if (ssd->parameter->dynamic_allocation == STRIPE_DYNAMIC_ALLOCATION)
 					{
@@ -1249,6 +1221,25 @@ struct ssd_info *dynamic_advanced_process(struct ssd_info *ssd, unsigned int cha
 					{
 							subs[subs_count] = sub;
 							subs_count++;
+					}
+				}
+				else if (ssd->parameter->allocation_scheme == HYBRID_ALLOCATION)						//根据首节点的location判断是完全动态的写入还是stripe的写入
+				{
+					if (ssd->subs_w_head->location->channel == -1)
+					{
+						if (sub->location->chip == -1 && sub->location->channel == -1)
+						{
+							subs[subs_count] = sub;
+							subs_count++;
+						}
+					}
+					else
+					{
+						if (sub->location->chip == chip && sub->location->channel == channel)
+						{
+							subs[subs_count] = sub;
+							subs_count++;
+						}
 					}
 				}
 			}
@@ -1347,7 +1338,7 @@ Status service_advance_command(struct ssd_info *ssd, unsigned int channel, unsig
 	//当最后读完了，只剩下了单个请求，这个时候可以使用普通的one page program去写完
 	if (ssd->trace_over_flag == 1 && ssd->request_work == NULL)
 	{
-		for (i = 0; i <= subs_count;i++)
+		for (i = 0; i < subs_count;i++)
 			get_ppn_for_normal_command(ssd, channel, chip, subs[i]);
 
 		return SUCCESS;
@@ -1698,22 +1689,17 @@ struct ssd_info *delete_from_channel(struct ssd_info *ssd, unsigned int channel,
 {
 	struct sub_request *sub, *p;
 
-	if (ssd->parameter->allocation_scheme == DYNAMIC_ALLOCATION || ssd->active_flag == SSD_MOUNT)
+	if (ssd->parameter->allocation_scheme == DYNAMIC_ALLOCATION || ssd->parameter->allocation_scheme == HYBRID_ALLOCATION)
 		sub = ssd->subs_w_head;
-	else if (ssd->parameter->allocation_scheme == STATIC_ALLOCATION || ssd->active_flag == CHANNEL_MOUNT)
+	else if (ssd->parameter->allocation_scheme == STATIC_ALLOCATION)
 		sub = ssd->channel_head[channel].subs_w_head; 
-
-	/*if (ssd->active_flag == SSD_MOUNT)
-		sub = ssd->subs_w_head;
-	else if (ssd->active_flag == CHANNEL_MOUNT)
-		sub = ssd->channel_head[channel].subs_w_head;*/
 
 	p = sub;
 	while (sub != NULL)
 	{
 		if (sub == sub_req)
 		{
-			if (ssd->parameter->allocation_scheme == DYNAMIC_ALLOCATION || ssd->active_flag == SSD_MOUNT)
+			if (ssd->parameter->allocation_scheme == DYNAMIC_ALLOCATION || ssd->parameter->allocation_scheme == HYBRID_ALLOCATION)
 			{
 				if (sub == ssd->subs_w_head)
 				{
@@ -1747,7 +1733,7 @@ struct ssd_info *delete_from_channel(struct ssd_info *ssd, unsigned int channel,
 					}
 				}
 			}
-			else if (ssd->parameter->allocation_scheme == STATIC_ALLOCATION || ssd->active_flag == CHANNEL_MOUNT)
+			else if (ssd->parameter->allocation_scheme == STATIC_ALLOCATION)
 			{
 				if (sub == ssd->channel_head[channel].subs_w_head)
 				{
