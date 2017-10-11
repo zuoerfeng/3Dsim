@@ -6,7 +6,7 @@ This is a project on 3D_SSDsim, based on ssdsim under the framework of the compl
 4.4-layer structure
 
 FileName： buffer.c
-Author: Zuo Lu 		Version: 1.8	Date:2017/08/17
+Author: Zuo Lu 		Version: 1.9	Date:2017/10/11
 Description: 
 buff layer: only contains data cache (minimum processing size for the sector, that is, unit = 512B), mapping table (page-level);
 
@@ -21,6 +21,7 @@ Zuo Lu			2017/07/07		  1.5			Support advanced commands:erase suspend/resume			61
 Zuo Lu			2017/07/24		  1.6			Support static allocation strategy						617376665@qq.com
 Zuo Lu			2017/07/27		  1.7			Support hybrid allocation strategy						617376665@qq.com
 Zuo Lu			2017/08/17		  1.8			Support dynamic stripe allocation strategy				617376665@qq.com
+Zuo Lu			2017/10/11		  1.9			Support dynamic OSPA allocation strategy				617376665@qq.com
 *****************************************************************************************************************************/
 #define _CRTDBG_MAP_ALLOC
 
@@ -79,11 +80,11 @@ struct ssd_info *buffer_management(struct ssd_info *ssd)
 		new_request->begin_time = ssd->current_time;
 		new_request->response_time = ssd->current_time + 1000;
 
-		if (new_request->request_read_num % SAMPLE_SPACE == 0 && new_request->operation == READ)
-		{ 
-			fprintf(ssd->statisticfile_time, "%2d %16I64u %8llu \n", -1, ssd->current_time, new_request->request_read_num);
-			fflush(ssd->statisticfile_time);
-		}
+		//if (new_request->request_read_num % SAMPLE_SPACE == 0 && new_request->operation == READ)
+		//{ 
+		//	fprintf(ssd->statisticfile_time, "%2d %16I64u %8llu \n", -1, ssd->current_time, new_request->request_read_num);
+		//	fflush(ssd->statisticfile_time);
+		//}
 	}
 
 	new_request->cmplt_flag = 1;
@@ -695,6 +696,9 @@ struct ssd_info * distribute2_command_buffer(struct ssd_info * ssd, unsigned int
 	unsigned int type_flag = 0, i = 0;
 	struct buffer_group *buffer_node, key;
 
+	__int64 return_distance = 0;
+	__int64 max_distance = 0;
+
 	channel_num = ssd->parameter->channel_number;
 	chip_num = ssd->parameter->chip_channel[0];
 	die_num = ssd->parameter->die_chip;
@@ -832,6 +836,29 @@ struct ssd_info * distribute2_command_buffer(struct ssd_info * ssd, unsigned int
 				ssd->plane_count = 0;
 			}
 		}
+		else if (ssd->parameter->dynamic_allocation == OSPA_DYNAMIC_ALLOCATION)
+		{
+			aim_die = 0;
+			//进入这个函数之前，die_buffer里面已经有缓存的数据。
+			for (i = 0; i < DIE_NUMBER; i++)
+			{	
+				//如果当前buffer是空的，则直接写入
+				if (ssd->dram->static_die_buffer[i]->buffer_head == NULL)
+				{
+					aim_die = i;
+					break;
+				}
+
+				//遍历所有的die_buffer并计算欧式距离，返回对应die中最小的欧式距离
+				return_distance = calculate_distance(ssd, ssd->dram->static_die_buffer[i], lpn);
+				if (max_distance <= return_distance)
+				{
+					max_distance = return_distance;
+					aim_die = i;
+				}
+			}
+			aim_command_buffer = ssd->dram->static_die_buffer[aim_die];
+		}
 		else
 		{
 			aim_command_buffer = ssd->dram->command_buffer;
@@ -843,6 +870,39 @@ struct ssd_info * distribute2_command_buffer(struct ssd_info * ssd, unsigned int
 		insert2_command_buffer(ssd, aim_command_buffer, lpn, size_count, state, aim_die, req, operation);
 	return ssd;
 }
+
+__int64 calculate_distance(struct ssd_info * ssd, struct buffer_info * die_buffer, unsigned int lpn)
+{
+	struct buffer_group *page_node = NULL;
+	__int64 lpn_buffer;
+	__int64 distance;
+	__int64 min_distance = 0x7fffffffffffffff;    //最大值
+
+	//从head开始遍历计算欧氏距离
+	if (die_buffer->buffer_head == NULL)
+	{
+		printf("die buffer error\n");
+		getchar();
+	}
+	else
+	{
+		for (page_node = die_buffer->buffer_head; page_node != NULL; page_node = page_node->LRU_link_next)
+		{
+			//计算每个节点lpn的距离
+			lpn_buffer = page_node->group;
+			if (lpn_buffer >= lpn)
+				distance = lpn_buffer - lpn;
+			else
+				distance = lpn - lpn_buffer;
+
+			//比较每个节点的距离，选距离最小的值
+			if (min_distance > distance)
+				min_distance = distance;
+		}
+	}
+	return min_distance;
+}
+
 
 struct ssd_info * insert2_command_buffer(struct ssd_info * ssd, struct buffer_info * command_buffer, unsigned int lpn, int size_count, unsigned int state,unsigned int die_number, struct request * req, unsigned int operation)
 {
@@ -1039,11 +1099,11 @@ struct sub_request * creat_sub_request(struct ssd_info * ssd, unsigned int lpn, 
 			sub->next_state_predict_time = ssd->current_time + 1000;
 			sub->complete_time = ssd->current_time + 1000;
 
-			if (sub->total_request->request_read_num % SAMPLE_SPACE == 0)
-			{
-				fprintf(ssd->statisticfile_time, "%2d %16I64u %8llu \n", -1, ssd->current_time, sub->total_request->request_read_num);
-				fflush(ssd->statisticfile_time);
-			}
+			//if (sub->total_request->request_read_num % SAMPLE_SPACE == 0)
+			//{
+			//	fprintf(ssd->statisticfile_time, "%2d %16I64u %8llu \n", -1, ssd->current_time, sub->total_request->request_read_num);
+			//	fflush(ssd->statisticfile_time);
+			//}
 
 		}
 	}
@@ -1106,6 +1166,7 @@ Status allocate_location(struct ssd_info * ssd, struct sub_request *sub_req, uns
 	die_num = ssd->parameter->die_chip;
 	plane_num = ssd->parameter->plane_die;
 
+	
 	/*
 	//判断是否会产生更新写操作，更新写操作要先读后写
 	if (ssd->dram->map->map_entry[sub_req->lpn].state != 0)
@@ -1182,7 +1243,7 @@ Status allocate_location(struct ssd_info * ssd, struct sub_request *sub_req, uns
 	//按照不同的分配策略，进行分配，
 	if (ssd->parameter->allocation_scheme == DYNAMIC_ALLOCATION)
 	{
-		if (ssd->parameter->dynamic_allocation == STRIPE_DYNAMIC_ALLOCATION)
+		/*if (ssd->parameter->dynamic_allocation == STRIPE_DYNAMIC_ALLOCATION || ssd->parameter->dynamic_allocation == OSPA_DYNAMIC_ALLOCATION)
 		{
 			switch (die_number)
 			{
@@ -1228,7 +1289,15 @@ Status allocate_location(struct ssd_info * ssd, struct sub_request *sub_req, uns
 			sub_req->location->block = -1;
 			sub_req->location->page = -1;
 			mount_flag = SSD_MOUNT;
-		}
+		}*/
+
+		sub_req->location->channel = -1;
+		sub_req->location->chip = -1;
+		sub_req->location->die = -1;
+		sub_req->location->plane = -1;
+		sub_req->location->block = -1;
+		sub_req->location->page = -1;
+		mount_flag = SSD_MOUNT;
 		
 	}
 	else if (ssd->parameter->allocation_scheme == STATIC_ALLOCATION)     

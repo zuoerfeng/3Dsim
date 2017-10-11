@@ -6,7 +6,7 @@ This is a project on 3D_SSDsim, based on ssdsim under the framework of the compl
 4.4-layer structure
 
 FileName£º buffer.h
-Author: Zuo Lu 		Version: 1.8	Date:2017/08/17
+Author: Zuo Lu 		Version: 1.9	Date:2017/10/11
 Description:
 buff layer: only contains data cache (minimum processing size for the sector, that is, unit = 512B), mapping table (page-level);
 
@@ -21,6 +21,7 @@ Zuo Lu			2017/07/07		  1.5			Support advanced commands:erase suspend/resume			61
 Zuo Lu			2017/07/24		  1.6			Support static allocation strategy						617376665@qq.com
 Zuo Lu			2017/07/27		  1.7			Support hybrid allocation strategy						617376665@qq.com
 Zuo Lu			2017/08/17		  1.8			Support dynamic stripe allocation strategy				617376665@qq.com
+Zuo Lu			2017/10/11		  1.9			Support dynamic OSPA allocation strategy				617376665@qq.com
 *****************************************************************************************************************************/
 
 struct ssd_info *buffer_management(struct ssd_info *);
@@ -33,6 +34,7 @@ struct ssd_info * insert2_command_buffer(struct ssd_info * ssd, struct buffer_in
 struct ssd_info * distribute2_command_buffer(struct ssd_info * ssd, unsigned int lpn, int size_count, unsigned int state, struct request * req, unsigned int operation);
 
 unsigned int size(unsigned int);
+__int64 calculate_distance(struct ssd_info * ssd, struct buffer_info * die_buffer, unsigned int lpn);
 Status allocate_location(struct ssd_info * ssd, struct sub_request *sub_req, unsigned int die_number);
 
 struct ssd_info *handle_write_buffer(struct ssd_info *ssd, struct request *req);

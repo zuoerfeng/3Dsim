@@ -6,7 +6,7 @@ This is a project on 3D_SSDsim, based on ssdsim under the framework of the compl
 4.4-layer structure
 
 FileName： ssd.c
-Author: Zuo Lu 		Version: 1.8	Date:2017/08/17
+Author: Zuo Lu 		Version: 1.9	Date:2017/10/11
 Description: System main function c file, Contains the basic flow of simulation.
 Mainly includes: initialization, make_aged, pre_process_page three parts
 
@@ -21,6 +21,7 @@ Zuo Lu			2017/07/07		  1.5			Support advanced commands:erase suspend/resume			61
 Zuo Lu			2017/07/24		  1.6			Support static allocation strategy						617376665@qq.com
 Zuo Lu			2017/07/27		  1.7			Support hybrid allocation strategy						617376665@qq.com
 Zuo Lu			2017/08/17		  1.8			Support dynamic stripe allocation strategy				617376665@qq.com
+Zuo Lu			2017/10/11		  1.9			Support dynamic OSPA allocation strategy				617376665@qq.com
 *****************************************************************************************************************************/
 
 #define _CRTDBG_MAP_ALLOC
@@ -44,94 +45,82 @@ Zuo Lu			2017/08/17		  1.8			Support dynamic stripe allocation strategy				61737
 int secno_num_per_page, secno_num_sub_page;
 //parameters路径名
 char *parameters_file[3] =
-{ "page_2D.parameters",
-"page_3D.parameters",
-"page.parameters"
+{ "page_TDA.parameters",
+"page_OSA.parameters",
+"page_TSA.parameters"
 };
 
 //trace 路径名
-char *trace_file[10] =
+char *trace_file[15] =
 {
-	"example.ascii", "512M_4KB_sequence_RandW.ascii", "f2_512MB.ascii", "fiu_webserver_16GB.ascii", "hm0_16GB.ascii", "src0_16GB.ascii", "rsrch0_mod_16GB.ascii", "ts0_16GB.ascii", "usr0_16GB.ascii", "vps107_16GB.ascii"
+	"exchange.ascii", "fiu_web.ascii", "hm0.ascii", "hm1.ascii", "proj0.ascii", "proj3.ascii", "rsrch0.ascii", "src0.ascii", "src1.ascii", 
+    "ts0.ascii", "usr0.ascii", "vps.ascii", "w1.ascii", "w2.ascii", "wdev0.ascii"
 };
 
 
-char *result_file_statistic[2][10] =
+char *result_file_statistic[3][15] =
 { 
-	{ "example_statistic_2D.dat", "512M_4KB_sequence_RandW_statistic_2D.dat", "f2_512MB_statistic_2D.dat", "fiu_webserver_16GB_statistic_2D.dat", "hm0_16GB_statistic_2D.dat",
-	  "src0_16GB_statistic_2D.dat", "rsrch0_mod_16GB_statistic_2D.dat", "ts0_16GB_statistic_2D.dat", "usr0_16GB_statistic_2D.dat", "vps107_16GB_statistic_2D.dat" },
+	{ "exchange_TDA.dat", "fiu_web_TDA.dat", "hm0_TDA.dat", "hm1_TDA.dat", "proj0_TDA.dat", "proj3_TDA.dat", "rsrch0_TDA.dat", "src0_TDA.dat", "src1_TDA.dat",
+	 "ts0_TDA.dat", "usr0_TDA.dat", "vps_TDA.dat", "w1_TDA.dat", "w2_TDA.dat", "wdev0_TDA.dat"
+	},
     
-   { "example_statistic_3D.dat", "512M_4KB_sequence_RandW_statistic_3D.dat", "f2_512MB_statistic_3D.dat", "fiu_webserver_16GB_statistic_3D.dat", "hm0_16GB_statistic_3D.dat", 
-   "src0_16GB_statistic_3D.dat", "rsrch0_mod_16GB_statistic_3D.dat", "ts0_16GB_statistic_3D.dat", "usr0_16GB_statistic_3D.dat", "vps107_16GB_statistic_3D.dat" }
+	{ "exchange_OSA.dat", "fiu_web_OSA.dat", "hm0_OSA.dat", "hm1_OSA.dat", "proj0_OSA.dat", "proj3_OSA.dat", "rsrch0_OSA.dat", "src0_OSA.dat", "src1_OSA.dat",
+	 "ts0_OSA.dat", "usr0_OSA.dat",  "vps_OSA.dat", "w1_OSA.dat", "w2_OSA.dat", "wdev0_OSA.dat"
+	},
+
+	{ "exchange_TSA.dat", "fiu_web_TSA.dat", "hm0_TSA.dat", "hm1_TSA.dat", "proj0_TSA.dat", "proj3_TSA.dat", "rsrch0_TSA.dat", "src0_TSA.dat", "src1_TSA.dat",
+	"ts0_TSA.dat", "usr0_TSA.dat", "vps_TSA.dat", "w1_TSA.dat", "w2_TSA.dat", "wdev0_TSA.dat"
+	}
 };
 
-char *result_file_ex[2][10] =
-{ 
-	{ "example_ex_2D.dat", "512M_4KB_sequence_RandW_ex_2D.dat", "f2_512MB_ex_2D.dat", "fiu_webserver_16GB_ex_2D.dat", "hm0_16GB_ex_2D.dat",
-	"src0_16GB_ex_2D.dat", "rsrch0_mod_16GB_ex_2D.dat", "ts0_16GB_ex_2D.dat", "usr0_16GB_ex_2D.dat", "vps107_16GB_ex_2D.dat" },
 
-	{ "example_ex_3D.dat", "512M_4KB_sequence_RandW_ex_3D.dat", "f2_512MB_ex_3D.dat", "fiu_webserver_16GB_ex_3D.dat", "hm0_16GB_ex_3D.dat",
-	"src0_16GB_ex_3D.dat", "rsrch0_mod_16GB_ex_3D.dat", "ts0_16GB_ex_3D.dat", "usr0_16GB_ex_3D.dat", "vps107_16GB_ex_3D.dat" }
+char *result_file_ex[3][15] =
+{ 
+	{ "exchange_TDA_ex.dat", "fiu_web_TDA_ex.dat", "hm0_TDA_ex.dat", "hm1_TDA_ex.dat", "proj0_TDA_ex.dat", "proj3_TDA_ex.dat", "rsrch0_TDA_ex.dat", "src0_TDA_ex.dat", "src1_TDA_ex.dat",
+	 "ts0_TDA_ex.dat", "usr0_TDA_ex.dat", "vps_TDA_ex.dat", "w1_TDA_ex.dat", "w2_TDA_ex.dat", "wdev0_TDA_ex.dat"
+	},
+
+	{ "exchange_OSA_ex.dat", "fiu_web_OSA_ex.dat", "hm0_OSA_ex.dat", "hm1_OSA_ex.dat", "proj0_OSA_ex.dat", "proj3_OSA_ex.dat", "rsrch0_OSA_ex.dat", "src0_OSA_ex.dat", "src1_OSA_ex.dat",
+	 "ts0_OSA_ex.dat", "usr0_OSA_ex.dat", "vps_OSA_ex.dat", "w1_OSA_ex.dat", "w2_OSA_ex.dat", "wdev0_OSA_ex.dat"
+	},
+
+	{ "exchange_TSA_ex.dat", "fiu_web_TSA_ex.dat", "hm0_TSA_ex.dat", "hm1_TSA_ex.dat", "proj0_TSA_ex.dat", "proj3_TSA_ex.dat", "rsrch0_TSA_ex.dat", "src0_TSA_ex.dat", "src1_TSA_ex.dat",
+	"ts0_TSA_ex.dat", "usr0_TSA_ex.dat", "vps_TSA_ex.dat", "w1_TSA_ex.dat", "w2_TSA_ex.dat", "wdev0_TSA_ex.dat"
+	}
+};
+
+char *result_file_die[3][15] =
+{ 
 	
-	/*
-"example_ex.dat",
-"512M_4KB_sequence_RandW_ex.dat",
-"f2_512MB_ex.dat",
-"fiu_webserver_16GB_ex.dat",
-"hm0_16GB_ex.dat",
-"src0_16GB_ex.dat",
-"rsrch0_mod_16GB_ex.dat",
-"ts0_16GB_ex.dat",
-"usr0_16GB_ex.dat",
-"vps107_16GB_ex.dat"
-*/
+	{ "exchange_TDA_die.dat", "fiu_web_TDA_die.dat", "hm0_TDA_die.dat", "hm1_TDA_die.dat", "proj0_TDA_die.dat", "proj3_TDA_die.dat", "rsrch0_TDA_die.dat", "src0_TDA_die.dat", "src1_TDA_die.dat",
+	 "ts0_TDA_die.dat", "usr0_TDA_die.dat", "vps_TDA_die.dat", "w1_TDA_die.dat", "w2_TDA_die.dat", "wdev0_TDA_die.dat"
+	},
 
+	{ "exchange_OSA_die.dat", "fiu_web_OSA_die.dat", "hm0_OSA_die.dat", "hm1_OSA_die.dat", "proj0_OSA_die.dat", "proj3_OSA_die.dat", "rsrch0_OSA_die.dat", "src0_OSA_die.dat", "src1_OSA_die.dat",
+	 "ts0_OSA_die.dat", "usr0_OSA_die.dat", "vps_OSA_die.dat", "w1_OSA_die.dat", "w2_OSA_die.dat", "wdev0_OSA_die.dat"
+	},
+
+	{ "exchange_TSA_die.dat", "fiu_web_TSA_die.dat", "hm0_TSA_die.dat", "hm1_TSA_die.dat", "proj0_TSA_die.dat", "proj3_TSA_die.dat", "rsrch0_TSA_die.dat", "src0_TSA_die.dat", "src1_TSA_die.dat",
+	"ts0_TSA_die.dat", "usr0_TSA_die.dat", "vps_TSA_die.dat", "w1_TSA_die.dat", "w2_TSA_die.dat", "wdev0_TSA_die.dat"
+	}
 };
 
-char *result_file_die[2][10] =
-{ 
-	{ "example_die_2D.dat", "512M_4KB_sequence_RandW_die_2D.dat", "f2_512MB_die_2D.dat", "fiu_webserver_16GB_die_2D.dat", "hm0_16GB_die_2D.dat",
-	"src0_16GB_die_2D.dat", "rsrch0_mod_16GB_die_2D.dat", "ts0_16GB_die_2D.dat", "usr0_16GB_die_2D.dat", "vps107_16GB_die_2D.dat" },
-
-	{ "example_die_3D.dat", "512M_4KB_sequence_RandW_die_3D.dat", "f2_512MB_die_3D.dat", "fiu_webserver_16GB_die_3D.dat", "hm0_16GB_die_3D.dat",
-	"src0_16GB_die_3D.dat", "rsrch0_mod_16GB_die_3D.dat", "ts0_16GB_die_3D.dat", "usr0_16GB_die_3D.dat", "vps107_16GB_die_3D.dat" }
-
-/*
-"example_die.dat",
-"512M_4KB_sequence_RandW_die.dat",
-"f2_512MB_die.dat",
-"fiu_webserver_16GB_die.dat",
-"hm0_16GB_die.dat",
-"src0_16GB_die.dat",
-"rsrch0_mod_16GB_die.dat",
-"ts0_16GB_die.dat",
-"usr0_16GB_die.dat",
-"vps107_16GB_die.dat"
-*/
-
-};
-
-char *result_file_size[2][10] =
+char *result_file_size[3][15] =
 {
-	{ "example_size_2D.dat", "512M_4KB_sequence_RandW_size_2D.dat", "f2_512MB_size_2D.dat", "fiu_webserver_16GB_size_2D.dat", "hm0_16GB_size_2D.dat",
-	"src0_16GB_size_2D.dat", "rsrch0_mod_16GB_size_2D.dat", "ts0_16GB_size_2D.dat", "usr0_16GB_size_2D.dat", "vps107_16GB_size_2D.dat" },
+	{ "exchange_TDA_size.dat", "fiu_web_TDA_size.dat", "hm0_TDA_size.dat", "hm1_TDA_size.dat", "proj0_TDA_size.dat", "proj3_TDA_size.dat", "rsrch0_TDA_size.dat", "src0_TDA_size.dat", "src1_TDA_size.dat",
+	 "ts0_TDA_size.dat", "usr0_TDA_size.dat", "vps_TDA_size.dat", "w1_TDA_size.dat", "w2_TDA_size.dat", "wdev0_TDA_size.dat"
+	},
 
-	{ "example_size_3D.dat", "512M_4KB_sequence_RandW_size_3D.dat", "f2_512MB_size_3D.dat", "fiu_webserver_16GB_size_3D.dat", "hm0_16GB_size_3D.dat",
-	"src0_16GB_size_3D.dat", "rsrch0_mod_16GB_size_3D.dat", "ts0_16GB_size_3D.dat", "usr0_16GB_size_3D.dat", "vps107_16GB_size_3D.dat" }
+	{ "exchange_OSA_size.dat", "fiu_web_OSA_size.dat", "hm0_OSA_size.dat", "hm1_OSA_size.dat", "proj0_OSA_size.dat", "proj3_OSA_size.dat", "rsrch0_OSA_size.dat", "src0_OSA_size.dat", "src1_OSA_size.dat",
+	 "ts0_OSA_size.dat", "usr0_OSA_size.dat", "vps_OSA_size.dat", "w1_OSA_size.dat", "w2_OSA_size.dat", "wdev0_OSA_size.dat"
+	},
 
-/*
-"example_size.dat",
-"512M_4KB_sequence_RandW_size.dat",
-"f2_512MB_size.dat",
-"fiu_webserver_16GB_size.dat",
-"hm0_16GB_size.dat",
-"src0_16GB_size.dat",
-"rsrch0_mod_16GB_size.dat",
-"ts0_16GB_size.dat",
-"usr0_16GB_size.dat",
-"vps107_16GB_size.dat"
-*/
+	{ "exchange_TSA_size.dat", "fiu_web_TSA_size.dat", "hm0_TSA_size.dat", "hm1_TSA_size.dat", "proj0_TSA_size.dat", "proj3_TSA_size.dat", "rsrch0_TSA_size.dat", "src0_TSA_size.dat", "src1_TSA_size.dat",
+	"ts0_TSA_size.dat", "usr0_TSA_size.dat", "vps_TSA_size.dat", "w1_TSA_size.dat", "w2_TSA_size.dat", "wdev0_TSA_size.dat"
+	}
+
 };
+
 
 /********************************************************************************************************************************
 1，the initiation() used to initialize ssd;
@@ -149,12 +138,13 @@ void main()
 	unsigned int i = 0,j = 0;
 	struct ssd_info *ssd;
 
-	for (j = 0; j < 2; j++)
-	{
-		for (i = 0; i < 10; i++)
+	//for (j = 0; j < 2; j++)
+	//{
+		j = 1;
+		for (i = 0; i < 15; i++)
 		{
-			//j = 1;
-			//i = 3;
+			//j = 2;
+			//i = 0;
 			//初始化ssd结构体
 			ssd = (struct ssd_info*)malloc(sizeof(struct ssd_info));
 			alloc_assert(ssd, "ssd");
@@ -168,8 +158,8 @@ void main()
 			strcpy_s(ssd->tracefilename, 50, trace_file[i]);
 			strcpy_s(ssd->outputfilename, 50, result_file_ex[j][i]);
 			strcpy_s(ssd->statisticfilename, 50, result_file_statistic[j][i]);
-			strcpy_s(ssd->statistic_time_filename, 50, result_file_die[j][i]);
-			strcpy_s(ssd->statistic_size_filename, 50, result_file_size[j][i]);
+//			strcpy_s(ssd->statistic_time_filename, 50, result_file_die[j][i]);
+//			strcpy_s(ssd->statistic_size_filename, 50, result_file_size[j][i]);
 
 			printf("tracefile:%s begin simulate-------------------------\n", ssd->tracefilename);
 			//getchar();
@@ -182,7 +172,7 @@ void main()
 			free_all_node(ssd);
 			//getchar();
 		}
-	}
+	//}
 
 	//所有trace跑完停止当前程序
 	system("pause");
@@ -302,8 +292,8 @@ struct ssd_info *simulate(struct ssd_info *ssd)
 		return NULL;
 	}
 
-	fprintf(ssd->outputfile,"      arrive           lsn     size ope     begin time    response time    process time\n");	
-	fflush(ssd->outputfile);
+	/*fprintf(ssd->outputfile,"      arrive           lsn     size ope     begin time    response time    process time\n");	
+	fflush(ssd->outputfile);*/
 
 	while(flag!=100)      
 	{        
@@ -504,8 +494,8 @@ void trace_output(struct ssd_info* ssd){
 		end_time = 0;
 		if (req->response_time != 0)
 		{
-			fprintf(ssd->outputfile, "%16I64u %10u %6u %2u %16I64u %16I64u %10I64u\n", req->time, req->lsn, req->size, req->operation, req->begin_time, req->response_time, req->response_time - req->time);
-			fflush(ssd->outputfile);
+			//fprintf(ssd->outputfile, "%16I64u %10u %6u %2u %16I64u %16I64u %10I64u\n", req->time, req->lsn, req->size, req->operation, req->begin_time, req->response_time, req->response_time - req->time);
+			//fflush(ssd->outputfile);
 
 			if (req->response_time - req->begin_time == 0)
 			{
@@ -518,12 +508,12 @@ void trace_output(struct ssd_info* ssd){
 				ssd->read_request_count++;
 				ssd->read_avg = ssd->read_avg + (req->response_time - req->time);
 
-				if (ssd->read_request_count % SAMPLE_SPACE == 0)
-				{
-					//fprintf(ssd->statisticfile_size, "%-12f      %-8u\n", ((ssd->read_request_count*ssd->ave_read_size * 1000 * 1000 * 1000)) / ssd->read_avg, ssd->read_request_count);
-					fprintf(ssd->statisticfile_size, "%-12llu      %-8lu\n", (ssd->read_avg / ssd->read_request_count), ssd->read_request_count);
-					fflush(ssd->statisticfile_size);
-				}
+				//if (ssd->read_request_count % SAMPLE_SPACE == 0)
+				//{
+				//	//fprintf(ssd->statisticfile_size, "%-12f      %-8u\n", ((ssd->read_request_count*ssd->ave_read_size * 1000 * 1000 * 1000)) / ssd->read_avg, ssd->read_request_count);
+				//	fprintf(ssd->statisticfile_size, "%-12llu      %-8lu\n", (ssd->read_avg / ssd->read_request_count), ssd->read_request_count);
+				//	fflush(ssd->statisticfile_size);
+				//}
 			}
 			else
 			{
@@ -603,8 +593,8 @@ void trace_output(struct ssd_info* ssd){
 
 			if (flag == 1)
 			{
-				fprintf(ssd->outputfile, "%16I64u %10u %6u %2u %16I64u %16I64u %10I64u\n", req->time, req->lsn, req->size, req->operation, start_time, end_time, end_time - req->time);
-				fflush(ssd->outputfile);
+				//fprintf(ssd->outputfile, "%16I64u %10u %6u %2u %16I64u %16I64u %10I64u\n", req->time, req->lsn, req->size, req->operation, start_time, end_time, end_time - req->time);
+				//fflush(ssd->outputfile);
 
 				if (end_time - start_time == 0)
 				{
@@ -617,12 +607,12 @@ void trace_output(struct ssd_info* ssd){
 					ssd->read_request_count++;
 					ssd->read_avg = ssd->read_avg + (end_time - req->time);
 
-					if (ssd->read_request_count % SAMPLE_SPACE == 0)
-					{
-						//fprintf(ssd->statisticfile_size, "%-12f      %-8u\n", ((ssd->read_request_count*ssd->ave_read_size * 1000 * 1000 * 1000)) / ssd->read_avg, ssd->read_request_count);
-						fprintf(ssd->statisticfile_size, "%-12llu      %-8lu\n", (ssd->read_avg / ssd->read_request_count), ssd->read_request_count);
-						fflush(ssd->statisticfile_size);
-					}
+					//if (ssd->read_request_count % SAMPLE_SPACE == 0)
+					//{
+					//	//fprintf(ssd->statisticfile_size, "%-12f      %-8u\n", ((ssd->read_request_count*ssd->ave_read_size * 1000 * 1000 * 1000)) / ssd->read_avg, ssd->read_request_count);
+					//	fprintf(ssd->statisticfile_size, "%-12llu      %-8lu\n", (ssd->read_avg / ssd->read_request_count), ssd->read_request_count);
+					//	fflush(ssd->statisticfile_size);
+					//}
 				}
 				else
 				{
@@ -785,6 +775,7 @@ void statistic_output(struct ssd_info *ssd)
 	fprintf(ssd->outputfile, "\n");
 	fprintf(ssd->outputfile,"erase count: %13d\n",ssd->erase_count);
 	fprintf(ssd->outputfile,"direct erase count: %13d\n",ssd->direct_erase_count);
+	fprintf(ssd->outputfile, "gc count: %13d\n", ssd->gc_count);
 
 	fprintf(ssd->outputfile, "multi-plane program count: %13d\n", ssd->m_plane_prog_count);
 	fprintf(ssd->outputfile, "multi-plane read count: %13d\n", ssd->m_plane_read_count);
@@ -853,6 +844,7 @@ void statistic_output(struct ssd_info *ssd)
 	fprintf(ssd->statisticfile, "\n");
 	fprintf(ssd->statisticfile,"erase count: %13d\n",ssd->erase_count);	  
 	fprintf(ssd->statisticfile,"direct erase count: %13d\n",ssd->direct_erase_count);
+	fprintf(ssd->statisticfile, "gc count: %13d\n", ssd->gc_count);
 	fprintf(ssd->statisticfile, "\n");
 
 	fprintf(ssd->statisticfile,"multi-plane program count: %13d\n",ssd->m_plane_prog_count);

@@ -6,7 +6,7 @@ This is a project on 3D_SSDsim, based on ssdsim under the framework of the compl
 4.4-layer structure
 
 FileName£º ftl.h
-Author: Zuo Lu 		Version: 1.8	Date:2017/08/17
+Author: Zuo Lu 		Version: 1.9	Date:2017/10/11
 Description:
 ftl layer: can not interrupt the global gc operation, gc operation to migrate valid pages using ordinary read and write operations, remove support copyback operation;
 
@@ -21,6 +21,7 @@ Zuo Lu			2017/07/07		  1.5			Support advanced commands:erase suspend/resume			61
 Zuo Lu			2017/07/24		  1.6			Support static allocation strategy						617376665@qq.com
 Zuo Lu			2017/07/27		  1.7			Support hybrid allocation strategy						617376665@qq.com
 Zuo Lu			2017/08/17		  1.8			Support dynamic stripe allocation strategy				617376665@qq.com
+Zuo Lu			2017/10/11		  1.9			Support dynamic OSPA allocation strategy				617376665@qq.com
 *****************************************************************************************************************************/
 
 struct ssd_info *pre_process_page(struct ssd_info *ssd);

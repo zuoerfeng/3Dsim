@@ -6,7 +6,7 @@ This is a project on 3D_SSDsim, based on ssdsim under the framework of the compl
 4.4-layer structure
 
 FileName£º flash.h
-Author: Zuo Lu 		Version: 1.8	Date:2017/08/17
+Author: Zuo Lu 		Version: 1.9	Date:2017/10/11
 Description:
 flash layer: the original ssdsim this layer is not a specific description, it was their own package to achieve, not completed.
 
@@ -21,6 +21,7 @@ Zuo Lu			2017/07/07		  1.5			Support advanced commands:erase suspend/resume			61
 Zuo Lu			2017/07/24		  1.6			Support static allocation strategy						617376665@qq.com
 Zuo Lu			2017/07/27		  1.7			Support hybrid allocation strategy						617376665@qq.com
 Zuo Lu			2017/08/17		  1.8			Support dynamic stripe allocation strategy				617376665@qq.com
+Zuo Lu			2017/10/11		  1.9			Support dynamic OSPA allocation strategy				617376665@qq.com
 *****************************************************************************************************************************/
 
 int erase_operation(struct ssd_info * ssd, unsigned int channel, unsigned int chip, unsigned int die, unsigned int plane, unsigned int block);

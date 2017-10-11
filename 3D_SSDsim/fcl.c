@@ -6,7 +6,7 @@ This is a project on 3D_SSDsim, based on ssdsim under the framework of the compl
 4.4-layer structure
 
 FileName： fcl.c
-Author: Zuo Lu 		Version: 1.8	Date:2017/08/17
+Author: Zuo Lu 		Version: 1.9	Date:2017/10/11
 Description:
 fcl layer: remove other high-level commands, leaving only mutli plane;
 
@@ -21,6 +21,7 @@ Zuo Lu			2017/07/07		  1.5			Support advanced commands:erase suspend/resume			61
 Zuo Lu			2017/07/24		  1.6			Support static allocation strategy						617376665@qq.com
 Zuo Lu			2017/07/27		  1.7			Support hybrid allocation strategy						617376665@qq.com
 Zuo Lu			2017/08/17		  1.8			Support dynamic stripe allocation strategy				617376665@qq.com
+Zuo Lu			2017/10/11		  1.9			Support dynamic OSPA allocation strategy				617376665@qq.com
 *****************************************************************************************************************************/
 
 #define _CRTDBG_MAP_ALLOC
@@ -793,12 +794,12 @@ Status go_one_step(struct ssd_info * ssd, struct sub_request ** subs, unsigned i
 			ssd->channel_head[location->channel].chip_head[location->chip].next_state_predict_time = ssd->current_time + ssd->parameter->time_characteristics.tR;
 			
 			//向文件中输出当前的current time，以及plane号
-			if (sub->total_request->request_read_num % SAMPLE_SPACE == 0)
-			{
-				plane_number = location->channel * 2 + location->chip * 1 + location->die;
-				fprintf(ssd->statisticfile_time, "%2d %16I64u %8llu \n", plane_number, ssd->current_time, sub->total_request->request_read_num);
-				fflush(ssd->statisticfile_time);
-			}
+			//if (sub->total_request->request_read_num % SAMPLE_SPACE == 0)
+			//{
+			//	plane_number = location->channel * 2 + location->chip * 1 + location->die;
+			//	fprintf(ssd->statisticfile_time, "%2d %16I64u %8llu \n", plane_number, ssd->current_time, sub->total_request->request_read_num);
+			//	fflush(ssd->statisticfile_time);
+			//}
 		
 			break;
 		}
@@ -964,12 +965,12 @@ Status go_one_step(struct ssd_info * ssd, struct sub_request ** subs, unsigned i
 					ssd->read_count++;
 
 					//向文件中输出当前的current time，以及plane号
-					if (subs[0]->total_request->request_read_num % SAMPLE_SPACE == 0)
-					{
-						plane_number = subs[i]->location->channel * 2 + subs[i]->location->chip * 1 + subs[i]->location->die;
-						fprintf(ssd->statisticfile_time, "%2d %16I64u %8llu\n", plane_number, ssd->current_time, subs[0]->total_request->request_read_num);
-						fflush(ssd->statisticfile_time);
-					}
+					//if (subs[0]->total_request->request_read_num % SAMPLE_SPACE == 0)
+					//{
+					//	plane_number = subs[i]->location->channel * 2 + subs[i]->location->chip * 1 + subs[i]->location->die;
+					//	fprintf(ssd->statisticfile_time, "%2d %16I64u %8llu\n", plane_number, ssd->current_time, subs[0]->total_request->request_read_num);
+					//	fflush(ssd->statisticfile_time);
+					//}
 				}
 
 				//更新chip的时间线
@@ -1198,30 +1199,23 @@ struct ssd_info *dynamic_advanced_process(struct ssd_info *ssd, unsigned int cha
 		{
 			if ((sub->update == NULL) || ((sub->update != NULL) && ((sub->update->current_state == SR_COMPLETE) || ((sub->update->next_state == SR_COMPLETE) && (sub->update->next_state_predict_time <= ssd->current_time)))))    //没有需要提前读出的页
 			{
-				//如果是静态分配，还需要保证找到的空闲请求是属于同一个aim_die
-				if (ssd->parameter->allocation_scheme == STATIC_ALLOCATION)
+				if (ssd->parameter->allocation_scheme == STATIC_ALLOCATION)								//如果是静态分配，还需要保证找到的空闲请求是属于同一个channel,chip,die
 				{
-					if (sub->location->die == aim_die && sub->location->chip == chip)
+					if (sub->location->chip == chip && sub->location->die == aim_die)
 					{
 						subs[subs_count] = sub;
 						subs_count++;
 					}
 				}
-				else if (ssd->parameter->allocation_scheme == DYNAMIC_ALLOCATION)
+				else if (ssd->parameter->allocation_scheme == DYNAMIC_ALLOCATION)						//动态分配，即不知道逻辑页分到到哪一个固定的页，这个是不确定的
 				{
-					if (ssd->parameter->dynamic_allocation == STRIPE_DYNAMIC_ALLOCATION)
-					{
-						if (sub->location->chip == chip && sub->location->channel == channel)
-						{
-							subs[subs_count] = sub;
-							subs_count++;
-						}		
-					}
-					else
-					{
-							subs[subs_count] = sub;
-							subs_count++;
-					}
+					//if (sub->location->chip == chip)
+					//{
+					//	subs[subs_count] = sub;
+					//	subs_count++;
+					//}
+					subs[subs_count] = sub;
+					subs_count++;
 				}
 				else if (ssd->parameter->allocation_scheme == HYBRID_ALLOCATION)						//根据首节点的location判断是完全动态的写入还是stripe的写入
 				{
@@ -1594,7 +1588,7 @@ struct ssd_info *make_same_level(struct ssd_info *ssd, unsigned int channel, uns
 
 	if (ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[plane].blk_head[block].last_write_page>(ssd->parameter->page_block-1))
 	{
-		printf("error! the last write page larger than 64!!\n");
+		printf("error! the last write page larger than max!!\n");
 		while (1){}
 	}
 

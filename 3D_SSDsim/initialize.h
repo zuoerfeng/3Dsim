@@ -6,7 +6,7 @@ This is a project on 3D_SSDsim, based on ssdsim under the framework of the compl
 4.4-layer structure
 
 FileName£º initialize.h
-Author: Zuo Lu 		Version: 1.8	Date:2017/08/17
+Author: Zuo Lu 		Version: 1.9	Date:2017/10/11
 Description:
 Initialization layer: complete ssd organizational data structure, request queue creation and memory space initialization
 
@@ -21,6 +21,7 @@ Zuo Lu			2017/07/07		  1.5			Support advanced commands:erase suspend/resume			61
 Zuo Lu			2017/07/24		  1.6			Support static allocation strategy						617376665@qq.com
 Zuo Lu			2017/07/27		  1.7			Support hybrid allocation strategy						617376665@qq.com
 Zuo Lu			2017/08/17		  1.8			Support dynamic stripe allocation strategy				617376665@qq.com
+Zuo Lu			2017/10/11		  1.9			Support dynamic OSPA allocation strategy				617376665@qq.com
 *****************************************************************************************************************************/
 
 #include <stdio.h>
@@ -51,6 +52,7 @@ Zuo Lu			2017/08/17		  1.8			Support dynamic stripe allocation strategy				61737
 #define CHANNEL_DYNAMIC_ALLOCATION 0
 #define PLANE_DYNAMIC_ALLOCATION 1
 #define STRIPE_DYNAMIC_ALLOCATION 2
+#define OSPA_DYNAMIC_ALLOCATION 3
 
 #define SLC_MODE 0
 #define TLC_MODE 1
@@ -238,6 +240,7 @@ struct ssd_info{
 
 	unsigned long erase_count;
 	unsigned long direct_erase_count;    //Record invalid blocks that are directly erased
+	__int64 gc_count;
 
 	//Advanced command read and write erase statistics
 	unsigned long m_plane_read_count;

@@ -6,7 +6,7 @@ This is a project on 3D_SSDsim, based on ssdsim under the framework of the compl
 4.4-layer structure
 
 FileName： ftl.c
-Author: Zuo Lu 		Version: 1.8	Date:2017/08/17
+Author: Zuo Lu 		Version: 1.9	Date:2017/10/11
 Description: 
 ftl layer: can not interrupt the global gc operation, gc operation to migrate valid pages using ordinary read and write operations, remove support copyback operation;
 
@@ -21,6 +21,7 @@ Zuo Lu			2017/07/07		  1.5			Support advanced commands:erase suspend/resume			61
 Zuo Lu			2017/07/24		  1.6			Support static allocation strategy						617376665@qq.com
 Zuo Lu			2017/07/27		  1.7			Support hybrid allocation strategy						617376665@qq.com
 Zuo Lu			2017/08/17		  1.8			Support dynamic stripe allocation strategy				617376665@qq.com
+Zuo Lu			2017/10/11		  1.9			Support dynamic OSPA allocation strategy				617376665@qq.com
 *****************************************************************************************************************************/
 
 #define _CRTDBG_MAP_ALLOC
@@ -108,7 +109,7 @@ struct ssd_info *pre_process_page(struct ssd_info *ssd)
 				if (state > 15)
 					printf("error\n");
 
-				if (lpn > ssd->parameter->page_block*ssd->parameter->block_plane*ssd->parameter->plane_die*ssd->parameter->die_chip*ssd->parameter->chip_num)\
+				if (lpn > ssd->parameter->page_block*ssd->parameter->block_plane*ssd->parameter->plane_die*ssd->parameter->die_chip*ssd->parameter->chip_num)
 					printf("error\n");
 
 				//state表示请求的状态位
@@ -253,7 +254,7 @@ unsigned int get_ppn_for_pre_process(struct ssd_info *ssd, unsigned int lpn)
 				ssd->page_count = 0;
 			}
 		}
-		else if (ssd->parameter->dynamic_allocation == STRIPE_DYNAMIC_ALLOCATION)
+		else if (ssd->parameter->dynamic_allocation == STRIPE_DYNAMIC_ALLOCATION || ssd->parameter->dynamic_allocation == OSPA_DYNAMIC_ALLOCATION)
 		{
 			//本次操作对应的location
 			channel = ssd->token;
@@ -426,7 +427,7 @@ struct ssd_info *get_ppn(struct ssd_info *ssd, unsigned int channel, unsigned in
 
 	if (ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[plane].blk_head[active_block].last_write_page >(ssd->parameter->page_block - 1))
 	{
-		printf("error! the last write page larger than 64!!\n");
+		printf("error! the last write page larger than max!!\n");
 		while (1){}
 	}
 
@@ -640,7 +641,7 @@ Status get_ppn_for_normal_command(struct ssd_info * ssd, unsigned int channel, u
 			if (plane == (ssd->parameter->plane_die - 1))
 				ssd->channel_head[channel].chip_head[chip].token = (die + 1) % ssd->parameter->die_chip;
 		}
-		else if (ssd->parameter->dynamic_allocation == STRIPE_DYNAMIC_ALLOCATION)
+		else if (ssd->parameter->dynamic_allocation == STRIPE_DYNAMIC_ALLOCATION || ssd->parameter->dynamic_allocation == OSPA_DYNAMIC_ALLOCATION)
 		{
 			ssd->channel_head[channel].chip_head[chip].die_head[die].token = (plane + 1) % ssd->parameter->plane_die;
 			if (ssd->channel_head[channel].chip_head[chip].die_head[die].token == 0)
@@ -848,12 +849,11 @@ unsigned int gc(struct ssd_info *ssd, unsigned int channel, unsigned int flag)
 			{
 				if (ssd->channel_head[i].gc_command != NULL)
 				{
-					gc_for_channel(ssd, i);
+					if (gc_for_channel(ssd, i) == SUCCESS)
+					{
+						ssd->gc_count++;
+					}
 				}
-			}
-			else
-			{
-				return FAILURE;
 			}
 		}
 		return SUCCESS;
@@ -862,12 +862,15 @@ unsigned int gc(struct ssd_info *ssd, unsigned int channel, unsigned int flag)
 	else                                                                             
 	{
 		//当读写子请求都完成的情况下，才去执行gc操作，否则先去执行读写请求
-		if ((ssd->channel_head[channel].subs_r_head != NULL) || (ssd->channel_head[channel].subs_w_head != NULL) || (ssd->subs_w_head != NULL))    
-		{
-			return 0;
-		}
+		//if ((ssd->channel_head[channel].subs_r_head != NULL) || (ssd->channel_head[channel].subs_w_head != NULL) || (ssd->subs_w_head != NULL))    
+		//{
+			//return 0;
+		//}
 		if (gc_for_channel(ssd, channel) == SUCCESS)
+		{
+			ssd->gc_count++;
 			return SUCCESS;
+		}
 		else
 			return FAILURE;
 	}
@@ -1290,7 +1293,7 @@ unsigned int get_ppn_for_gc(struct ssd_info *ssd, unsigned int channel, unsigned
 
 	if (ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[plane].blk_head[active_block].last_write_page>(ssd->parameter->page_block - 1))
 	{
-		printf("error! the last write page larger than 64!!\n");
+		printf("error! the last write page larger than max!!\n");
 		while (1){}
 	}
 

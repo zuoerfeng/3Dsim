@@ -6,7 +6,7 @@ This is a project on 3D_SSDsim, based on ssdsim under the framework of the compl
 4.4-layer structure
 
 FileName： initialize.c
-Author: Zuo Lu 		Version: 1.8	Date:2017/08/17
+Author: Zuo Lu 		Version: 1.9	Date:2017/10/11
 Description: 
 Initialization layer: complete ssd organizational data structure, request queue creation and memory space initialization
 
@@ -21,6 +21,7 @@ Zuo Lu			2017/07/07		  1.5			Support advanced commands:erase suspend/resume			61
 Zuo Lu			2017/07/24		  1.6			Support static allocation strategy						617376665@qq.com
 Zuo Lu			2017/07/27		  1.7			Support hybrid allocation strategy						617376665@qq.com
 Zuo Lu			2017/08/17		  1.8			Support dynamic stripe allocation strategy				617376665@qq.com
+Zuo Lu			2017/10/11		  1.9			Support dynamic OSPA allocation strategy				617376665@qq.com
 *****************************************************************************************************************************/
 
 #define _CRTDBG_MAP_ALLOC
@@ -100,7 +101,7 @@ struct ssd_info *initiation(struct ssd_info *ssd)
 
 //	printf("\ninput output file name:");
 //	gets(ssd->outputfilename);
-//	strcpy_s(ssd->outputfilename,7,"ex.out");
+//	strcpy_s(ssd->outputfilename,25,"ex.out");
 //	strcpy_s(ssd->outputfilename,25,"CFS.out");
 //	strcpy_s(ssd->outputfilename,25,"DevDivRelease.out");
 
@@ -138,6 +139,7 @@ struct ssd_info *initiation(struct ssd_info *ssd)
 	initialize_channels(ssd );
 
 	//printf("\n");
+
 	if((err=fopen_s(&ssd->outputfile,ssd->outputfilename,"w")) != 0)
 	{
 		printf("the output file can't open\n");
@@ -153,19 +155,19 @@ struct ssd_info *initiation(struct ssd_info *ssd)
 
 	//printf("\n");
 
-	if ((err = fopen_s(&ssd->statisticfile_time, ssd->statistic_time_filename, "w")) != 0)
- 	{
- 		printf("the second statistic file can't open\n");
- 		return NULL;
- 	}
+	//if ((err = fopen_s(&ssd->statisticfile_time, ssd->statistic_time_filename, "w")) != 0)
+ //	{
+ //		printf("the second statistic file can't open\n");
+ //		return NULL;
+ //	}
 
 	//printf("\n");
 
-	if ((err = fopen_s(&ssd->statisticfile_size, ssd->statistic_size_filename, "w")) != 0)
-	{
-		printf("the second statistic file can't open\n");
-		return NULL;
-	}
+	//if ((err = fopen_s(&ssd->statisticfile_size, ssd->statistic_size_filename, "w")) != 0)
+	//{
+	//	printf("the second statistic file can't open\n");
+	//	return NULL;
+	//}
 
 	fprintf(ssd->outputfile,"parameter file: %s\n",ssd->parameterfilename); 
 	fprintf(ssd->outputfile,"trace file: %s\n",ssd->tracefilename);
@@ -181,8 +183,8 @@ struct ssd_info *initiation(struct ssd_info *ssd)
 
 	fflush(ssd->outputfile);
 	fflush(ssd->statisticfile);
-	fflush(ssd->statisticfile_time);
-	fflush(ssd->statisticfile_size);
+	/*fflush(ssd->statisticfile_time);*/
+	/*fflush(ssd->statisticfile_size);*/
 
 
 	if((err=fopen_s(&fp,ssd->parameterfilename,"r"))!=0)
@@ -259,7 +261,21 @@ struct dram_info * initialize_dram(struct ssd_info * ssd)
 	struct dram_info *dram=ssd->dram;
 	dram->dram_capacity = ssd->parameter->dram_capacity;	
 	dram->buffer = (tAVLTree *)avlTreeCreate((void*)keyCompareFunc , (void *)freeFunc);
-	dram->buffer->max_buffer_sector=ssd->parameter->dram_capacity / ssd->parameter->subpage_capacity; 
+
+	//这里计算了缓存的大小，根据不同的算法，调整了数据缓存的大小
+	if (ssd->parameter->allocation_scheme == DYNAMIC_ALLOCATION)
+	{
+		if (ssd->parameter->dynamic_allocation == STRIPE_DYNAMIC_ALLOCATION || ssd->parameter->dynamic_allocation == OSPA_DYNAMIC_ALLOCATION)
+			dram->buffer->max_buffer_sector = (ssd->parameter->dram_capacity / ssd->parameter->subpage_capacity) - (ssd->parameter->plane_die * PAGE_INDEX * ssd->parameter->subpage_page * DIE_NUMBER);
+		else
+			dram->buffer->max_buffer_sector = (ssd->parameter->dram_capacity / ssd->parameter->subpage_capacity) - (ssd->parameter->plane_die * PAGE_INDEX * ssd->parameter->subpage_page);
+	}
+	else if (ssd->parameter->allocation_scheme == STATIC_ALLOCATION)
+	{
+		dram->buffer->max_buffer_sector = (ssd->parameter->dram_capacity / ssd->parameter->subpage_capacity) - (ssd->parameter->plane_die * PAGE_INDEX * ssd->parameter->subpage_page * DIE_NUMBER);
+	}
+
+	//dram->buffer->max_buffer_sector=ssd->parameter->dram_capacity / ssd->parameter->subpage_capacity; 
 
 	/**********************************************增加高级命令的缓存初始化******************************************************************/
 	//1.为对应的缓存定平衡二叉树
