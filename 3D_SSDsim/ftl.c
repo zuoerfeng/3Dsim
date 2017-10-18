@@ -254,7 +254,7 @@ unsigned int get_ppn_for_pre_process(struct ssd_info *ssd, unsigned int lpn)
 				ssd->page_count = 0;
 			}
 		}
-		else if (ssd->parameter->dynamic_allocation == STRIPE_DYNAMIC_ALLOCATION || ssd->parameter->dynamic_allocation == OSPA_DYNAMIC_ALLOCATION)
+		else if (ssd->parameter->dynamic_allocation == STRIPE_DYNAMIC_ALLOCATION || ssd->parameter->dynamic_allocation == OSPA_DYNAMIC_ALLOCATION || ssd->parameter->dynamic_allocation == POLL_DISTRANCE_ALLOCATION)
 		{
 			//本次操作对应的location
 			channel = ssd->token;
@@ -641,7 +641,7 @@ Status get_ppn_for_normal_command(struct ssd_info * ssd, unsigned int channel, u
 			if (plane == (ssd->parameter->plane_die - 1))
 				ssd->channel_head[channel].chip_head[chip].token = (die + 1) % ssd->parameter->die_chip;
 		}
-		else if (ssd->parameter->dynamic_allocation == STRIPE_DYNAMIC_ALLOCATION || ssd->parameter->dynamic_allocation == OSPA_DYNAMIC_ALLOCATION)
+		else if (ssd->parameter->dynamic_allocation == STRIPE_DYNAMIC_ALLOCATION || ssd->parameter->dynamic_allocation == OSPA_DYNAMIC_ALLOCATION || ssd->parameter->dynamic_allocation == POLL_DISTRANCE_ALLOCATION)
 		{
 			ssd->channel_head[channel].chip_head[chip].die_head[die].token = (plane + 1) % ssd->parameter->plane_die;
 			if (ssd->channel_head[channel].chip_head[chip].die_head[die].token == 0)

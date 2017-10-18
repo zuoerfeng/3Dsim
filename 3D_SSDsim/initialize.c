@@ -265,7 +265,7 @@ struct dram_info * initialize_dram(struct ssd_info * ssd)
 	//这里计算了缓存的大小，根据不同的算法，调整了数据缓存的大小
 	if (ssd->parameter->allocation_scheme == DYNAMIC_ALLOCATION)
 	{
-		if (ssd->parameter->dynamic_allocation == STRIPE_DYNAMIC_ALLOCATION || ssd->parameter->dynamic_allocation == OSPA_DYNAMIC_ALLOCATION)
+		if (ssd->parameter->dynamic_allocation == STRIPE_DYNAMIC_ALLOCATION || ssd->parameter->dynamic_allocation == OSPA_DYNAMIC_ALLOCATION || ssd->parameter->dynamic_allocation == POLL_DISTRANCE_ALLOCATION)
 			dram->buffer->max_buffer_sector = (ssd->parameter->dram_capacity / ssd->parameter->subpage_capacity) - (ssd->parameter->plane_die * PAGE_INDEX * ssd->parameter->subpage_page * DIE_NUMBER);
 		else
 			dram->buffer->max_buffer_sector = (ssd->parameter->dram_capacity / ssd->parameter->subpage_capacity) - (ssd->parameter->plane_die * PAGE_INDEX * ssd->parameter->subpage_page);
@@ -273,6 +273,10 @@ struct dram_info * initialize_dram(struct ssd_info * ssd)
 	else if (ssd->parameter->allocation_scheme == STATIC_ALLOCATION)
 	{
 		dram->buffer->max_buffer_sector = (ssd->parameter->dram_capacity / ssd->parameter->subpage_capacity) - (ssd->parameter->plane_die * PAGE_INDEX * ssd->parameter->subpage_page * DIE_NUMBER);
+	}
+	else if (ssd->parameter->allocation_scheme == HYBRID_ALLOCATION)
+	{
+		dram->buffer->max_buffer_sector = (ssd->parameter->dram_capacity / ssd->parameter->subpage_capacity) - (ssd->parameter->plane_die * PAGE_INDEX * ssd->parameter->subpage_page * 5);
 	}
 
 	//dram->buffer->max_buffer_sector=ssd->parameter->dram_capacity / ssd->parameter->subpage_capacity; 

@@ -1,4 +1,4 @@
-﻿生成启动时间为 2017/10/11 20:16:32。
+﻿生成启动时间为 2017/10/18 20:23:42。
      1>项目“C:\Users\lz\Desktop\3D_SSDsim\3D_SSDsim_v1\3D_SSDsim\ssdsim.vcxproj”在节点 2 上(Rebuild 个目标)。
      1>ClCompile:
          D:\2_tmp\Microsoft Visual Studio 12.0\VC\bin\CL.exe /c /Zi /nologo /W3 /WX- /Od /Oy- /D WIN32 /D _DEBUG /D _CONSOLE /Gm /EHsc /RTC1 /MDd /GS /fp:precise /Zc:wchar_t /Zc:forScope /Fo"Debug\\" /Fd"Debug\vc120.pdb" /Gd /TC /analyze- /errorReport:prompt avlTree.c buffer.c fcl.c flash.c ftl.c initialize.c interface.c ssd.c
@@ -21,10 +21,6 @@
                  D:\2_tmp\Microsoft Visual Studio 12.0\VC\include\stdio.h(304) : 参见“sscanf”的声明
          initialize.c
      1>initialize.c(131): warning C4013: “alloc_assert”未定义；假设外部返回 int
-     1>initialize.c(547): warning C4996: 'sscanf': This function or variable may be unsafe. Consider using sscanf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
-                 D:\2_tmp\Microsoft Visual Studio 12.0\VC\include\stdio.h(304) : 参见“sscanf”的声明
-     1>initialize.c(549): warning C4996: 'sscanf': This function or variable may be unsafe. Consider using sscanf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
-                 D:\2_tmp\Microsoft Visual Studio 12.0\VC\include\stdio.h(304) : 参见“sscanf”的声明
      1>initialize.c(551): warning C4996: 'sscanf': This function or variable may be unsafe. Consider using sscanf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
                  D:\2_tmp\Microsoft Visual Studio 12.0\VC\include\stdio.h(304) : 参见“sscanf”的声明
      1>initialize.c(553): warning C4996: 'sscanf': This function or variable may be unsafe. Consider using sscanf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
@@ -147,9 +143,13 @@
                  D:\2_tmp\Microsoft Visual Studio 12.0\VC\include\stdio.h(304) : 参见“sscanf”的声明
      1>initialize.c(671): warning C4996: 'sscanf': This function or variable may be unsafe. Consider using sscanf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
                  D:\2_tmp\Microsoft Visual Studio 12.0\VC\include\stdio.h(304) : 参见“sscanf”的声明
-     1>initialize.c(674): warning C4996: 'sscanf': This function or variable may be unsafe. Consider using sscanf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+     1>initialize.c(673): warning C4996: 'sscanf': This function or variable may be unsafe. Consider using sscanf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
                  D:\2_tmp\Microsoft Visual Studio 12.0\VC\include\stdio.h(304) : 参见“sscanf”的声明
      1>initialize.c(675): warning C4996: 'sscanf': This function or variable may be unsafe. Consider using sscanf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+                 D:\2_tmp\Microsoft Visual Studio 12.0\VC\include\stdio.h(304) : 参见“sscanf”的声明
+     1>initialize.c(678): warning C4996: 'sscanf': This function or variable may be unsafe. Consider using sscanf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+                 D:\2_tmp\Microsoft Visual Studio 12.0\VC\include\stdio.h(304) : 参见“sscanf”的声明
+     1>initialize.c(679): warning C4996: 'sscanf': This function or variable may be unsafe. Consider using sscanf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
                  D:\2_tmp\Microsoft Visual Studio 12.0\VC\include\stdio.h(304) : 参见“sscanf”的声明
          ftl.c
      1>ftl.c(428): warning C4018: “>”: 有符号/无符号不匹配
@@ -172,11 +172,11 @@
      1>fcl.c(1395): warning C4101: “j”: 未引用的局部变量
      1>fcl.c(1589): warning C4018: “>”: 有符号/无符号不匹配
          buffer.c
-     1>buffer.c(1160): warning C4101: “die”: 未引用的局部变量
-     1>buffer.c(1160): warning C4101: “channel”: 未引用的局部变量
-     1>buffer.c(1160): warning C4101: “chip”: 未引用的局部变量
-     1>buffer.c(1159): warning C4101: “flag”: 未引用的局部变量
-     1>buffer.c(1160): warning C4101: “plane”: 未引用的局部变量
+     1>buffer.c(1193): warning C4101: “die”: 未引用的局部变量
+     1>buffer.c(1193): warning C4101: “channel”: 未引用的局部变量
+     1>buffer.c(1193): warning C4101: “chip”: 未引用的局部变量
+     1>buffer.c(1192): warning C4101: “flag”: 未引用的局部变量
+     1>buffer.c(1193): warning C4101: “plane”: 未引用的局部变量
          avlTree.c
          正在生成代码...
        Link:
@@ -193,4 +193,4 @@
 
 生成成功。
 
-已用时间 00:00:00.99
+已用时间 00:00:00.49

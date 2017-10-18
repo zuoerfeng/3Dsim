@@ -138,13 +138,13 @@ void main()
 	unsigned int i = 0,j = 0;
 	struct ssd_info *ssd;
 
-	//for (j = 0; j < 2; j++)
+	//for (j = 0; j < 1; j++)
 	//{
 		j = 1;
 		for (i = 0; i < 15; i++)
 		{
-			//j = 2;
-			//i = 0;
+			//j = 1;
+			//i = 1;
 			//初始化ssd结构体
 			ssd = (struct ssd_info*)malloc(sizeof(struct ssd_info));
 			alloc_assert(ssd, "ssd");

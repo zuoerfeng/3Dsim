@@ -51,8 +51,9 @@ Zuo Lu			2017/10/11		  1.9			Support dynamic OSPA allocation strategy				6173766
 
 #define CHANNEL_DYNAMIC_ALLOCATION 0
 #define PLANE_DYNAMIC_ALLOCATION 1
-#define STRIPE_DYNAMIC_ALLOCATION 2
-#define OSPA_DYNAMIC_ALLOCATION 3
+#define STRIPE_DYNAMIC_ALLOCATION 2			//按照替换的顺序，轮询分配到每个die_buffer上面
+#define OSPA_DYNAMIC_ALLOCATION 3			//按照距离远的方法，分配到距离远的die_buffer上面
+#define POLL_DISTRANCE_ALLOCATION 4			//综合轮询和距离的办法，两者兼顾，距离太近则跳过当前轮询到下一个
 
 #define SLC_MODE 0
 #define TLC_MODE 1

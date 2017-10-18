@@ -825,9 +825,11 @@ struct ssd_info * distribute2_command_buffer(struct ssd_info * ssd, unsigned int
 	{
 		if (ssd->parameter->dynamic_allocation == STRIPE_DYNAMIC_ALLOCATION)
 		{
-			//确定要写入的die，按照替换的顺序依次写下
+			//按照替换的顺序，轮询分配到每个die_buffer上面
 			aim_die = ssd->die_token;
 			aim_command_buffer = ssd->dram->static_die_buffer[aim_die];
+
+			//ssd->die_token = (ssd->die_token + 1) % DIE_NUMBER;
 
 			ssd->plane_count++;
 			if (ssd->plane_count % ssd->parameter->plane_die == 0)
@@ -858,6 +860,37 @@ struct ssd_info * distribute2_command_buffer(struct ssd_info * ssd, unsigned int
 				}
 			}
 			aim_command_buffer = ssd->dram->static_die_buffer[aim_die];
+		}
+		else if (ssd->parameter->dynamic_allocation == POLL_DISTRANCE_ALLOCATION)
+		{
+			//首先获取轮询的分配的令牌
+			aim_die = ssd->die_token;
+			if (ssd->plane_count == 0)				//重新轮询到一个新的die上
+			{
+				if (ssd->dram->static_die_buffer[aim_die]->buffer_head != NULL)
+				{
+					//计算当前aim-die的距离是否等于1
+					return_distance = calculate_distance(ssd, ssd->dram->static_die_buffer[aim_die], lpn);
+					if (return_distance >= 1 && return_distance <= 2 )	//跳过当前die
+					{
+						ssd->die_token = (ssd->die_token + 1) % DIE_NUMBER;
+						aim_die = ssd->die_token;
+					}
+				}
+			}
+
+			//确定好分配的缓存
+			aim_command_buffer = ssd->dram->static_die_buffer[aim_die];
+
+			//ssd->die_token = (ssd->die_token + 1) % DIE_NUMBER;
+
+			//连续的两个页分配到相同的die缓存上
+			ssd->plane_count++;
+			if (ssd->plane_count % ssd->parameter->plane_die == 0)
+			{
+				ssd->die_token = (ssd->die_token + 1) % DIE_NUMBER;
+				ssd->plane_count = 0;
+			}
 		}
 		else
 		{
@@ -1243,7 +1276,7 @@ Status allocate_location(struct ssd_info * ssd, struct sub_request *sub_req, uns
 	//按照不同的分配策略，进行分配，
 	if (ssd->parameter->allocation_scheme == DYNAMIC_ALLOCATION)
 	{
-		/*if (ssd->parameter->dynamic_allocation == STRIPE_DYNAMIC_ALLOCATION || ssd->parameter->dynamic_allocation == OSPA_DYNAMIC_ALLOCATION)
+		/*if (ssd->parameter->dynamic_allocation == STRIPE_DYNAMIC_ALLOCATION || ssd->parameter->dynamic_allocation == OSPA_DYNAMIC_ALLOCATION || ssd->parameter->dynamic_allocation == POLL_DISTRANCE_ALLOCATION)
 		{
 			switch (die_number)
 			{
