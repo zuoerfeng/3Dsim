@@ -87,7 +87,6 @@ int get_requests(struct ssd_info *ssd)
 		if (feof(ssd->tracefile))      //if the end of trace
 			break;
 	}
-	
 
 	if ((device<0) && (lsn<0) && (size<0) && (ope<0))
 	{

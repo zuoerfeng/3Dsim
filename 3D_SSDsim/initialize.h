@@ -594,8 +594,10 @@ struct parameter_value{
 struct entry{                       
 	unsigned int pn;                //Physical number, either a physical page number, a physical subpage number, or a physical block number
 	int state;                      //The hexadecimal representation is 0000-FFFF, and each bit indicates whether the corresponding subpage is valid (page mapping). 
-	long write_count;
-	long read_count;
+
+	//used in aware workloads
+	long long write_count;
+	long long read_count;
 	unsigned int type;
 };
 

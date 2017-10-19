@@ -126,31 +126,32 @@ struct ssd_info *handle_write_buffer(struct ssd_info *ssd, struct request *req)
 			state = state&(~(0xffffffff << offset2));
 		}
 
-		//hybrid request type frequence
-		if (ssd->parameter->allocation_scheme == HYBRID_ALLOCATION)
-		{
-			if (req->operation == READ)
-			{
-				ssd->dram->map->map_entry[lpn].read_count++;
-				/*
-				if (ssd->dram->map->map_entry[lpn].read_count > 65536)
-				{
-					printf("beyond 65536\n");
-					getchar();
-				}*/
-			}
-			else if (req->operation == WRITE)
-			{
-				ssd->dram->map->map_entry[lpn].write_count++;
-				/*
-				if (ssd->dram->map->map_entry[lpn].write_count > 65536)
-				{
-					printf("beyond 65536\n");
-					getchar();
-				}*/
-			}
-		}
+		////hybrid request type frequence
+		//if (ssd->parameter->allocation_scheme == HYBRID_ALLOCATION)
+		//{
+		//	if (req->operation == READ)
+		//	{
+		//		ssd->dram->map->map_entry[lpn].read_count++;
+		//		/*
+		//		if (ssd->dram->map->map_entry[lpn].read_count > 65536)
+		//		{
+		//			printf("beyond 65536\n");
+		//			getchar();
+		//		}*/
+		//	}
+		//	else if (req->operation == WRITE)
+		//	{
+		//		ssd->dram->map->map_entry[lpn].write_count++;
+		//		/*
+		//		if (ssd->dram->map->map_entry[lpn].write_count > 65536)
+		//		{
+		//			printf("beyond 65536\n");
+		//			getchar();
+		//		}*/
+		//	}
+		//}
 
+		
 		if (req->operation == READ)
 			ssd = check_w_buff(ssd, lpn, state, NULL, req);
 		else if (req->operation == WRITE)
@@ -707,7 +708,7 @@ struct ssd_info * distribute2_command_buffer(struct ssd_info * ssd, unsigned int
 	if (ssd->parameter->allocation_scheme == HYBRID_ALLOCATION)
 	{
 		//1.check缓存是否命中，命中则直接分配到对应的buffer，没有命中则按照频率来分配
-		switch (ssd->dram->map->map_entry[lpn].type)
+        /*switch (ssd->dram->map->map_entry[lpn].type)
 		{
 			case 0:
 				type_flag = 1; break;
@@ -778,6 +779,31 @@ struct ssd_info * distribute2_command_buffer(struct ssd_info * ssd, unsigned int
 				aim_die = 4;
 				ssd->dram->map->map_entry[lpn].type = WRITE_MORE;
 			}
+		}*/
+
+		//静态的负载感知
+		if (ssd->dram->map->map_entry[lpn].type == READ_MORE)
+		{
+			//按照poll的方式分配
+			aim_die = ssd->die_token;
+			aim_command_buffer = ssd->dram->static_die_buffer[aim_die];
+			ssd->plane_count++;
+			if (ssd->plane_count % ssd->parameter->plane_die == 0)
+			{
+				ssd->die_token = (ssd->die_token + 1) % DIE_NUMBER;
+				ssd->plane_count = 0;
+			}
+		}
+		else if(ssd->dram->map->map_entry[lpn].type == WRITE_MORE)
+		{
+			//按照聚集的方式分配
+			aim_command_buffer = ssd->dram->command_buffer;
+			aim_die = 4;
+		}
+		else
+		{
+			printf("aware workloads error!\n");
+			getchar();
 		}
 	}
 	else if (ssd->parameter->allocation_scheme == STATIC_ALLOCATION)
@@ -1189,7 +1215,7 @@ struct sub_request * creat_sub_request(struct ssd_info * ssd, unsigned int lpn, 
 Status allocate_location(struct ssd_info * ssd, struct sub_request *sub_req, unsigned int die_number)
 {
 	struct sub_request * update = NULL, *sub_r = NULL;
-	unsigned int channel_num = 0, chip_num = 0, die_num = 0, plane_num = 0 ,flag;
+	unsigned int channel_num = 0, chip_num = 0, die_num = 0, plane_num = 0, flag;
 	unsigned int channel, chip, die, plane;
 	struct local *location = NULL;
 	unsigned int mount_flag = 0;
@@ -1199,78 +1225,78 @@ Status allocate_location(struct ssd_info * ssd, struct sub_request *sub_req, uns
 	die_num = ssd->parameter->die_chip;
 	plane_num = ssd->parameter->plane_die;
 
-	
+
 	/*
 	//判断是否会产生更新写操作，更新写操作要先读后写
 	if (ssd->dram->map->map_entry[sub_req->lpn].state != 0)
 	{
-		if ((sub_req->state&ssd->dram->map->map_entry[sub_req->lpn].state) != ssd->dram->map->map_entry[sub_req->lpn].state)
-		{
-			//ssd->read_count++;
-			ssd->update_read_count++;
-			ssd->update_write_count++;
+	if ((sub_req->state&ssd->dram->map->map_entry[sub_req->lpn].state) != ssd->dram->map->map_entry[sub_req->lpn].state)
+	{
+	//ssd->read_count++;
+	ssd->update_read_count++;
+	ssd->update_write_count++;
 
-			update = (struct sub_request *)malloc(sizeof(struct sub_request));
-			alloc_assert(update, "update");
-			memset(update, 0, sizeof(struct sub_request));
+	update = (struct sub_request *)malloc(sizeof(struct sub_request));
+	alloc_assert(update, "update");
+	memset(update, 0, sizeof(struct sub_request));
 
-			if (update == NULL)
-			{
-				return ERROR;
-			}
-			update->location = NULL;
-			update->next_node = NULL;
-			update->next_subs = NULL;
-			update->update = NULL;
-			location = find_location(ssd, ssd->dram->map->map_entry[sub_req->lpn].pn);
-			update->location = location;
-			update->begin_time = ssd->current_time;
-			update->current_state = SR_WAIT;
-			update->current_time = 0x7fffffffffffffff;
-			update->next_state = SR_R_C_A_TRANSFER;
-			update->next_state_predict_time = 0x7fffffffffffffff;
-			update->lpn = sub_req->lpn;
-			update->state = ((ssd->dram->map->map_entry[sub_req->lpn].state^sub_req->state) & 0x7fffffff);
-			update->size = size(update->state);
-			update->ppn = ssd->dram->map->map_entry[sub_req->lpn].pn;
-			update->operation = READ;
-			update->update_read_flag = 1;
-			update->suspend_req_flag = NORMAL_TYPE;
+	if (update == NULL)
+	{
+	return ERROR;
+	}
+	update->location = NULL;
+	update->next_node = NULL;
+	update->next_subs = NULL;
+	update->update = NULL;
+	location = find_location(ssd, ssd->dram->map->map_entry[sub_req->lpn].pn);
+	update->location = location;
+	update->begin_time = ssd->current_time;
+	update->current_state = SR_WAIT;
+	update->current_time = 0x7fffffffffffffff;
+	update->next_state = SR_R_C_A_TRANSFER;
+	update->next_state_predict_time = 0x7fffffffffffffff;
+	update->lpn = sub_req->lpn;
+	update->state = ((ssd->dram->map->map_entry[sub_req->lpn].state^sub_req->state) & 0x7fffffff);
+	update->size = size(update->state);
+	update->ppn = ssd->dram->map->map_entry[sub_req->lpn].pn;
+	update->operation = READ;
+	update->update_read_flag = 1;
+	update->suspend_req_flag = NORMAL_TYPE;
 
-			sub_r = ssd->channel_head[location->channel].subs_r_head;
-			flag = 0;
-			while (sub_r != NULL)
-			{
-				if (sub_r->ppn == update->ppn)
-				{
-					flag = 1;
-					break;
-				}
-				sub_r = sub_r->next_node;
-			}
+	sub_r = ssd->channel_head[location->channel].subs_r_head;
+	flag = 0;
+	while (sub_r != NULL)
+	{
+	if (sub_r->ppn == update->ppn)
+	{
+	flag = 1;
+	break;
+	}
+	sub_r = sub_r->next_node;
+	}
 
-			if (flag == 0)
-			{
-				if (ssd->channel_head[location->channel].subs_r_tail != NULL)           
-				{
-					ssd->channel_head[location->channel].subs_r_tail->next_node = update;
-					ssd->channel_head[location->channel].subs_r_tail = update;
-				}
-				else
-				{
-					ssd->channel_head[location->channel].subs_r_tail = update;
-					ssd->channel_head[location->channel].subs_r_head = update;
-				}
-			}
-			else
-			{
-				update->current_state = SR_R_DATA_TRANSFER;
-				update->current_time = ssd->current_time;
-				update->next_state = SR_COMPLETE;
-				update->next_state_predict_time = ssd->current_time + 1000;
-				update->complete_time = ssd->current_time + 1000;
-			}
-		}
+	if (flag == 0)
+	{
+	if (ssd->channel_head[location->channel].subs_r_tail != NULL)
+	{
+	ssd->channel_head[location->channel].subs_r_tail->next_node = update;
+	ssd->channel_head[location->channel].subs_r_tail = update;
+	}
+	else
+	{
+	ssd->channel_head[location->channel].subs_r_tail = update;
+	ssd->channel_head[location->channel].subs_r_head = update;
+	}
+	}
+	else
+	{
+	update->current_state = SR_R_DATA_TRANSFER;
+	update->current_time = ssd->current_time;
+	update->next_state = SR_COMPLETE;
+	update->next_state_predict_time = ssd->current_time + 1000;
+	update->complete_time = ssd->current_time + 1000;
+	}
+	}
 	}*/
 
 	//按照不同的分配策略，进行分配，
@@ -1278,50 +1304,50 @@ Status allocate_location(struct ssd_info * ssd, struct sub_request *sub_req, uns
 	{
 		/*if (ssd->parameter->dynamic_allocation == STRIPE_DYNAMIC_ALLOCATION || ssd->parameter->dynamic_allocation == OSPA_DYNAMIC_ALLOCATION || ssd->parameter->dynamic_allocation == POLL_DISTRANCE_ALLOCATION)
 		{
-			switch (die_number)
-			{
-				case 0:
-				{
-					sub_req->location->channel = 0;
-					sub_req->location->chip = 0;
-					sub_req->location->die = 0;
-					break;
-				}
-				case 1:
-				{
-					sub_req->location->channel = 0;
-					sub_req->location->chip = 1;
-					sub_req->location->die = 0;
-					break;
-				}
-				case 2:
-				{
-					sub_req->location->channel = 1;
-					sub_req->location->chip = 0;
-					sub_req->location->die = 0;
-					break;
-				}
-				case 3:
-				{
-					sub_req->location->channel = 1;
-					sub_req->location->chip = 1;
-					sub_req->location->die = 0;
-					break;
-				}
-			
-				default:break;
-			}
-			mount_flag = SSD_MOUNT;
+		switch (die_number)
+		{
+		case 0:
+		{
+		sub_req->location->channel = 0;
+		sub_req->location->chip = 0;
+		sub_req->location->die = 0;
+		break;
+		}
+		case 1:
+		{
+		sub_req->location->channel = 0;
+		sub_req->location->chip = 1;
+		sub_req->location->die = 0;
+		break;
+		}
+		case 2:
+		{
+		sub_req->location->channel = 1;
+		sub_req->location->chip = 0;
+		sub_req->location->die = 0;
+		break;
+		}
+		case 3:
+		{
+		sub_req->location->channel = 1;
+		sub_req->location->chip = 1;
+		sub_req->location->die = 0;
+		break;
+		}
+
+		default:break;
+		}
+		mount_flag = SSD_MOUNT;
 		}
 		else
 		{
-			sub_req->location->channel = -1;
-			sub_req->location->chip = -1;
-			sub_req->location->die = -1;
-			sub_req->location->plane = -1;
-			sub_req->location->block = -1;
-			sub_req->location->page = -1;
-			mount_flag = SSD_MOUNT;
+		sub_req->location->channel = -1;
+		sub_req->location->chip = -1;
+		sub_req->location->die = -1;
+		sub_req->location->plane = -1;
+		sub_req->location->block = -1;
+		sub_req->location->page = -1;
+		mount_flag = SSD_MOUNT;
 		}*/
 
 		sub_req->location->channel = -1;
@@ -1331,9 +1357,9 @@ Status allocate_location(struct ssd_info * ssd, struct sub_request *sub_req, uns
 		sub_req->location->block = -1;
 		sub_req->location->page = -1;
 		mount_flag = SSD_MOUNT;
-		
+
 	}
-	else if (ssd->parameter->allocation_scheme == STATIC_ALLOCATION)     
+	else if (ssd->parameter->allocation_scheme == STATIC_ALLOCATION)
 	{
 		if (ssd->parameter->flash_mode == TLC_MODE)
 		{
@@ -1353,7 +1379,7 @@ Status allocate_location(struct ssd_info * ssd, struct sub_request *sub_req, uns
 		else if (ssd->parameter->flash_mode == SLC_MODE)
 		{
 			if (ssd->parameter->static_allocation == PLANE_STATIC_ALLOCATION || ssd->parameter->static_allocation == SUPERPAGE_STATIC_ALLOCATION)
-			{				
+			{
 				sub_req->location->plane = sub_req->lpn % plane_num;
 				sub_req->location->channel = (sub_req->lpn / plane_num) % channel_num;
 				sub_req->location->chip = (sub_req->lpn / (plane_num*channel_num)) % chip_num;
@@ -1373,48 +1399,48 @@ Status allocate_location(struct ssd_info * ssd, struct sub_request *sub_req, uns
 	{
 		switch (die_number)
 		{
-			case 0:
-			{
-				sub_req->location->channel = 0;
-				sub_req->location->chip = 0;
-				sub_req->location->die = 0;
-				break;
-			}
-			case 1:
-			{
-				sub_req->location->channel = 0;
-				sub_req->location->chip = 1;
-				sub_req->location->die = 0;
-				break;
-			}
-			case 2:
-			{
-				sub_req->location->channel = 1;
-				sub_req->location->chip = 0;
-				sub_req->location->die = 0;
-				break;
-			}
-			case 3:
-			{
-				sub_req->location->channel = 1;
-				sub_req->location->chip = 1;
-				sub_req->location->die = 0;
-				break;
-			}
-			case 4:
-			{
-				sub_req->location->channel = -1;
-				sub_req->location->chip = -1;
-				sub_req->location->die = -1;
-				sub_req->location->plane = -1;
-				sub_req->location->block = -1;
-				sub_req->location->page = -1;
-			}
-			default:break;
+		case 0:
+		{
+			sub_req->location->channel = 0;
+			sub_req->location->chip = 0;
+			sub_req->location->die = 0;
+			break;
+		}
+		case 1:
+		{
+			sub_req->location->channel = 0;
+			sub_req->location->chip = 1;
+			sub_req->location->die = 0;
+			break;
+		}
+		case 2:
+		{
+			sub_req->location->channel = 1;
+			sub_req->location->chip = 0;
+			sub_req->location->die = 0;
+			break;
+		}
+		case 3:
+		{
+			sub_req->location->channel = 1;
+			sub_req->location->chip = 1;
+			sub_req->location->die = 0;
+			break;
+		}
+		case 4:
+		{
+			sub_req->location->channel = -1;
+			sub_req->location->chip = -1;
+			sub_req->location->die = -1;
+			sub_req->location->plane = -1;
+			sub_req->location->block = -1;
+			sub_req->location->page = -1;
+		}
+		default:break;
 		}
 		mount_flag = SSD_MOUNT;
 	}
-	
+
 	//根据mount_flag, 选择挂载在channel上还是ssd上
 	if (mount_flag == SSD_MOUNT)
 	{
@@ -1442,7 +1468,7 @@ Status allocate_location(struct ssd_info * ssd, struct sub_request *sub_req, uns
 			ssd->channel_head[sub_req->location->channel].subs_w_head = sub_req;
 		}
 	}
-	
+
 	//更新读的请求挂载在该请求上
 	if (update != NULL)
 	{

@@ -57,6 +57,7 @@ struct ssd_info *pre_process_page(struct ssd_info *ssd)
 	struct local *location;
 	__int64 time;
 	errno_t err;
+	unsigned int page_num;
 
 	printf("\n");
 	printf("begin pre_process_page.................\n");
@@ -70,6 +71,7 @@ struct ssd_info *pre_process_page(struct ssd_info *ssd)
 	full_page = ~(0xffffffff << (ssd->parameter->subpage_page));
 	/*Calculate the maximum logical sector number for this ssd*/
 	largest_lsn = (unsigned int)((ssd->parameter->chip_num*ssd->parameter->die_chip*ssd->parameter->plane_die*ssd->parameter->block_plane*ssd->parameter->page_block*secno_num_per_page)*(1 - ssd->parameter->overprovide));
+	page_num = ssd->parameter->page_block*ssd->parameter->block_plane*ssd->parameter->plane_die*ssd->parameter->die_chip*ssd->parameter->chip_num;
 
 	while (fgets(buffer_request, 200, ssd->tracefile))
 	{
@@ -77,6 +79,38 @@ struct ssd_info *pre_process_page(struct ssd_info *ssd)
 		fl++;
 		trace_assert(time, device, lsn, size, ope);                       
 
+		//防止trace访问超过设置最大的扇区号
+		lsn = lsn%largest_lsn;
+
+		//预处理的时候建立负载感知的表
+		if (ssd->parameter->allocation_scheme == HYBRID_ALLOCATION)
+		{	
+			//进行4kb对齐
+			size = ((lsn + size - 1) / secno_num_sub_page - (lsn) / secno_num_sub_page + 1) * secno_num_sub_page;
+			lsn /= secno_num_sub_page;
+			lsn *= secno_num_sub_page;
+
+			lpn = lsn / secno_num_per_page;
+			last_lpn = (lsn + size - 1) / secno_num_per_page;
+			first_lpn = lsn / secno_num_per_page;   //计算lpn
+			
+			while (lpn <= last_lpn)
+			{
+				if (lpn > page_num)
+				{
+					printf("error\n");
+					getchar();
+				}
+				if (ope == READ)
+					ssd->dram->map->map_entry[lpn].read_count++;
+
+				else if (ope == WRITE)
+					ssd->dram->map->map_entry[lpn].write_count++;
+
+				lpn++;
+			}
+		}
+		
 		//进行预处理，即处理所有的读请求，将读请求转换为写请求，同时在映射表中记录
 		if (ope == 1)
 		{
@@ -144,6 +178,22 @@ struct ssd_info *pre_process_page(struct ssd_info *ssd)
 			}
 		}
 	}
+
+	//当读写统计的次数完成了之后，开始计算多读还是多写
+	for (i = 0; i < page_num; i++)
+	{	
+		//if (i == 188911)
+		//	getchar();
+
+		if ( (ssd->dram->map->map_entry[i].read_count != 0) || (ssd->dram->map->map_entry[i].write_count != 0) )
+		{
+			if ((ssd->dram->map->map_entry[i].read_count / (ssd->dram->map->map_entry[i].read_count + ssd->dram->map->map_entry[i].write_count)) >= 0.8)				//读的次数超过总次数的80%
+				ssd->dram->map->map_entry[i].type = READ_MORE;
+			else
+				ssd->dram->map->map_entry[i].type = WRITE_MORE;
+		}
+	}
+
 
 	printf("\n");
 	printf("pre_process is complete!\n");
