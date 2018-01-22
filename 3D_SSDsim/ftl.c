@@ -179,22 +179,24 @@ struct ssd_info *pre_process_page(struct ssd_info *ssd)
 		}
 	}
 
-	//当读写统计的次数完成了之后，开始计算多读还是多写
-	for (i = 0; i < page_num; i++)
-	{	
-		//if (i == 188911)
-		//	getchar();
-
-		if ( (ssd->dram->map->map_entry[i].read_count != 0) || (ssd->dram->map->map_entry[i].write_count != 0) )
+	if (ssd->parameter->allocation_scheme == HYBRID_ALLOCATION)
+	{
+		//当读写统计的次数完成了之后，开始计算多读还是多写
+		for (i = 0; i < page_num; i++)
 		{
-			if ((ssd->dram->map->map_entry[i].read_count / (ssd->dram->map->map_entry[i].read_count + ssd->dram->map->map_entry[i].write_count)) >= 0.8)				//读的次数超过总次数的80%
-				ssd->dram->map->map_entry[i].type = READ_MORE;
-			else
-				ssd->dram->map->map_entry[i].type = WRITE_MORE;
+			//if (i == 188911)
+			//	getchar();
+
+			if ((ssd->dram->map->map_entry[i].read_count != 0) || (ssd->dram->map->map_entry[i].write_count != 0))
+			{
+				if ((ssd->dram->map->map_entry[i].read_count / (ssd->dram->map->map_entry[i].read_count + ssd->dram->map->map_entry[i].write_count)) >= 0.8)				//读的次数超过总次数的80%
+					ssd->dram->map->map_entry[i].type = READ_MORE;
+				else
+					ssd->dram->map->map_entry[i].type = WRITE_MORE;
+			}
 		}
 	}
-
-
+	
 	printf("\n");
 	printf("pre_process is complete!\n");
 

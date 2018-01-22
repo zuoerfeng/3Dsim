@@ -51,43 +51,51 @@ char *parameters_file[3] =
 };
 
 //trace Â·¾¶Ãû
-char *trace_file[15] =
+char *trace_file[13] =
 {
-	"exchange.ascii", "fiu_web.ascii", "hm0.ascii", "hm1.ascii", "proj0.ascii", "proj3.ascii", "rsrch0.ascii", "src0.ascii", "src1.ascii", 
-    "ts0.ascii", "usr0.ascii", "vps.ascii", "w1.ascii", "w2.ascii", "wdev0.ascii"
+	"exchange.ascii", "fiu_web.ascii", "hm0.ascii", "hm1.ascii", "proj0.ascii", "proj3.ascii", "rsrch0.ascii", "src0.ascii", 
+    "ts0.ascii", "usr0.ascii", "w1.ascii", "w2.ascii", "wdev0.ascii"
 };
 
+//"src1.ascii","vps.ascii",
 
-char *result_file_statistic[3][15] =
+char *result_file_statistic[3][13] =
 { 
-	{ "exchange_TDA.dat", "fiu_web_TDA.dat", "hm0_TDA.dat", "hm1_TDA.dat", "proj0_TDA.dat", "proj3_TDA.dat", "rsrch0_TDA.dat", "src0_TDA.dat", "src1_TDA.dat",
-	 "ts0_TDA.dat", "usr0_TDA.dat", "vps_TDA.dat", "w1_TDA.dat", "w2_TDA.dat", "wdev0_TDA.dat"
+	{ "exchange_TDA.dat", "fiu_web_TDA.dat", "hm0_TDA.dat", "hm1_TDA.dat", "proj0_TDA.dat", "proj3_TDA.dat", "rsrch0_TDA.dat", "src0_TDA.dat", 
+	 "ts0_TDA.dat", "usr0_TDA.dat", "w1_TDA.dat", "w2_TDA.dat", "wdev0_TDA.dat"
 	},
     
-	{ "exchange_OSA.dat", "fiu_web_OSA.dat", "hm0_OSA.dat", "hm1_OSA.dat", "proj0_OSA.dat", "proj3_OSA.dat", "rsrch0_OSA.dat", "src0_OSA.dat", "src1_OSA.dat",
-	 "ts0_OSA.dat", "usr0_OSA.dat",  "vps_OSA.dat", "w1_OSA.dat", "w2_OSA.dat", "wdev0_OSA.dat"
+	{ "exchange_OSA.dat", "fiu_web_OSA.dat", "hm0_OSA.dat", "hm1_OSA.dat", "proj0_OSA.dat", "proj3_OSA.dat", "rsrch0_OSA.dat", "src0_OSA.dat", 
+	 "ts0_OSA.dat", "usr0_OSA.dat", "w1_OSA.dat", "w2_OSA.dat", "wdev0_OSA.dat"
 	},
 
-	{ "exchange_TSA.dat", "fiu_web_TSA.dat", "hm0_TSA.dat", "hm1_TSA.dat", "proj0_TSA.dat", "proj3_TSA.dat", "rsrch0_TSA.dat", "src0_TSA.dat", "src1_TSA.dat",
-	"ts0_TSA.dat", "usr0_TSA.dat", "vps_TSA.dat", "w1_TSA.dat", "w2_TSA.dat", "wdev0_TSA.dat"
+	{ "exchange_TSA.dat", "fiu_web_TSA.dat", "hm0_TSA.dat", "hm1_TSA.dat", "proj0_TSA.dat", "proj3_TSA.dat", "rsrch0_TSA.dat", "src0_TSA.dat",
+	"ts0_TSA.dat", "usr0_TSA.dat",  "w1_TSA.dat", "w2_TSA.dat", "wdev0_TSA.dat"
 	}
 };
 
+//"src1_TDA.dat", "vps_TDA.dat", 
+//"src1_OSA.dat", "vps_OSA.dat", 
+//"src1_TSA.dat","vps_TSA.dat",
 
-char *result_file_ex[3][15] =
+char *result_file_ex[3][13] =
 { 
-	{ "exchange_TDA_ex.dat", "fiu_web_TDA_ex.dat", "hm0_TDA_ex.dat", "hm1_TDA_ex.dat", "proj0_TDA_ex.dat", "proj3_TDA_ex.dat", "rsrch0_TDA_ex.dat", "src0_TDA_ex.dat", "src1_TDA_ex.dat",
-	 "ts0_TDA_ex.dat", "usr0_TDA_ex.dat", "vps_TDA_ex.dat", "w1_TDA_ex.dat", "w2_TDA_ex.dat", "wdev0_TDA_ex.dat"
+	{ "exchange_TDA_ex.dat", "fiu_web_TDA_ex.dat", "hm0_TDA_ex.dat", "hm1_TDA_ex.dat", "proj0_TDA_ex.dat", "proj3_TDA_ex.dat", "rsrch0_TDA_ex.dat", "src0_TDA_ex.dat", 
+	 "ts0_TDA_ex.dat", "usr0_TDA_ex.dat",  "w1_TDA_ex.dat", "w2_TDA_ex.dat", "wdev0_TDA_ex.dat"
 	},
 
-	{ "exchange_OSA_ex.dat", "fiu_web_OSA_ex.dat", "hm0_OSA_ex.dat", "hm1_OSA_ex.dat", "proj0_OSA_ex.dat", "proj3_OSA_ex.dat", "rsrch0_OSA_ex.dat", "src0_OSA_ex.dat", "src1_OSA_ex.dat",
-	 "ts0_OSA_ex.dat", "usr0_OSA_ex.dat", "vps_OSA_ex.dat", "w1_OSA_ex.dat", "w2_OSA_ex.dat", "wdev0_OSA_ex.dat"
+	{ "exchange_OSA_ex.dat", "fiu_web_OSA_ex.dat", "hm0_OSA_ex.dat", "hm1_OSA_ex.dat", "proj0_OSA_ex.dat", "proj3_OSA_ex.dat", "rsrch0_OSA_ex.dat", "src0_OSA_ex.dat", 
+	 "ts0_OSA_ex.dat", "usr0_OSA_ex.dat",  "w1_OSA_ex.dat", "w2_OSA_ex.dat", "wdev0_OSA_ex.dat"
 	},
 
-	{ "exchange_TSA_ex.dat", "fiu_web_TSA_ex.dat", "hm0_TSA_ex.dat", "hm1_TSA_ex.dat", "proj0_TSA_ex.dat", "proj3_TSA_ex.dat", "rsrch0_TSA_ex.dat", "src0_TSA_ex.dat", "src1_TSA_ex.dat",
-	"ts0_TSA_ex.dat", "usr0_TSA_ex.dat", "vps_TSA_ex.dat", "w1_TSA_ex.dat", "w2_TSA_ex.dat", "wdev0_TSA_ex.dat"
+	{ "exchange_TSA_ex.dat", "fiu_web_TSA_ex.dat", "hm0_TSA_ex.dat", "hm1_TSA_ex.dat", "proj0_TSA_ex.dat", "proj3_TSA_ex.dat", "rsrch0_TSA_ex.dat", "src0_TSA_ex.dat",
+	"ts0_TSA_ex.dat", "usr0_TSA_ex.dat",  "w1_TSA_ex.dat", "w2_TSA_ex.dat", "wdev0_TSA_ex.dat"
 	}
 };
+
+//"src1_TDA_ex.dat","vps_TDA_ex.dat",
+//"src1_OSA_ex.dat","vps_OSA_ex.dat",
+//"src1_TSA_ex.dat","vps_TSA_ex.dat",
 
 char *result_file_die[3][15] =
 { 
@@ -138,10 +146,10 @@ void main()
 	unsigned int i = 0,j = 0;
 	struct ssd_info *ssd;
 
-	//for (j = 0; j < 1; j++)
+	//for (j = 0; j < 3; j++)
 	//{
 		j = 1;
-		for (i = 0; i < 15; i++)
+		for (i = 0; i < 13; i++)
 		{
 			//j = 1;
 			//i = 1;

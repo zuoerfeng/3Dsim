@@ -897,7 +897,7 @@ struct ssd_info * distribute2_command_buffer(struct ssd_info * ssd, unsigned int
 				{
 					//计算当前aim-die的距离是否等于1
 					return_distance = calculate_distance(ssd, ssd->dram->static_die_buffer[aim_die], lpn);
-					if (return_distance >= 1 && return_distance <= 2 )	//跳过当前die
+					if (return_distance == 1)	//跳过当前die
 					{
 						ssd->die_token = (ssd->die_token + 1) % DIE_NUMBER;
 						aim_die = ssd->die_token;
@@ -1225,79 +1225,77 @@ Status allocate_location(struct ssd_info * ssd, struct sub_request *sub_req, uns
 	die_num = ssd->parameter->die_chip;
 	plane_num = ssd->parameter->plane_die;
 
-
-	/*
 	//判断是否会产生更新写操作，更新写操作要先读后写
 	if (ssd->dram->map->map_entry[sub_req->lpn].state != 0)
 	{
-	if ((sub_req->state&ssd->dram->map->map_entry[sub_req->lpn].state) != ssd->dram->map->map_entry[sub_req->lpn].state)
-	{
-	//ssd->read_count++;
-	ssd->update_read_count++;
-	ssd->update_write_count++;
+		if ((sub_req->state&ssd->dram->map->map_entry[sub_req->lpn].state) != ssd->dram->map->map_entry[sub_req->lpn].state)
+		{
+			//ssd->read_count++;
+			ssd->update_read_count++;
+			ssd->update_write_count++;
 
-	update = (struct sub_request *)malloc(sizeof(struct sub_request));
-	alloc_assert(update, "update");
-	memset(update, 0, sizeof(struct sub_request));
+			update = (struct sub_request *)malloc(sizeof(struct sub_request));
+			alloc_assert(update, "update");
+			memset(update, 0, sizeof(struct sub_request));
 
-	if (update == NULL)
-	{
-	return ERROR;
-	}
-	update->location = NULL;
-	update->next_node = NULL;
-	update->next_subs = NULL;
-	update->update = NULL;
-	location = find_location(ssd, ssd->dram->map->map_entry[sub_req->lpn].pn);
-	update->location = location;
-	update->begin_time = ssd->current_time;
-	update->current_state = SR_WAIT;
-	update->current_time = 0x7fffffffffffffff;
-	update->next_state = SR_R_C_A_TRANSFER;
-	update->next_state_predict_time = 0x7fffffffffffffff;
-	update->lpn = sub_req->lpn;
-	update->state = ((ssd->dram->map->map_entry[sub_req->lpn].state^sub_req->state) & 0x7fffffff);
-	update->size = size(update->state);
-	update->ppn = ssd->dram->map->map_entry[sub_req->lpn].pn;
-	update->operation = READ;
-	update->update_read_flag = 1;
-	update->suspend_req_flag = NORMAL_TYPE;
+			if (update == NULL)
+			{
+				return ERROR;
+			}
+			update->location = NULL;
+			update->next_node = NULL;
+			update->next_subs = NULL;
+			update->update = NULL;
+			location = find_location(ssd, ssd->dram->map->map_entry[sub_req->lpn].pn);
+			update->location = location;
+			update->begin_time = ssd->current_time;
+			update->current_state = SR_WAIT;
+			update->current_time = 0x7fffffffffffffff;
+			update->next_state = SR_R_C_A_TRANSFER;
+			update->next_state_predict_time = 0x7fffffffffffffff;
+			update->lpn = sub_req->lpn;
+			update->state = ((ssd->dram->map->map_entry[sub_req->lpn].state^sub_req->state) & 0x7fffffff);
+			update->size = size(update->state);
+			update->ppn = ssd->dram->map->map_entry[sub_req->lpn].pn;
+			update->operation = READ;
+			update->update_read_flag = 1;
+			update->suspend_req_flag = NORMAL_TYPE;
 
-	sub_r = ssd->channel_head[location->channel].subs_r_head;
-	flag = 0;
-	while (sub_r != NULL)
-	{
-	if (sub_r->ppn == update->ppn)
-	{
-	flag = 1;
-	break;
-	}
-	sub_r = sub_r->next_node;
-	}
+			sub_r = ssd->channel_head[location->channel].subs_r_head;
+			flag = 0;
+			while (sub_r != NULL)
+			{
+				if (sub_r->ppn == update->ppn)
+				{
+					flag = 1;
+					break;
+				}
+				sub_r = sub_r->next_node;
+			}
 
-	if (flag == 0)
-	{
-	if (ssd->channel_head[location->channel].subs_r_tail != NULL)
-	{
-	ssd->channel_head[location->channel].subs_r_tail->next_node = update;
-	ssd->channel_head[location->channel].subs_r_tail = update;
+			if (flag == 0)
+			{
+				if (ssd->channel_head[location->channel].subs_r_tail != NULL)
+				{
+				ssd->channel_head[location->channel].subs_r_tail->next_node = update;
+				ssd->channel_head[location->channel].subs_r_tail = update;
+				}
+				else
+				{
+				ssd->channel_head[location->channel].subs_r_tail = update;
+				ssd->channel_head[location->channel].subs_r_head = update;
+				}
+			}
+			else
+			{
+				update->current_state = SR_R_DATA_TRANSFER;
+				update->current_time = ssd->current_time;
+				update->next_state = SR_COMPLETE;
+				update->next_state_predict_time = ssd->current_time + 1000;
+				update->complete_time = ssd->current_time + 1000;
+			}
+		}
 	}
-	else
-	{
-	ssd->channel_head[location->channel].subs_r_tail = update;
-	ssd->channel_head[location->channel].subs_r_head = update;
-	}
-	}
-	else
-	{
-	update->current_state = SR_R_DATA_TRANSFER;
-	update->current_time = ssd->current_time;
-	update->next_state = SR_COMPLETE;
-	update->next_state_predict_time = ssd->current_time + 1000;
-	update->complete_time = ssd->current_time + 1000;
-	}
-	}
-	}*/
 
 	//按照不同的分配策略，进行分配，
 	if (ssd->parameter->allocation_scheme == DYNAMIC_ALLOCATION)
