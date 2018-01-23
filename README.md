@@ -20,7 +20,7 @@ the main function:
 3Dsim对盘做旧化处理方式，将无效页平均到每一个block中，导致大量块内遗留较多free~page，不符合ssd机制，ssd实际工作至多有一个块有空闲页。
 在修改后，增添pre_process_write()函数将上述大量空闲页置无效	 	
     
-> 2.代码中所有的chip~plane均采用的chip~plane[0]，即默认只用1个chip
+> 2.代码中所有的chip-plane均采用的chip-plane[0]，即默认只用1个chip
 	修改配置文件配置指定plane
 	
 > 3.通过跑financial2 trace，观察结果中mutli read结果一直为0
