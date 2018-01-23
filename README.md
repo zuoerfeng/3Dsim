@@ -1,9 +1,14 @@
 # 3Dsim
 An SSD simulator for 3D flash, called 3Dsim.
+
 the main function:
+
 1.Support for 3D commands, for example:mutli plane\half page read\one shot read\ont shot program/Erase suspend/resume..etc
+
 2.Multi-level parallel simulation,such as channel/chip/die/plane
+
 3.Clear hierarchical interface
+
 4.4-layer structure, include interface/buffer/ftl/fvl/flash level
 
 3Dsim的一些运行问题及修改：
