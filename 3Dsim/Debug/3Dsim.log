@@ -1,4 +1,4 @@
-﻿生成启动时间为 2018/1/22 21:17:36。
+﻿生成启动时间为 2018/1/23 20:26:40。
      1>项目“C:\Users\lz\Desktop\3Dsim\3Dsim\3Dsim.vcxproj”在节点 2 上(Rebuild 个目标)。
      1>ClCompile:
          D:\2_tmp\Microsoft Visual Studio 12.0\VC\bin\CL.exe /c /Zi /nologo /W3 /WX- /Od /Oy- /D WIN32 /D _DEBUG /D _CONSOLE /Gm /EHsc /RTC1 /MDd /GS /fp:precise /Zc:wchar_t /Zc:forScope /Fo"Debug\\" /Fd"Debug\vc120.pdb" /Gd /TC /analyze- /errorReport:prompt avlTree.c buffer.c fcl.c flash.c ftl.c initialize.c interface.c ssd.c
@@ -194,4 +194,4 @@
 
 生成成功。
 
-已用时间 00:00:03.13
+已用时间 00:00:00.78
