@@ -109,10 +109,10 @@ void main()
 	//for (j = 0; j < 3; j++)
 	//{
 		j = 1;
-		for (i = 0; i < 3; i++)
-		{
+		//for (i = 0; i < 3; i++)
+		//{
 			//j = 0;
-			//i = 0;
+			i = 0;
 			//初始化ssd结构体
 			ssd = (struct ssd_info*)malloc(sizeof(struct ssd_info));
 			alloc_assert(ssd, "ssd");
@@ -138,7 +138,7 @@ void main()
 			free_all_node(ssd);
 			_CrtDumpMemoryLeaks();  //Memory leak detection
 			//getchar();
-		}
+		//}
 	//}
 
 	//所有trace跑完停止当前程序
@@ -149,7 +149,7 @@ void main()
 //void main()
 void tracefile_sim(struct ssd_info *ssd)
 {
-	unsigned  int i,j,k,p,m,n;
+	unsigned  int i, j, k, p, m, n, invalid = 0;
 	//struct ssd_info *ssd;
 
 	/*
@@ -164,14 +164,15 @@ void tracefile_sim(struct ssd_info *ssd)
 	printf("enter main\n"); 
 	#endif
 
-	ssd=initiation(ssd);
+	//SSD参数初始化
+	ssd = initiation(ssd);
 
-	make_aged(ssd);
-
+	//SSD预处理建立映射表
 	pre_process_page(ssd);
 
-	if (ssd->parameter->aged == 1)
-		pre_process_write(ssd);   
+	//SSD旧化方法
+	warm_flash(ssd);
+	make_aged(ssd);
 
 	//After the preprocessing is complete, the page offset address of each plane should be guaranteed to be consistent
 	for (i=0;i<ssd->parameter->channel_number;i++)
@@ -188,7 +189,7 @@ void tracefile_sim(struct ssd_info *ssd)
 						printf("%d,0,%d,%d,%d,%d:  %5d\n", i, m, j, k, p, ssd->channel_head[i].chip_head[m].die_head[j].plane_head[k].blk_head[p].last_write_page);
 					}
 					*/
-					printf("%d,0,%d,%d,%d:  %5d\n", i, m, j, k, ssd->channel_head[i].chip_head[m].die_head[j].plane_head[k].free_page);
+					printf("free_page：%d,0,%d,%d,%d:  %5d\n", i, m, j, k, ssd->channel_head[i].chip_head[m].die_head[j].plane_head[k].free_page);
 				}
 			}
 		}
@@ -198,6 +199,27 @@ void tracefile_sim(struct ssd_info *ssd)
 	fprintf(ssd->outputfile,"****************** TRACE INFO ******************\n");
 
 	ssd=simulate(ssd);
+
+	/*
+	for (i = 0; i<ssd->parameter->channel_number; i++)
+	{
+		for (m = 0; m < ssd->parameter->chip_channel[i]; m++)
+		{
+			for (j = 0; j < ssd->parameter->die_chip; j++)
+			{
+				for (k = 0; k < ssd->parameter->plane_die; k++)
+				{
+
+					//for (p = 0; p < ssd->parameter->block_plane; p++)
+					//{
+					//	printf("last_write_page：%d,0,%d,%d,%d,%d:  %5d\n", i, m, j, k, p, ssd->channel_head[i].chip_head[m].die_head[j].plane_head[k].blk_head[p].last_write_page);
+					//}
+					printf("free_page：%d,0,%d,%d,%d:  %5d\n", i, m, j, k, ssd->channel_head[i].chip_head[m].die_head[j].plane_head[k].free_page);
+				}
+			}
+		}
+	}*/
+
 	statistic_output(ssd);  
 	//free_all_node(ssd);
 
@@ -207,7 +229,6 @@ void tracefile_sim(struct ssd_info *ssd)
 	//system("pause");
  	
 }
-
 
 /******************simulate() *********************************************************************
 *Simulation () is the core processing function, the main implementation of the features include:
@@ -753,8 +774,10 @@ void statistic_output(struct ssd_info *ssd)
 	fprintf(ssd->outputfile,"read request average size: %13f\n",ssd->ave_read_size);
 	fprintf(ssd->outputfile,"write request average size: %13f\n",ssd->ave_write_size);
 	fprintf(ssd->outputfile, "\n");
-	fprintf(ssd->outputfile,"read request average response time: %16I64u\n",ssd->read_avg/ssd->read_request_count);
-	fprintf(ssd->outputfile,"write request average response time: %16I64u\n",ssd->write_avg/ssd->write_request_count);
+	if (ssd->read_request_count != 0)
+		fprintf(ssd->outputfile, "read request average response time: %16I64u\n", ssd->read_avg / ssd->read_request_count);
+	if (ssd->write_request_count != 0)
+		fprintf(ssd->outputfile, "write request average response time: %16I64u\n", ssd->write_avg / ssd->write_request_count);
 	fprintf(ssd->outputfile, "\n");
 	fprintf(ssd->outputfile,"buffer read hits: %13d\n",ssd->dram->buffer->read_hit);
 	fprintf(ssd->outputfile,"buffer read miss: %13d\n",ssd->dram->buffer->read_miss_hit);
@@ -823,8 +846,10 @@ void statistic_output(struct ssd_info *ssd)
 	fprintf(ssd->statisticfile,"read request average size: %13f\n",ssd->ave_read_size);
 	fprintf(ssd->statisticfile,"write request average size: %13f\n",ssd->ave_write_size);
 	fprintf(ssd->statisticfile, "\n");
-	fprintf(ssd->statisticfile,"read request average response time: %16I64u\n",ssd->read_avg/ssd->read_request_count);
-	fprintf(ssd->statisticfile,"write request average response time: %16I64u\n",ssd->write_avg/ssd->write_request_count);
+	if (ssd->read_request_count != 0)
+		fprintf(ssd->statisticfile, "read request average response time: %16I64u\n", ssd->read_avg / ssd->read_request_count);
+	if (ssd->write_request_count != 0)
+		fprintf(ssd->statisticfile, "write request average response time: %16I64u\n", ssd->write_avg / ssd->write_request_count);
 	fprintf(ssd->statisticfile, "\n");
 	fprintf(ssd->statisticfile,"buffer read hits: %13d\n",ssd->dram->buffer->read_hit);
 	fprintf(ssd->statisticfile,"buffer read miss: %13d\n",ssd->dram->buffer->read_miss_hit);
@@ -921,6 +946,138 @@ void free_all_node(struct ssd_info *ssd)
 	ssd=NULL;
 }
 
+struct ssd_info *warm_flash(struct ssd_info *ssd)
+{
+	int flag = 1;
+	double output_step = 0;
+	unsigned int a = 0, b = 0;
+	errno_t err;
+	unsigned int i, j, k, m, p;
+
+	//判断配置文件是否支持warm_flash
+	if (ssd->parameter->warm_flash != 1){
+		ssd->warm_flash_cmplt = 1;
+		return ssd;
+	}
+	
+	ssd->warm_flash_cmplt = 0;
+
+	printf("\n");
+	printf("begin warm_flash.......................\n");
+	printf("\n");
+
+	//Empty the allocation token in pre_process()
+	ssd->token = 0;
+	for (i = 0; i < ssd->parameter->channel_number; i++)
+	{
+		for (j = 0; j < ssd->parameter->chip_channel[i]; j++)
+		{
+			for (k = 0; k < ssd->parameter->die_chip; k++)
+			{
+				ssd->channel_head[i].chip_head[j].die_head[k].token = 0;
+			}
+			ssd->channel_head[i].chip_head[j].token = 0;
+		}
+		ssd->channel_head[i].token = 0;
+	}
+
+	if ((err = fopen_s(&(ssd->tracefile), ssd->tracefilename, "r")) != 0)
+	{
+		printf("the trace file can't open\n");
+		return NULL;
+	}
+
+	while (flag != 100)
+	{
+		/*interface layer*/
+		flag = get_requests(ssd);
+
+		/*buffer layer*/
+		if (flag == 1 || (flag == 0 && ssd->request_work != NULL))
+		{
+			if (flag == 0 && ssd->request_work != NULL)
+				getchar();
+			if (ssd->parameter->dram_capacity != 0)
+			{
+				if (ssd->buffer_full_flag == 0)				//buffer don't block,it can be handle.
+				{
+					buffer_management(ssd);
+				}
+			}
+			else
+			{
+				no_buffer_distribute(ssd);
+			}
+
+			if (ssd->request_work->cmplt_flag == 1)
+			{
+				if (ssd->request_work != ssd->request_tail)
+					ssd->request_work = ssd->request_work->next_node;
+				else
+					ssd->request_work = NULL;
+			}
+
+		}
+
+		/*ftl+fcl+flash layer*/
+		process(ssd);
+
+		trace_output(ssd);
+
+		if (flag == 0 && ssd->request_queue == NULL)
+			flag = 100;
+	}
+	fclose(ssd->tracefile);
+
+	if (ssd->dram->buffer->buffer_sector_count != 0)
+		flush_all(ssd);
+	while (ssd->request_queue != NULL)
+	{
+		ssd->current_time = find_nearest_event(ssd);
+		process(ssd);
+		trace_output(ssd);
+	}
+	ssd->warm_flash_cmplt = 1;
+
+	//清空warm计数参数
+	initialize_statistic(ssd);
+	ssd->request_work = NULL;
+	ssd->dram->buffer->write_hit = 0;
+	ssd->dram->buffer->write_miss_hit = 0;
+	for (i = 0; i < ssd->parameter->channel_number; i++)
+	{
+		for (j = 0; j < ssd->parameter->chip_channel[i]; j++)
+		{
+			ssd->channel_head[i].chip_head[j].current_time = 0;
+			ssd->channel_head[i].chip_head[j].next_state_predict_time = 0;
+			ssd->channel_head[i].chip_head[j].current_state = 100;
+			ssd->channel_head[i].chip_head[j].next_state = 100;
+			for (k = 0; k < ssd->parameter->die_chip; k++)
+			{
+				for (m = 0; m < ssd->parameter->plane_die; m++)
+				{
+					for (p = 0; p < ssd->parameter->block_plane; p++)
+					{
+						ssd->channel_head[i].chip_head[j].die_head[k].plane_head[m].blk_head[p].erase_count = 0;
+						ssd->channel_head[i].chip_head[j].die_head[k].plane_head[m].blk_head[p].page_read_count = 0;
+						if (ssd->channel_head[i].chip_head[j].die_head[k].plane_head[m].blk_head[p].page_write_count > 0)
+							ssd->channel_head[i].chip_head[j].die_head[k].plane_head[m].pre_plane_write_count += ssd->channel_head[i].chip_head[j].die_head[k].plane_head[m].blk_head[p].page_write_count;
+						ssd->channel_head[i].chip_head[j].die_head[k].plane_head[m].blk_head[p].page_write_count = 0;
+					}
+					ssd->channel_head[i].chip_head[j].die_head[k].plane_head[m].plane_erase_count = 0;
+					ssd->channel_head[i].chip_head[j].die_head[k].plane_head[m].test_gc_count = 0;
+				}
+			}
+		}
+		ssd->channel_head[i].current_time = 0;
+		ssd->channel_head[i].next_state_predict_time = 0;
+		ssd->channel_head[i].current_state = 0;
+		ssd->channel_head[i].next_state = 0;
+	}
+
+	printf("warmflash is completed!\n");
+	return ssd;
+}
 
 /*****************************************************************************
 *Make_aged () function of the role of death to simulate the real use of a period of time ssd,
@@ -970,6 +1127,8 @@ struct ssd_info *make_aged(struct ssd_info *ssd)
 		return ssd;
 	}
 
+	//make_aged完成之后，进行补写操作，保证闪存只有一个活跃块，包含有效页无效页和空闲页
+	pre_process_write(ssd);
 	return ssd;
 }
 

@@ -30,6 +30,7 @@ void trace_output(struct ssd_info* );
 void statistic_output(struct ssd_info *);
 void free_all_node(struct ssd_info *);
 
+struct ssd_info *warm_flash(struct ssd_info *ssd);
 struct ssd_info *make_aged(struct ssd_info *);
 struct ssd_info *pre_process_write(struct ssd_info *ssd);
 struct ssd_info *process(struct ssd_info *);

@@ -507,6 +507,11 @@ struct ssd_info *no_buffer_distribute(struct ssd_info *ssd)
 
 	ssd->dram->current_time = ssd->current_time;
 	req = ssd->request_work;
+
+	req->size = ((req->lsn + req->size - 1) / secno_num_sub_page - (req->lsn) / secno_num_sub_page + 1) * secno_num_sub_page;
+	req->lsn /= secno_num_sub_page;
+	req->lsn *= secno_num_sub_page;
+
 	lsn = req->lsn;
 	lpn = req->lsn / secno_num_per_page;
 	last_lpn = (req->lsn + req->size - 1) / secno_num_per_page;
@@ -526,6 +531,9 @@ struct ssd_info *no_buffer_distribute(struct ssd_info *ssd)
 	{
 		while (lpn <= last_lpn)
 		{
+			mask = ~(0xffffffff << (ssd->parameter->subpage_page));   //掩码表示的是子页的掩码
+			state = mask;
+
 			if (lpn == first_lpn)
 			{
 				//offset表示state中0的个数，也就是第一个页中缺失的部分
@@ -543,6 +551,7 @@ struct ssd_info *no_buffer_distribute(struct ssd_info *ssd)
 			lpn++;
 		}
 	}
+	req->cmplt_flag = 1;
 
 	return ssd;
 }
@@ -853,7 +862,7 @@ struct allocation_info * allocation_method(struct ssd_info *ssd,unsigned int lpn
 					{
 						//计算当前aim-die的距离是否等于1
 						return_distance = calculate_distance(ssd, ssd->dram->static_die_buffer[aim_die], lpn);
-						if (return_distance == 1)	//跳过当前die
+						if (return_distance >= 1 && return_distance <= 2)	//跳过当前die
 						{
 							ssd->die_token = (ssd->die_token + 1) % DIE_NUMBER;
 							aim_die = ssd->die_token;
@@ -928,6 +937,7 @@ struct ssd_info * insert2_command_buffer(struct ssd_info * ssd, struct buffer_in
 	unsigned int sub_req_state = 0, sub_req_size = 0, sub_req_lpn = 0;
 	struct buffer_group *command_buffer_node = NULL, *pt, *new_node = NULL, key;
 	struct sub_request *sub_req = NULL;
+	int tmp;
 
 	//遍历缓存的节点，判断是否有命中
 	key.group = lpn;
@@ -969,10 +979,14 @@ struct ssd_info * insert2_command_buffer(struct ssd_info * ssd, struct buffer_in
 		command_buffer->command_buff_page++;
 
 		//如果缓存已满，此时发生flush操作，将缓存的内存一次性flush到闪存上
-		if (command_buffer->command_buff_page == command_buffer->max_command_buff_page)
+		if (command_buffer->command_buff_page >= command_buffer->max_command_buff_page)
 		{
+			if (ssd->warm_flash_cmplt == 0)
+				tmp = command_buffer->command_buff_page;
+			else
+				tmp = command_buffer->max_command_buff_page;
 			//printf("begin to flush command_buffer\n");
-			for (i = 0; i < command_buffer->max_command_buff_page; i++)
+			for (i = 0; i < tmp; i++)
 			{
 				sub_req = NULL;
 				sub_req_state = command_buffer->buffer_tail->stored;
@@ -1298,4 +1312,84 @@ Status allocate_location(struct ssd_info * ssd, struct sub_request *sub_req)
 	free(allocation1);
 	allocation1 = NULL;
 	return SUCCESS;
+}
+
+struct ssd_info *flush_all(struct ssd_info *ssd)
+{
+	struct buffer_group *pt;
+	struct sub_request *sub_req = NULL;
+	unsigned int sub_req_state = 0, sub_req_size = 0, sub_req_lpn = 0;
+
+	struct request *req = (struct request*)malloc(sizeof(struct request));
+	alloc_assert(req, "request");
+	memset(req, 0, sizeof(struct request));
+
+	int i, j;
+	/*for (i = 0; i < ssd->parameter->channel_number; i++)
+	{
+	for (j = 0; j < ssd->parameter->chip_channel[i]; j++)
+	{
+	printf("channel:%d  chip:%d  current_state:%d\n", i, j, ssd->channel_head[i].chip_head[j].current_state);
+	}
+	printf("channel:%d  current_state:%d\n", i, ssd->channel_head[i].current_state);
+	printf("channel:%d  next_state:%d\n", i, ssd->channel_head[i].next_state);
+	printf("ssd->currenn_time:%I64u channel:next_predict_time:%I64u\n", ssd->current_time, ssd->channel_head[i].next_state_predict_time);
+	}*/
+
+	if (ssd->request_queue == NULL)          //The queue is empty
+	{
+		ssd->request_queue = req;
+		ssd->request_tail = req;
+		ssd->request_work = req;
+		ssd->request_queue_length++;
+	}
+	else
+	{
+		(ssd->request_tail)->next_node = req;
+		ssd->request_tail = req;
+		if (ssd->request_work == NULL)
+			ssd->request_work = req;
+		ssd->request_queue_length++;
+	}
+
+	int max_command_buff_page_tmp1, max_command_buff_page_tmp2;
+	if (ssd->trace_over_flag == 1 && ssd->warm_flash_cmplt == 0)
+	{
+		max_command_buff_page_tmp1 = ssd->dram->command_buffer->max_command_buff_page;
+		max_command_buff_page_tmp2 = ssd->dram->static_die_buffer[0]->max_command_buff_page;
+		ssd->dram->command_buffer->max_command_buff_page = 1;
+		for (i = 0; i < 4; i++)
+			ssd->dram->static_die_buffer[i]->max_command_buff_page = 1;
+		while (ssd->dram->buffer->buffer_sector_count > 0)
+		{
+			//printf("%u\n", ssd->dram->buffer->buffer_sector_count);
+			sub_req = NULL;
+			sub_req_state = ssd->dram->buffer->buffer_tail->stored;
+			sub_req_size = size(ssd->dram->buffer->buffer_tail->stored);
+			sub_req_lpn = ssd->dram->buffer->buffer_tail->group;
+
+			distribute2_command_buffer(ssd, sub_req_lpn, sub_req_size, sub_req_state, req, WRITE);
+
+			ssd->dram->buffer->buffer_sector_count = ssd->dram->buffer->buffer_sector_count - sub_req_size;
+
+			pt = ssd->dram->buffer->buffer_tail;
+			avlTreeDel(ssd->dram->buffer, (TREE_NODE *)pt);
+			if (ssd->dram->buffer->buffer_head->LRU_link_next == NULL) {
+				ssd->dram->buffer->buffer_head = NULL;
+				ssd->dram->buffer->buffer_tail = NULL;
+			}
+			else {
+				ssd->dram->buffer->buffer_tail = ssd->dram->buffer->buffer_tail->LRU_link_pre;
+				ssd->dram->buffer->buffer_tail->LRU_link_next = NULL;
+			}
+			pt->LRU_link_next = NULL;
+			pt->LRU_link_pre = NULL;
+			AVL_TREENODE_FREE(ssd->dram->buffer, (TREE_NODE *)pt);
+			pt = NULL;
+		}
+		ssd->dram->command_buffer->max_command_buff_page = max_command_buff_page_tmp1;
+		for (i = 0; i < 4; i++)
+			ssd->dram->static_die_buffer[i]->max_command_buff_page = max_command_buff_page_tmp2;
+	}
+	return ssd;
 }

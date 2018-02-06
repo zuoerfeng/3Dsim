@@ -216,9 +216,11 @@ void initialize_statistic(struct ssd_info * ssd)
 	ssd->read_request_count = 0;
 	ssd->write_flash_count = 0;
 	ssd->write_request_count = 0;
-	ssd->read_request_count = 0;
 	ssd->ave_read_size = 0.0;
 	ssd->ave_write_size = 0.0;
+
+	ssd->gc_count = 0;
+	ssd->mplane_erase_count = 0;
 
 	//Initializes the global variable for ssd_info
 	ssd->make_age_free_page = 0;
@@ -229,6 +231,22 @@ void initialize_statistic(struct ssd_info * ssd)
 	ssd->resume_count = 0;
 	ssd->die_token = 0;
 	ssd->plane_count = 0;
+	ssd->read_avg = 0;
+	ssd->write_avg = 0;
+	ssd->write_request_count = 0;
+	ssd->read_request_count = 0;
+	ssd->current_time = 0;
+
+	ssd->m_plane_prog_count = 0;
+	ssd->mutliplane_oneshot_prog_count = 0;
+	ssd->one_shot_read_count = 0;
+
+	/*ssd->gc_num[0] = 0;
+	ssd->gc_num[1] = 0;
+	ssd->gc_num[2] = 0;
+	ssd->gc_num[3] = 0;
+	ssd->gc_num[4] = 0;
+	ssd->gc_num[5] = 0;*/
 }
 
 
@@ -640,6 +658,8 @@ struct parameter_value *load_parameters(char parameter_file[30])
 			sscanf(buf + next_eql, "%d", &p->flash_mode);
 		}else if((res_eql=strcmp(buf,"requset queue depth")) ==0){
 			sscanf(buf + next_eql,"%d",&p->queue_length);               //Request the queue depth
+		}else if ((res_eql = strcmp(buf, "warm flash")) == 0){
+			sscanf(buf + next_eql, "%d", &p->warm_flash);
 		}else if((res_eql=strncmp(buf,"chip number",11)) ==0)
 		{
 			sscanf(buf+12,"%d",&i);

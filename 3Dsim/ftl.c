@@ -886,7 +886,7 @@ Status get_ppn_for_advanced_commands(struct ssd_info *ssd, unsigned int channel,
 ************************************************************************************************************/
 unsigned int gc(struct ssd_info *ssd, unsigned int channel, unsigned int flag)
 {
-	unsigned int i;
+	unsigned int i,j;
 
 	//printf("gc flag=%d\n",flag);
 	//Active gc

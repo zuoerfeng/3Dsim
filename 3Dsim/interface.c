@@ -75,12 +75,30 @@ int get_requests(struct ssd_info *ssd)
 		return 0;
 	}
 	
+	ope = 0;
+
 	while (TRUE)
 	{
-		filepoint = ftell(ssd->tracefile);
-		fgets(buffer, 200, ssd->tracefile);
-		sscanf(buffer, "%I64u %d %d %d %d", &time_t, &device, &lsn, &size, &ope);
-
+		if (ssd->warm_flash_cmplt == 1)
+		{
+			filepoint = ftell(ssd->tracefile);
+			fgets(buffer, 200, ssd->tracefile);
+			sscanf(buffer, "%I64u %d %d %d %d", &time_t, &device, &lsn, &size, &ope);
+		}
+		else
+		{
+			while (ope != 1)
+			{
+				if (feof(ssd->tracefile))
+					break;
+				filepoint = ftell(ssd->tracefile);
+				fgets(buffer, 200, ssd->tracefile);
+				sscanf(buffer, "%I64u %d %d %d %d", &time_t, &device, &lsn, &size, &ope);
+			}
+			ope = 0;
+		}
+		if (ssd->parameter->dram_capacity == 0)
+			break;
 		if (size < (ssd->parameter->dram_capacity / SECTOR))
 			break;
 
@@ -182,6 +200,17 @@ int get_requests(struct ssd_info *ssd)
 	request1->time = time_t;
 	request1->lsn = lsn;
 	request1->size = size;
+
+	/*
+	if (ssd->pre_process_cmplt == 0 && ope == READ)
+		request1->operation = WRITE;
+	else if (ssd->pre_process_cmplt == 0 && ope == WRITE)
+		{
+			free(request1);
+			request1 = NULL;
+		}
+	*/
+
 	request1->operation = ope;
 	request1->begin_time = time_t;
 	request1->response_time = 0;

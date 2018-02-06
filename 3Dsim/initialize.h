@@ -209,6 +209,7 @@ struct ssd_info{
 	int test_count;
 	unsigned int die_token;
 	unsigned int plane_count;
+	int warm_flash_cmplt;
 
 	__int64 current_time;                //Record system time
 	__int64 next_request_time;
@@ -571,6 +572,7 @@ struct parameter_value{
 	int aged;                       //1 indicates that the SSD needs to be aged, 0 means that the SSD needs to be kept non-aged
 	float aged_ratio; 
 	int queue_length;               //Request the length of the queue
+	int warm_flash;
 	int update_reqeust_max;		    //request the length of sub request(partial page)
 	int flash_mode;                 //0--slc mode,1--tlc mode
 

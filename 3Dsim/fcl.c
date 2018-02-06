@@ -1087,7 +1087,7 @@ Status services_2_write(struct ssd_info * ssd, unsigned int channel)
 			if (ssd->parameter->flash_mode == TLC_MODE)
 			{
 				if (i < PAGE_INDEX)
-					getchar();
+					printf("\n less than 3 subs \n");
 			}
 		}
 		
@@ -1316,7 +1316,7 @@ Status service_advance_command(struct ssd_info *ssd, unsigned int channel, unsig
 	max_sub_num = (ssd->parameter->die_chip)*(ssd->parameter->plane_die)*PAGE_INDEX;
 
 	//当最后读完了，只剩下了单个请求，这个时候可以使用普通的one page program去写完
-	if (ssd->trace_over_flag == 1 && ssd->request_work == NULL)
+	if ((ssd->trace_over_flag == 1 && ssd->request_work == NULL) || (ssd->parameter->warm_flash == 1 && ssd->trace_over_flag == 1 && ssd->warm_flash_cmplt == 0))
 	{
 		for (i = 0; i < subs_count;i++)
 			get_ppn_for_normal_command(ssd, channel, chip, subs[i]);
@@ -1558,8 +1558,8 @@ struct ssd_info *make_same_level(struct ssd_info *ssd, unsigned int channel, uns
 		alloc_assert(new_direct_erase, "new_direct_erase");
 		memset(new_direct_erase, 0, sizeof(struct direct_erase));
 
-		direct_erase_node->block = block;
-		direct_erase_node->next_node = NULL;
+		new_direct_erase->block = block;
+		new_direct_erase->next_node = NULL;
 		direct_erase_node = ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[plane].erase_node;
 		if (direct_erase_node == NULL)
 		{
