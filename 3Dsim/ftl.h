@@ -44,7 +44,7 @@ int get_ppn_for_advanced_commands(struct ssd_info *ssd, unsigned int channel, un
 struct ssd_info * suspend_erase_operation(struct ssd_info * ssd, unsigned int channel, unsigned int chip, unsigned int die, unsigned int * erase_block);
 int resume_erase_operation(struct ssd_info * ssd, unsigned int channel, unsigned int chip);
 struct ssd_info *delete_suspend_command(struct ssd_info *ssd, unsigned int channel, unsigned int chip, struct suspend_spot * suspend_command);
-
+struct allocation_info* pre_process_allocation(struct ssd_info *ssd, unsigned int lpn);
 
 
 

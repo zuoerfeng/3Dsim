@@ -111,8 +111,6 @@ struct ssd_info *initiation(struct ssd_info *ssd)
 //	strcpy_s(ssd->statisticfilename,16,"CFS.dat");
 //	strcpy_s(ssd->statisticfilename,25,"DevDivRelease.dat");
 	
-//	strcpy_s(ssd->statistic_time_filename, 50, "die_req.dat");
-//	strcpy_s(ssd->statistic_size_filename, 50, "size_req.dat");
 
 	//Import the configuration file for ssd
 	parameters=load_parameters(ssd->parameterfilename);
@@ -155,36 +153,17 @@ struct ssd_info *initiation(struct ssd_info *ssd)
 
 	//printf("\n");
 
-	//if ((err = fopen_s(&ssd->statisticfile_time, ssd->statistic_time_filename, "w")) != 0)
- //	{
- //		printf("the second statistic file can't open\n");
- //		return NULL;
- //	}
-
-	//printf("\n");
-
-	//if ((err = fopen_s(&ssd->statisticfile_size, ssd->statistic_size_filename, "w")) != 0)
-	//{
-	//	printf("the second statistic file can't open\n");
-	//	return NULL;
-	//}
 
 	fprintf(ssd->outputfile,"parameter file: %s\n",ssd->parameterfilename); 
 	fprintf(ssd->outputfile,"trace file: %s\n",ssd->tracefilename);
 	fprintf(ssd->statisticfile,"parameter file: %s\n",ssd->parameterfilename); 
 	fprintf(ssd->statisticfile,"trace file: %s\n",ssd->tracefilename);
 
-	/*
-	fprintf(ssd->statisticfile_time, "parameter file: %s\n", ssd->parameterfilename);
-	fprintf(ssd->statisticfile_time, "trace file: %s\n", ssd->tracefilename);
-	fprintf(ssd->statisticfile_time, "-----------------------time_ppn in read operation----------------------\n");
-	fprintf(ssd->statisticfile_time, "      time           channel     chip     die    plane   plane_number\n");
-	*/
+
 
 	fflush(ssd->outputfile);
 	fflush(ssd->statisticfile);
-	/*fflush(ssd->statisticfile_time);*/
-	/*fflush(ssd->statisticfile_size);*/
+
 
 
 	if((err=fopen_s(&fp,ssd->parameterfilename,"r"))!=0)
@@ -505,8 +484,6 @@ struct ssd_info * initialize_channels(struct ssd_info * ssd )
 struct parameter_value *load_parameters(char parameter_file[30])
 {
 	FILE * fp;
-	FILE * fp1;
-	FILE * fp2;
 	errno_t ferr;
 	struct parameter_value *p;
 	char buf[BUFSIZE];
@@ -523,16 +500,6 @@ struct parameter_value *load_parameters(char parameter_file[30])
 	if((ferr = fopen_s(&fp,parameter_file,"r"))!= 0)
 	{	
 		printf("the file parameter_file error!\n");	
-		return p;
-	}
-	if((ferr = fopen_s(&fp1,"parameters_name.txt","w"))!= 0)
-	{	
-		printf("the file parameter_name error!\n");	
-		return p;
-	}
-	if((ferr = fopen_s(&fp2,"parameters_value.txt","w")) != 0)
-	{	
-		printf("the file parameter_value error!\n");	
 		return p;
 	}
 
@@ -685,8 +652,6 @@ struct parameter_value *load_parameters(char parameter_file[30])
 		
 	}
 	fclose(fp);
-	fclose(fp1);
-	fclose(fp2);
 
 	return p;
 }

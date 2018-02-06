@@ -37,8 +37,10 @@ Zuo Lu			2017/10/11		  1.9			Support dynamic OSPA allocation strategy				6173766
 #define PAGE_INDEX 3 //tlc mode .LSB/CSB/MSB
 //#define PLANE_NUMBER 8 //for_plane_buffer
 #define DIE_NUMBER 4
-
 #define SAMPLE_SPACE 10
+
+#define ALLOCATION_MOUNT 1
+#define ALLOCATION_BUFFER 2
 
 #define DYNAMIC_ALLOCATION 0
 #define STATIC_ALLOCATION 1
@@ -284,8 +286,8 @@ struct ssd_info{
 	struct sub_request *subs_w_head;     //When using the full dynamic allocation, the first hanging on the ssd, etc. into the process function is linked to the corresponding channel read request queue
 	struct sub_request *subs_w_tail;
 
-	struct event_node *event;            //Event queue,add to the queue in chronological order, and at the end of the simulate function, the time is determined based on the time of the queue queue
 	struct channel_info *channel_head;   //Points to the first address of the channel structure array
+
 };
 
 
@@ -298,7 +300,6 @@ struct channel_info{
 	__int64 current_time;                //Record the current time of the channel
 	__int64 next_state_predict_time;     //the predict time of next state, used to decide the sate at the moment
 
-	struct event_node *event;
 	struct sub_request *subs_r_head;     //The read request on the channel queue header, the first service in the queue header request
 	struct sub_request *subs_r_tail;     //Channel on the read request queue tail, the new sub-request added to the tail
 	struct sub_request *subs_w_head;     //The write request on the channel queue header, the first service in the queue header request
@@ -513,17 +514,6 @@ struct sub_request{
 };
 
 
-/***********************************************************************
-*The event node controls the growth of time, and the increase in each time 
-*is determined by the time of the most recent event
-************************************************************************/
-struct event_node{
-	int type;                        //Record the type of the event, 1 for the command type, and 2 for the data transfer type
-	__int64 predict_time;            //Record the expected time of this time to prevent the implementation of this time ahead of time
-	struct event_node *next_node;
-	struct event_node *pre_node;
-};
-
 struct parameter_value{
 	unsigned int chip_num;          //the number of chip in ssd
 	unsigned int dram_capacity;     //Record the DRAM capacity in SSD
@@ -599,6 +589,7 @@ struct entry{
 	long long write_count;
 	long long read_count;
 	unsigned int type;
+	unsigned int mount_type;
 };
 
 
@@ -654,7 +645,15 @@ struct suspend_location{
 };
 
 
-
+struct allocation_info                       //记录分配信息
+{
+	unsigned int channel;
+	unsigned int chip;
+	unsigned int die;
+	unsigned int plane;
+	unsigned int mount_flag;
+	struct buffer_info * aim_command_buffer;
+};
 
 struct ssd_info *initiation(struct ssd_info *);
 struct parameter_value *load_parameters(char parameter_file[30]);

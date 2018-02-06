@@ -184,8 +184,6 @@ struct ssd_info *pre_process_page(struct ssd_info *ssd)
 		//当读写统计的次数完成了之后，开始计算多读还是多写
 		for (i = 0; i < page_num; i++)
 		{
-			//if (i == 188911)
-			//	getchar();
 
 			if ((ssd->dram->map->map_entry[i].read_count != 0) || (ssd->dram->map->map_entry[i].write_count != 0))
 			{
@@ -215,22 +213,15 @@ struct ssd_info *pre_process_page(struct ssd_info *ssd)
 }
 
 
-
-/**********************************************
-*The function is to obtain the physical 
-*page number ppn for the preprocessor function
-**********************************************/
-unsigned int get_ppn_for_pre_process(struct ssd_info *ssd, unsigned int lpn)
-{
+struct allocation_info* pre_process_allocation(struct ssd_info *ssd, unsigned int lpn)
+{	
+	
 	unsigned int channel = 0, chip = 0, die = 0, plane = 0;
-	unsigned int ppn;
-	unsigned int active_block;
 	unsigned int channel_num = 0, chip_num = 0, die_num = 0, plane_num = 0;
-	//unsigned int page_count = 0;
-
-#ifdef DEBUG
-	printf("enter get_psn_for_pre_process\n");
-#endif
+	
+	struct allocation_info * allocated_info = (struct allocation_info *)malloc(sizeof(struct allocation_info));
+	alloc_assert(allocated_info, "allocated_info");
+	memset(allocated_info, 0, sizeof(struct allocation_info));
 
 	channel_num = ssd->parameter->channel_number;
 	chip_num = ssd->parameter->chip_channel[0];
@@ -241,7 +232,7 @@ unsigned int get_ppn_for_pre_process(struct ssd_info *ssd, unsigned int lpn)
 	{
 		if (ssd->parameter->dynamic_allocation == CHANNEL_DYNAMIC_ALLOCATION)						  //assign priority：channel>die>plane
 		{
-			
+
 			channel = ssd->token;
 			ssd->token = (ssd->token + 1) % ssd->parameter->channel_number;
 			chip = ssd->channel_head[channel].token;
@@ -249,7 +240,7 @@ unsigned int get_ppn_for_pre_process(struct ssd_info *ssd, unsigned int lpn)
 			die = ssd->channel_head[channel].chip_head[chip].token;
 			ssd->channel_head[channel].chip_head[chip].token = (die + 1) % ssd->parameter->die_chip;
 			plane = ssd->channel_head[channel].chip_head[chip].die_head[die].token;
-			
+
 			ssd->page_count++;
 
 			if (ssd->parameter->flash_mode == TLC_MODE)
@@ -332,42 +323,42 @@ unsigned int get_ppn_for_pre_process(struct ssd_info *ssd, unsigned int lpn)
 		{
 			switch (ssd->parameter->static_allocation)
 			{
-				case PLANE_STATIC_ALLOCATION:													 //1.plane>superpage>channel>chip>die 
-				{
-					plane = lpn % plane_num;
-					channel = (lpn / (plane_num*PAGE_INDEX)) % channel_num;
-					chip = (lpn / (plane_num*PAGE_INDEX*channel_num)) % chip_num;
-					die = (lpn / (plane_num*PAGE_INDEX*channel_num*chip_num)) % die_num;
-					break;
-				}
-				case SUPERPAGE_STATIC_ALLOCATION:												//2.superpage>plane>channel>chip>die
-				{
-					plane = (lpn / PAGE_INDEX) % plane_num;
-					channel = (lpn / (plane_num*PAGE_INDEX)) % channel_num;
-					chip = (lpn / (plane_num*PAGE_INDEX*channel_num)) % chip_num;
-					die = (lpn / (plane_num*channel_num*chip_num*PAGE_INDEX)) % die_num;
-					break;
-				}
-				case CHANNEL_PLANE_STATIC_ALLOCATION:											//3.channel>chip>plane>superpage>die
-				{
-					channel = lpn % channel_num;
-					chip = (lpn / channel_num) % chip_num;
-					plane = (lpn / (channel_num*chip_num)) % plane_num;
-					die = (lpn / (plane_num*channel_num*chip_num*PAGE_INDEX)) % die_num;
-					break;
-				}
-				case CHANNEL_SUPERPAGE_STATIC_ALLOCATION:										//4.channel>chip>superpage>plane>die
-				{
-					channel = lpn % channel_num;
-					chip = (lpn / channel_num) % chip_num;
-					plane = (lpn / (channel_num*chip_num*PAGE_INDEX)) % plane_num;
-					die = (lpn / (plane_num*channel_num*chip_num*PAGE_INDEX)) % die_num;
-					break;
-				}
-				default:break;
+			case PLANE_STATIC_ALLOCATION:													 //1.plane>superpage>channel>chip>die 
+			{
+				plane = lpn % plane_num;
+				channel = (lpn / (plane_num*PAGE_INDEX)) % channel_num;
+				chip = (lpn / (plane_num*PAGE_INDEX*channel_num)) % chip_num;
+				die = (lpn / (plane_num*PAGE_INDEX*channel_num*chip_num)) % die_num;
+				break;
+			}
+			case SUPERPAGE_STATIC_ALLOCATION:												//2.superpage>plane>channel>chip>die
+			{
+				plane = (lpn / PAGE_INDEX) % plane_num;
+				channel = (lpn / (plane_num*PAGE_INDEX)) % channel_num;
+				chip = (lpn / (plane_num*PAGE_INDEX*channel_num)) % chip_num;
+				die = (lpn / (plane_num*channel_num*chip_num*PAGE_INDEX)) % die_num;
+				break;
+			}
+			case CHANNEL_PLANE_STATIC_ALLOCATION:											//3.channel>chip>plane>superpage>die
+			{
+				channel = lpn % channel_num;
+				chip = (lpn / channel_num) % chip_num;
+				plane = (lpn / (channel_num*chip_num)) % plane_num;
+				die = (lpn / (plane_num*channel_num*chip_num*PAGE_INDEX)) % die_num;
+				break;
+			}
+			case CHANNEL_SUPERPAGE_STATIC_ALLOCATION:										//4.channel>chip>superpage>plane>die
+			{
+				channel = lpn % channel_num;
+				chip = (lpn / channel_num) % chip_num;
+				plane = (lpn / (channel_num*chip_num*PAGE_INDEX)) % plane_num;
+				die = (lpn / (plane_num*channel_num*chip_num*PAGE_INDEX)) % die_num;
+				break;
+			}
+			default:break;
 			}
 		}
-		else if (ssd->parameter->flash_mode == SLC_MODE)									
+		else if (ssd->parameter->flash_mode == SLC_MODE)
 		{
 			if (ssd->parameter->static_allocation == PLANE_STATIC_ALLOCATION || ssd->parameter->static_allocation == SUPERPAGE_STATIC_ALLOCATION)			//1.plane>channel>chip>die
 			{
@@ -384,38 +375,42 @@ unsigned int get_ppn_for_pre_process(struct ssd_info *ssd, unsigned int lpn)
 				die = (lpn / (plane_num*channel_num*chip_num)) % die_num;
 			}
 		}
-		/*
-		if (ssd->parameter->static_allocation == PLANE_STATIC_ALLOCATION)                                  
-		{
-			plane = lpn % plane_num;
-			channel = (lpn / (plane_num*PAGE_INDEX)) % channel_num;
-			chip = (lpn / (plane_num*PAGE_INDEX*channel_num)) % chip_num;
-			die = (lpn / (plane_num*PAGE_INDEX*channel_num*chip_num)) % die_num;
-		}
-		else if (ssd->parameter->static_allocation == SUPERPAGE_STATIC_ALLOCATION)							
-		{
-			plane = (lpn / PAGE_INDEX) % plane_num;
-			channel = (lpn / (plane_num*PAGE_INDEX)) % channel_num;
-			chip = (lpn / (plane_num*PAGE_INDEX*channel_num)) % chip_num;
-			die = (lpn / (plane_num*channel_num*chip_num*PAGE_INDEX)) % die_num;
-		}
-		else if (ssd->parameter->static_allocation == CHANNEL_PLANE_STATIC_ALLOCATION)						
-		{
-			channel = lpn % channel_num;
-			chip = (lpn / channel_num) % chip_num;
-			plane = (lpn / (channel_num*chip_num)) % plane_num;
-			die = (lpn / (plane_num*channel_num*chip_num*PAGE_INDEX)) % die_num;
-		}
-		else if (ssd->parameter->static_allocation == CHANNEL_SUPERPAGE_STATIC_ALLOCATION)					
-		{
-			channel = lpn % channel_num;
-			chip = (lpn / channel_num) % chip_num;
-			plane = (lpn / (channel_num*chip_num*PAGE_INDEX)) % plane_num;
-			die = (lpn / (plane_num*channel_num*chip_num*PAGE_INDEX)) % die_num;
-		}
-		*/
 	}
 
+	//挂载到返回的结构体上
+	allocated_info->channel = channel;
+	allocated_info->chip = chip;
+	allocated_info->die = die;
+	allocated_info->plane = plane;
+
+	return allocated_info;
+}
+
+
+
+/**********************************************
+*The function is to obtain the physical 
+*page number ppn for the preprocessor function
+**********************************************/
+unsigned int get_ppn_for_pre_process(struct ssd_info *ssd, unsigned int lpn)
+{
+	unsigned int channel = 0, chip = 0, die = 0, plane = 0;
+	unsigned int ppn;
+	unsigned int active_block;
+	struct allocation_info*  lpn_location = NULL;
+
+#ifdef DEBUG
+	printf("enter get_psn_for_pre_process\n");
+#endif
+
+	//利用不同的分配算法，为预处理的数据分配位置
+	lpn_location = pre_process_allocation(ssd, lpn);
+	
+	channel = lpn_location->channel;
+	chip = lpn_location->chip;
+	die = lpn_location->die;
+	plane = lpn_location->plane;
+	
 	/******************************************************************************
 	*According to the above allocation method to find channel, chip, die, plane, 
 	*and then found in this active_block,Then get ppn
@@ -432,7 +427,9 @@ unsigned int get_ppn_for_pre_process(struct ssd_info *ssd, unsigned int lpn)
 		return 0;
 	}
 	
-
+	//free掉地址空间
+	free(lpn_location);
+	lpn_location = NULL;
 	return ppn;
 }
 

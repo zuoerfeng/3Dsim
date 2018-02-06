@@ -793,13 +793,6 @@ Status go_one_step(struct ssd_info * ssd, struct sub_request ** subs, unsigned i
 			ssd->channel_head[location->channel].chip_head[location->chip].next_state = CHIP_DATA_TRANSFER;
 			ssd->channel_head[location->channel].chip_head[location->chip].next_state_predict_time = ssd->current_time + ssd->parameter->time_characteristics.tR;
 			
-			//向文件中输出当前的current time，以及plane号
-			//if (sub->total_request->request_read_num % SAMPLE_SPACE == 0)
-			//{
-			//	plane_number = location->channel * 2 + location->chip * 1 + location->die;
-			//	fprintf(ssd->statisticfile_time, "%2d %16I64u %8llu \n", plane_number, ssd->current_time, sub->total_request->request_read_num);
-			//	fflush(ssd->statisticfile_time);
-			//}
 		
 			break;
 		}
@@ -964,13 +957,6 @@ Status go_one_step(struct ssd_info * ssd, struct sub_request ** subs, unsigned i
 					ssd->channel_head[subs[i]->location->channel].chip_head[subs[i]->location->chip].die_head[subs[i]->location->die].plane_head[subs[i]->location->plane].blk_head[subs[i]->location->block].page_read_count++;    //read操作计数值增加
 					ssd->read_count++;
 
-					//向文件中输出当前的current time，以及plane号
-					//if (subs[0]->total_request->request_read_num % SAMPLE_SPACE == 0)
-					//{
-					//	plane_number = subs[i]->location->channel * 2 + subs[i]->location->chip * 1 + subs[i]->location->die;
-					//	fprintf(ssd->statisticfile_time, "%2d %16I64u %8llu\n", plane_number, ssd->current_time, subs[0]->total_request->request_read_num);
-					//	fflush(ssd->statisticfile_time);
-					//}
 				}
 
 				//更新chip的时间线
