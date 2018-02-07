@@ -1,0 +1,61 @@
+﻿生成启动时间为 2018/2/7 16:34:17。
+     1>项目“C:\Users\lz\Desktop\3Dsim\proj\3Dsim\3Dsim\3Dsim.vcxproj”在节点 2 上(Rebuild 个目标)。
+     1>ClCompile:
+         D:\2_tmp\Microsoft Visual Studio 12.0\VC\bin\CL.exe /c /ZI /nologo /W3 /WX- /sdl /Od /Oy- /D _MBCS /Gm /EHsc /RTC1 /MDd /GS /fp:precise /Zc:wchar_t /Zc:forScope /Fo"Debug\\" /Fd"Debug\vc120.pdb" /Gd /TC /analyze- /errorReport:prompt /D _CRT_SECURE_NO_WARNINGS avlTree.c buffer.c fcl.c flash.c ftl.c initialize.c interface.c ssd.c
+         ssd.c
+     1>c:\users\lz\desktop\3dsim\proj\3dsim\3dsim\ssd.c(108): warning C4101: “p”: 未引用的局部变量
+     1>c:\users\lz\desktop\3dsim\proj\3dsim\3dsim\ssd.c(108): warning C4101: “n”: 未引用的局部变量
+     1>c:\users\lz\desktop\3dsim\proj\3dsim\3dsim\ssd.c(195): warning C4101: “p”: 未引用的局部变量
+     1>c:\users\lz\desktop\3dsim\proj\3dsim\3dsim\ssd.c(195): warning C4101: “m”: 未引用的局部变量
+     1>c:\users\lz\desktop\3dsim\proj\3dsim\3dsim\ssd.c(280): warning C4101: “p”: 未引用的局部变量
+     1>c:\users\lz\desktop\3dsim\proj\3dsim\3dsim\ssd.c(282): warning C4101: “count1”: 未引用的局部变量
+     1>c:\users\lz\desktop\3dsim\proj\3dsim\3dsim\ssd.c(280): warning C4101: “k”: 未引用的局部变量
+     1>c:\users\lz\desktop\3dsim\proj\3dsim\3dsim\ssd.c(280): warning C4101: “m”: 未引用的局部变量
+     1>c:\users\lz\desktop\3dsim\proj\3dsim\3dsim\ssd.c(280): warning C4101: “j”: 未引用的局部变量
+         interface.c
+     1>c:\users\lz\desktop\3dsim\proj\3dsim\3dsim\interface.c(106): warning C4018: “<”: 有符号/无符号不匹配
+     1>c:\users\lz\desktop\3dsim\proj\3dsim\3dsim\interface.c(140): warning C4018: “>=”: 有符号/无符号不匹配
+     1>c:\users\lz\desktop\3dsim\proj\3dsim\3dsim\interface.c(173): warning C4018: “>=”: 有符号/无符号不匹配
+         initialize.c
+     1>c:\users\lz\desktop\3dsim\proj\3dsim\3dsim\initialize.c(108): warning C4013: “alloc_assert”未定义；假设外部返回 int
+         ftl.c
+     1>c:\users\lz\desktop\3dsim\proj\3dsim\3dsim\ftl.c(481): warning C4018: “>”: 有符号/无符号不匹配
+     1>c:\users\lz\desktop\3dsim\proj\3dsim\3dsim\ftl.c(994): warning C4101: “soft”: 未引用的局部变量
+     1>c:\users\lz\desktop\3dsim\proj\3dsim\3dsim\ftl.c(994): warning C4101: “hard”: 未引用的局部变量
+     1>c:\users\lz\desktop\3dsim\proj\3dsim\3dsim\ftl.c(1169): warning C4101: “active_block1”: 未引用的局部变量
+     1>c:\users\lz\desktop\3dsim\proj\3dsim\3dsim\ftl.c(1169): warning C4101: “active_block2”: 未引用的局部变量
+     1>c:\users\lz\desktop\3dsim\proj\3dsim\3dsim\ftl.c(1172): warning C4101: “block2”: 未引用的局部变量
+     1>c:\users\lz\desktop\3dsim\proj\3dsim\3dsim\ftl.c(1172): warning C4101: “block1”: 未引用的局部变量
+     1>c:\users\lz\desktop\3dsim\proj\3dsim\3dsim\ftl.c(1437): warning C4018: “>”: 有符号/无符号不匹配
+         flash.c
+     1>c:\users\lz\desktop\3dsim\proj\3dsim\3dsim\flash.c(157): warning C4018: “>”: 有符号/无符号不匹配
+         fcl.c
+     1>c:\users\lz\desktop\3dsim\proj\3dsim\3dsim\fcl.c(62): warning C4018: “<”: 有符号/无符号不匹配
+     1>c:\users\lz\desktop\3dsim\proj\3dsim\3dsim\fcl.c(226): warning C4101: “add_reg”: 未引用的局部变量
+     1>c:\users\lz\desktop\3dsim\proj\3dsim\3dsim\fcl.c(940): warning C4244: “=”: 从“double”转换到“__int64”，可能丢失数据
+     1>c:\users\lz\desktop\3dsim\proj\3dsim\3dsim\fcl.c(944): warning C4244: “=”: 从“double”转换到“__int64”，可能丢失数据
+     1>c:\users\lz\desktop\3dsim\proj\3dsim\3dsim\fcl.c(948): warning C4244: “=”: 从“double”转换到“__int64”，可能丢失数据
+     1>c:\users\lz\desktop\3dsim\proj\3dsim\3dsim\fcl.c(1252): warning C4018: “>”: 有符号/无符号不匹配
+     1>c:\users\lz\desktop\3dsim\proj\3dsim\3dsim\fcl.c(1389): warning C4101: “plane”: 未引用的局部变量
+     1>c:\users\lz\desktop\3dsim\proj\3dsim\3dsim\fcl.c(1385): warning C4101: “j”: 未引用的局部变量
+     1>c:\users\lz\desktop\3dsim\proj\3dsim\3dsim\fcl.c(1613): warning C4018: “>”: 有符号/无符号不匹配
+         buffer.c
+     1>c:\users\lz\desktop\3dsim\proj\3dsim\3dsim\buffer.c(993): warning C4018: “<”: 有符号/无符号不匹配
+     1>c:\users\lz\desktop\3dsim\proj\3dsim\3dsim\buffer.c(1331): warning C4101: “j”: 未引用的局部变量
+         avlTree.c
+         正在生成代码...
+       Link:
+         D:\2_tmp\Microsoft Visual Studio 12.0\VC\bin\link.exe /ERRORREPORT:PROMPT /OUT:"C:\Users\lz\Desktop\3Dsim\proj\3Dsim\Debug\3Dsim.exe" /INCREMENTAL /NOLOGO kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /MANIFEST /MANIFESTUAC:"level='asInvoker' uiAccess='false'" /manifest:embed /DEBUG /PDB:"C:\Users\lz\Desktop\3Dsim\proj\3Dsim\Debug\3Dsim.pdb" /TLBID:1 /DYNAMICBASE /NXCOMPAT /IMPLIB:"C:\Users\lz\Desktop\3Dsim\proj\3Dsim\Debug\3Dsim.lib" /MACHINE:X86 Debug\avlTree.obj
+         Debug\buffer.obj
+         Debug\fcl.obj
+         Debug\flash.obj
+         Debug\ftl.obj
+         Debug\initialize.obj
+         Debug\interface.obj
+         Debug\ssd.obj
+         3Dsim.vcxproj -> C:\Users\lz\Desktop\3Dsim\proj\3Dsim\Debug\3Dsim.exe
+     1>已完成生成项目“C:\Users\lz\Desktop\3Dsim\proj\3Dsim\3Dsim\3Dsim.vcxproj”(Rebuild 个目标)的操作。
+
+生成成功。
+
+已用时间 00:00:00.96
