@@ -14,5 +14,6 @@ the main function:
 
 -------------------------------------------------------------------------------------------------------------------------------------
 
-This project is managed by Hust-WNLO
-For more information, please visit 3Dsim homepage.
+This project is managed by Hust-WNLO.
+
+For more information, please visit [3Dsim homepage](https://github.com/zuoerfeng/3Dsim/blob/master/3Dsim_debug_log.pdf).
