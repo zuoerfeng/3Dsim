@@ -1,4 +1,4 @@
-﻿生成启动时间为 2018/2/6 21:23:33。
+﻿生成启动时间为 2018/2/7 15:06:10。
      1>项目“C:\Users\lz\Desktop\3Dsim\3Dsim\3Dsim.vcxproj”在节点 2 上(Rebuild 个目标)。
      1>ClCompile:
          D:\2_tmp\Microsoft Visual Studio 12.0\VC\bin\CL.exe /c /Zi /nologo /W3 /WX- /Od /Oy- /D WIN32 /D _DEBUG /D _CONSOLE /Gm /EHsc /RTC1 /MDd /GS /fp:precise /Zc:wchar_t /Zc:forScope /Fo"Debug\\" /Fd"Debug\vc120.pdb" /Gd /TC /analyze- /errorReport:prompt avlTree.c buffer.c fcl.c flash.c ftl.c initialize.c interface.c ssd.c
@@ -8,6 +8,7 @@
      1>ssd.c(248): warning C4101: “p”: 未引用的局部变量
      1>ssd.c(248): warning C4101: “m”: 未引用的局部变量
      1>ssd.c(333): warning C4101: “p”: 未引用的局部变量
+     1>ssd.c(335): warning C4101: “count1”: 未引用的局部变量
      1>ssd.c(333): warning C4101: “k”: 未引用的局部变量
      1>ssd.c(333): warning C4101: “m”: 未引用的局部变量
      1>ssd.c(333): warning C4101: “j”: 未引用的局部变量
@@ -151,19 +152,21 @@
                  D:\2_tmp\Microsoft Visual Studio 12.0\VC\include\stdio.h(304) : 参见“sscanf”的声明
      1>initialize.c(662): warning C4996: 'sscanf': This function or variable may be unsafe. Consider using sscanf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
                  D:\2_tmp\Microsoft Visual Studio 12.0\VC\include\stdio.h(304) : 参见“sscanf”的声明
-     1>initialize.c(665): warning C4996: 'sscanf': This function or variable may be unsafe. Consider using sscanf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+     1>initialize.c(664): warning C4996: 'sscanf': This function or variable may be unsafe. Consider using sscanf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
                  D:\2_tmp\Microsoft Visual Studio 12.0\VC\include\stdio.h(304) : 参见“sscanf”的声明
-     1>initialize.c(666): warning C4996: 'sscanf': This function or variable may be unsafe. Consider using sscanf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+     1>initialize.c(667): warning C4996: 'sscanf': This function or variable may be unsafe. Consider using sscanf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+                 D:\2_tmp\Microsoft Visual Studio 12.0\VC\include\stdio.h(304) : 参见“sscanf”的声明
+     1>initialize.c(668): warning C4996: 'sscanf': This function or variable may be unsafe. Consider using sscanf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
                  D:\2_tmp\Microsoft Visual Studio 12.0\VC\include\stdio.h(304) : 参见“sscanf”的声明
          ftl.c
      1>ftl.c(477): warning C4018: “>”: 有符号/无符号不匹配
-     1>ftl.c(889): warning C4101: “j”: 未引用的局部变量
-     1>ftl.c(936): warning C4101: “plane”: 未引用的局部变量
-     1>ftl.c(1075): warning C4101: “active_block1”: 未引用的局部变量
-     1>ftl.c(1075): warning C4101: “active_block2”: 未引用的局部变量
-     1>ftl.c(1078): warning C4101: “block2”: 未引用的局部变量
-     1>ftl.c(1078): warning C4101: “block1”: 未引用的局部变量
-     1>ftl.c(1343): warning C4018: “>”: 有符号/无符号不匹配
+     1>ftl.c(990): warning C4101: “soft”: 未引用的局部变量
+     1>ftl.c(990): warning C4101: “hard”: 未引用的局部变量
+     1>ftl.c(1165): warning C4101: “active_block1”: 未引用的局部变量
+     1>ftl.c(1165): warning C4101: “active_block2”: 未引用的局部变量
+     1>ftl.c(1168): warning C4101: “block2”: 未引用的局部变量
+     1>ftl.c(1168): warning C4101: “block1”: 未引用的局部变量
+     1>ftl.c(1433): warning C4018: “>”: 有符号/无符号不匹配
          flash.c
      1>flash.c(153): warning C4018: “>”: 有符号/无符号不匹配
          fcl.c
@@ -175,7 +178,7 @@
      1>fcl.c(1248): warning C4018: “>”: 有符号/无符号不匹配
      1>fcl.c(1385): warning C4101: “plane”: 未引用的局部变量
      1>fcl.c(1381): warning C4101: “j”: 未引用的局部变量
-     1>fcl.c(1575): warning C4018: “>”: 有符号/无符号不匹配
+     1>fcl.c(1609): warning C4018: “>”: 有符号/无符号不匹配
          buffer.c
      1>buffer.c(989): warning C4018: “<”: 有符号/无符号不匹配
      1>buffer.c(1327): warning C4101: “j”: 未引用的局部变量
@@ -195,4 +198,4 @@
 
 生成成功。
 
-已用时间 00:00:00.47
+已用时间 00:00:00.50

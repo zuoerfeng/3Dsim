@@ -1495,18 +1495,52 @@ Status find_level_page(struct ssd_info *ssd, unsigned int channel, unsigned int 
 	}*/
 
 
-	gc_add = 1;
+	//ÅĞ¶ÏÊÇ·ñÆ«ÒÆµØÖ·free pageÒ»ÖÂ
+	/*
+	if (ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[0].free_page != ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[1].free_page)
+	{
+	printf("free page don't equal\n");
+	getchar();
+	}*/
+
+
+	gc_add = 0;
+	ssd->channel_head[channel].gc_soft = 0;
+	ssd->channel_head[channel].gc_hard = 0;
 	for (i = 0; i < ssd->parameter->plane_die; i++)
 	{
-		if (ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[i].free_page >= (ssd->parameter->page_block*ssd->parameter->block_plane*ssd->parameter->gc_hard_threshold))
-			gc_add = 0;
+		if (ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[i].free_page <= (ssd->parameter->page_block*ssd->parameter->block_plane*ssd->parameter->gc_soft_threshold))
+		{
+			ssd->channel_head[channel].gc_soft = 1;
+			gc_add = 1;
+			if (ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[i].free_page <= (ssd->parameter->page_block*ssd->parameter->block_plane*ssd->parameter->gc_hard_threshold))
+			{
+				ssd->channel_head[channel].gc_hard = 1;
+			}
+		}
 	}
 	if (gc_add == 1)		//produce a gc reqeuest and add gc_node to the channel
 	{
+
 		gc_node = (struct gc_operation *)malloc(sizeof(struct gc_operation));
 		alloc_assert(gc_node, "gc_node");
 		memset(gc_node, 0, sizeof(struct gc_operation));
-
+		if (ssd->channel_head[channel].gc_soft == 1)
+		{
+			gc_node->soft = 1;
+		}
+		else
+		{
+			gc_node->soft = 0;
+		}
+		if (ssd->channel_head[channel].gc_hard == 1)
+		{
+			gc_node->hard = 1;
+		}
+		else
+		{
+			gc_node->hard = 0;
+		}
 		gc_node->next_node = NULL;
 		gc_node->channel = channel;
 		gc_node->chip = chip;

@@ -109,10 +109,10 @@ void main()
 	//for (j = 0; j < 3; j++)
 	//{
 		j = 1;
-		//for (i = 0; i < 3; i++)
-		//{
+		for (i = 0; i < 3; i++)
+		{
 			//j = 0;
-			i = 0;
+			//i = 0;
 			//初始化ssd结构体
 			ssd = (struct ssd_info*)malloc(sizeof(struct ssd_info));
 			alloc_assert(ssd, "ssd");
@@ -138,7 +138,7 @@ void main()
 			free_all_node(ssd);
 			_CrtDumpMemoryLeaks();  //Memory leak detection
 			//getchar();
-		//}
+		}
 	//}
 
 	//所有trace跑完停止当前程序
@@ -332,6 +332,7 @@ struct ssd_info *process(struct ssd_info *ssd)
 	int old_ppn = -1, flag_die = -1;
 	unsigned int i,j,k,m,p,chan, random_num;
 	unsigned int flag = 0, new_write = 0, chg_cur_time_flag = 1, flag2 = 0, flag_gc = 0;
+	unsigned int count1;
 	__int64 time, channel_time = 0x7fffffffffffffff;
 
 #ifdef DEBUG
@@ -389,15 +390,17 @@ struct ssd_info *process(struct ssd_info *ssd)
 		if ((ssd->channel_head[i].current_state == CHANNEL_IDLE) || (ssd->channel_head[i].next_state == CHANNEL_IDLE&&ssd->channel_head[i].next_state_predict_time <= ssd->current_time))
 		{
 			//先处理是否有挂起的gc擦除操作，再处理普通的gc操作
-			if (ssd->gc_request>0)
+			if (ssd->gc_request > 0)
 			{
-				if (ssd->channel_head[i].gc_command != NULL)
+				if (ssd->channel_head[i].gc_soft == 1 && ssd->channel_head[i].gc_hard == 1 && ssd->channel_head[i].gc_command != NULL)
 				{
-					flag_gc = gc(ssd, i, 0);                                                 //process passive gc ,this channel is busy
-				}
-				if (flag_gc == 1)															 
-				{
-					continue;
+					flag_gc = gc(ssd, i, 0);
+					if (flag_gc == 1)
+					{
+						//ssd->channel_head[i].gc_soft = 0;
+						//ssd->channel_head[i].gc_hard = 0;
+						continue;
+					}
 				}
 			}
 			

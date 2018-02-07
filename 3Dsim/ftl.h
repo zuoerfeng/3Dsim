@@ -27,13 +27,13 @@ Zuo Lu			2017/10/11		  1.9			Support dynamic OSPA allocation strategy				6173766
 struct ssd_info *pre_process_page(struct ssd_info *ssd);
 struct local *find_location(struct ssd_info *ssd, unsigned int ppn);
 struct ssd_info *get_ppn(struct ssd_info *ssd, unsigned int channel, unsigned int chip, unsigned int die, unsigned int plane, struct sub_request *sub);
-
+void gc_check(struct ssd_info *ssd, unsigned int channel, unsigned int chip, unsigned int die, unsigned int old_plane);
 unsigned int gc(struct ssd_info *ssd, unsigned int channel, unsigned int flag);
 unsigned int get_ppn_for_pre_process(struct ssd_info *ssd, unsigned int lpn);
 unsigned int get_ppn_for_gc(struct ssd_info *ssd, unsigned int channel, unsigned int chip, unsigned int die, unsigned int plane);
 unsigned int find_ppn(struct ssd_info * ssd, unsigned int channel, unsigned int chip, unsigned int die, unsigned int plane, unsigned int block, unsigned int page);
 
-int gc_for_channel(struct ssd_info *ssd, unsigned int channel);
+int gc_for_channel(struct ssd_info *ssd, unsigned int channel, unsigned int flag);
 int delete_gc_node(struct ssd_info *ssd, unsigned int channel, struct gc_operation *gc_node);
 Status get_ppn_for_normal_command(struct ssd_info * ssd, unsigned int channel, unsigned int chip, struct sub_request * sub);
 int  find_active_block(struct ssd_info *ssd, unsigned int channel, unsigned int chip, unsigned int die, unsigned int plane);

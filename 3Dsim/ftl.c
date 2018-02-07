@@ -560,13 +560,25 @@ struct ssd_info *get_ppn(struct ssd_info *ssd, unsigned int channel, unsigned in
 
 	ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[plane].test_pro_count++;
 
-	if (ssd->parameter->active_write == 0)                                        
+	ssd->channel_head[channel].gc_soft = 0;
+	ssd->channel_head[channel].gc_hard = 0;
+
+	if (ssd->parameter->active_write == 0)
 	{                                                                               /*If the number of free_page in plane is less than the threshold set by gc_hard_threshold, gc operation is generated*/
-		if (ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[plane].free_page<(ssd->parameter->page_block*ssd->parameter->block_plane*ssd->parameter->gc_hard_threshold))
+		if (ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[plane].free_page<(ssd->parameter->page_block*ssd->parameter->block_plane*ssd->parameter->gc_soft_threshold))
 		{
+			ssd->channel_head[channel].gc_soft = 1;
+			if (ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[i].free_page < (ssd->parameter->page_block*ssd->parameter->block_plane*ssd->parameter->gc_hard_threshold))
+			{
+				ssd->channel_head[channel].gc_hard = 1;
+			}
 			gc_node = (struct gc_operation *)malloc(sizeof(struct gc_operation));
 			alloc_assert(gc_node, "gc_node");
 			memset(gc_node, 0, sizeof(struct gc_operation));
+			if (ssd->channel_head[channel].gc_soft == 1)
+				gc_node->soft = 1;
+			if (ssd->channel_head[channel].gc_hard == 1)
+				gc_node->hard = 1;
 
 			gc_node->next_node = NULL;
 			gc_node->channel = channel;
@@ -884,9 +896,50 @@ Status get_ppn_for_advanced_commands(struct ssd_info *ssd, unsigned int channel,
 *the purpose of this is to ensure that the use of mutli hit, that is, for the die, each erase the super block , In the mutli 
 *plane write, only need to ensure that the page offset consistent, do not guarantee blcok offset address can be consistent.
 ************************************************************************************************************/
+
+void gc_check(struct ssd_info *ssd, unsigned int channel, unsigned int chip, unsigned int die, unsigned int old_plane)
+{
+	struct gc_operation *gc_node;
+	unsigned int i;
+
+	ssd->channel_head[channel].gc_soft = 0;
+	ssd->channel_head[channel].gc_hard = 0;
+	for (i = 0; i < ssd->parameter->plane_die; i++)
+	{
+		if (ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[i].free_page <= (ssd->parameter->page_block*ssd->parameter->block_plane*ssd->parameter->gc_soft_threshold))
+		{
+			ssd->channel_head[channel].gc_soft = 1;
+			if (ssd->channel_head[channel].chip_head[chip].die_head[die].plane_head[i].free_page <= (ssd->parameter->page_block*ssd->parameter->block_plane*ssd->parameter->gc_hard_threshold))
+			{
+				ssd->channel_head[channel].gc_hard = 1;
+			}
+		}
+	}
+	if (ssd->channel_head[channel].gc_soft == 1)		//produce a gc reqeuest and add gc_node to the channel
+	{
+		gc_node = (struct gc_operation *)malloc(sizeof(struct gc_operation));
+		alloc_assert(gc_node, "gc_node");
+		memset(gc_node, 0, sizeof(struct gc_operation));
+
+		gc_node->next_node = NULL;
+		gc_node->channel = channel;
+		gc_node->chip = chip;
+		gc_node->die = die;
+		gc_node->plane = old_plane;
+		gc_node->block = 0xffffffff;
+		gc_node->page = 0;
+		gc_node->state = GC_WAIT;
+		gc_node->priority = GC_UNINTERRUPT;
+		gc_node->next_node = ssd->channel_head[channel].gc_command;
+		ssd->channel_head[channel].gc_command = gc_node;					//inserted into the head of the gc chain
+		ssd->gc_request++;
+	}
+}
+
+
 unsigned int gc(struct ssd_info *ssd, unsigned int channel, unsigned int flag)
 {
-	unsigned int i,j;
+	unsigned int i;
 
 	//printf("gc flag=%d\n",flag);
 	//Active gc
@@ -898,7 +951,7 @@ unsigned int gc(struct ssd_info *ssd, unsigned int channel, unsigned int flag)
 			{
 				if (ssd->channel_head[i].gc_command != NULL)
 				{
-					if (gc_for_channel(ssd, i) == SUCCESS)
+					if (gc_for_channel(ssd, i, 1) == SUCCESS)
 					{
 						ssd->gc_count++;
 					}
@@ -908,14 +961,14 @@ unsigned int gc(struct ssd_info *ssd, unsigned int channel, unsigned int flag)
 		return SUCCESS;
 	}
 	//Passive gc
-	else                                                                             
+	else
 	{
 		//当读写子请求都完成的情况下，才去执行gc操作，否则先去执行读写请求
 		//if ((ssd->channel_head[channel].subs_r_head != NULL) || (ssd->channel_head[channel].subs_w_head != NULL) || (ssd->subs_w_head != NULL))    
 		//{
-			//return 0;
+		//return 0;
 		//}
-		if (gc_for_channel(ssd, channel) == SUCCESS)
+		if (gc_for_channel(ssd, channel, 0) == SUCCESS)
 		{
 			ssd->gc_count++;
 			return SUCCESS;
@@ -930,15 +983,16 @@ unsigned int gc(struct ssd_info *ssd, unsigned int channel, unsigned int flag)
 /************************************************************
 *this function is to handle every gc operation of the channel
 ************************************************************/
-Status gc_for_channel(struct ssd_info *ssd, unsigned int channel)
+Status gc_for_channel(struct ssd_info *ssd, unsigned int channel, unsigned int flag)
 {
 	int flag_direct_erase = 1, flag_gc = 1, flag_suspend = 1;
 	unsigned int chip, die, plane, flag_priority = 0;
+	unsigned int hard, soft;
 	struct gc_operation *gc_node = NULL;
 
 	/*******************************************************************************************
 	*Find each gc_node, get the current state of the chip where gc_node is located, the next state,
-	*the expected time of the next state .If the current state is idle, or the next state is idle 
+	*the expected time of the next state .If the current state is idle, or the next state is idle
 	*and the next state is expected to be less than the current time, and is not interrupted gc
 	*Then the flag_priority order is 1, otherwise 0.
 	********************************************************************************************/
@@ -948,7 +1002,7 @@ Status gc_for_channel(struct ssd_info *ssd, unsigned int channel)
 		//如果当前chip发生了suspend操作，此时整个chip表示busy状态
 		if (ssd->channel_head[channel].chip_head[gc_node->chip].gc_signal != SIG_NORMAL)
 			flag_suspend = 0;
-		else 
+		else
 			flag_suspend = 1;
 
 		if (flag_suspend == 1)
@@ -973,24 +1027,60 @@ Status gc_for_channel(struct ssd_info *ssd, unsigned int channel)
 
 	chip = gc_node->chip;
 	die = gc_node->die;
-
-	if (gc_node->priority == GC_UNINTERRUPT)
+	plane = gc_node->plane;
+	//hard = gc_node->hard;
+	//soft = gc_node->soft;
+	if (flag == 0)
 	{
-		flag_direct_erase = gc_direct_erase(ssd, channel, chip, die);
-		if (flag_direct_erase != SUCCESS)
-		{       
-			flag_gc = greedy_gc(ssd, channel, chip, die);							 /*When a complete gc operation is completed, return 1, the corresponding channel gc operation request node to delete*/
-			if (flag_gc == SUCCESS)
+		if (gc_node->priority == GC_UNINTERRUPT /*&& hard == 1 && soft == 1*/)
+		{
+			flag_direct_erase = gc_direct_erase(ssd, channel, chip, die);
+			if (flag_direct_erase != SUCCESS)
+			{
+				flag_gc = greedy_gc(ssd, channel, chip, die);							 /*When a complete gc operation is completed, return 1, the corresponding channel gc operation request node to delete*/
+				if (flag_gc == SUCCESS)
+				{
+					delete_gc_node(ssd, channel, gc_node);
+				}
+				else
+				{
+					return FAILURE;
+				}
+
+			}
+			else
 			{
 				delete_gc_node(ssd, channel, gc_node);
 			}
+			return SUCCESS;
 		}
-		else
-		{
-			delete_gc_node(ssd, channel, gc_node);
-		}
-		return SUCCESS;
 	}
+	else if (flag == 1)
+	{
+		if (gc_node->priority == GC_UNINTERRUPT)
+		{
+			flag_direct_erase = gc_direct_erase(ssd, channel, chip, die);
+			if (flag_direct_erase != SUCCESS)
+			{
+				flag_gc = greedy_gc(ssd, channel, chip, die);							 /*When a complete gc operation is completed, return 1, the corresponding channel gc operation request node to delete*/
+				if (flag_gc == SUCCESS)
+				{
+					delete_gc_node(ssd, channel, gc_node);
+				}
+				else
+				{
+					return FAILURE;
+				}
+
+			}
+			else
+			{
+				delete_gc_node(ssd, channel, gc_node);
+			}
+			return SUCCESS;
+		}
+	}
+
 	return FAILURE;
 }
 

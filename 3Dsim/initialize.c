@@ -216,9 +216,9 @@ void initialize_statistic(struct ssd_info * ssd)
 	ssd->read_request_count = 0;
 	ssd->write_flash_count = 0;
 	ssd->write_request_count = 0;
+	ssd->read_request_count = 0;
 	ssd->ave_read_size = 0.0;
 	ssd->ave_write_size = 0.0;
-
 	ssd->gc_count = 0;
 	ssd->mplane_erase_count = 0;
 
@@ -640,6 +640,8 @@ struct parameter_value *load_parameters(char parameter_file[30])
 			sscanf(buf + next_eql,"%d",&p->scheduling_algorithm);       //Scheduling algorithm :FCFS
 		}else if((res_eql=strcmp(buf,"gc hard threshold")) ==0){
 			sscanf(buf + next_eql,"%f",&p->gc_hard_threshold);          //Gc hard threshold setting for the active write gc strategy to determine the threshold
+		}else if ((res_eql = strcmp(buf, "gc soft threshold")) == 0) {         
+			sscanf(buf + next_eql, "%f", &p->gc_soft_threshold);		 //Gc soft threshold setting for the active write gc strategy to determine the threshold(excute the gc_request in the gc_linklist)
 		}else if((res_eql=strcmp(buf,"allocation")) ==0){
 			sscanf(buf + next_eql,"%d",&p->allocation_scheme);		    //Determine the allocation method, 0 that dynamic allocation, that is, dynamic allocation of each channel, the static allocation that according to address allocation
 		}else if ((res_eql=strcmp(buf, "static_allocation")) == 0){
