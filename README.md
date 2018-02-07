@@ -4,7 +4,7 @@ An Open-Source Licenced Educational SSD Simulatior for 3D flash, called 3Dsim.
 
 the main function:
 
-1.Support for 3D commands, for example:mutli plane\half page read\one shot read\ont shot program/Erase suspend/resume..etc
+1.Support for 3D commands, such as: mutli plane\half page read\one shot read\ont shot program/Erase suspend/resume..etc
 
 2.Multi-level parallel simulation,such as channel/chip/die/plane
 
